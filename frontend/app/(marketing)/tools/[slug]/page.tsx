@@ -51,9 +51,10 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         router.replace("/login");
         return;
       }
+      const limitReached = isLimitReached(e);
       const parsed = parseApiError(e);
-      setErrorMessage(parsed.message);
-      setShowUpgradeCta(isLimitReached(e));
+      setErrorMessage(limitReached ? "Daily limit reached. Upgrade to Pro." : parsed.message);
+      setShowUpgradeCta(limitReached);
       setState("error");
     }
   }, [file, tool.slug, router]);

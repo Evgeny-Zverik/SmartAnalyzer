@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { getToken } from "@/lib/auth/token";
 import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout, me, type User } from "@/lib/api/auth";
+import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -20,7 +22,10 @@ export default function DashboardPage() {
       return;
     }
     me()
-      .then(setUser)
+      .then((u) => {
+        setUser(u);
+        return getUsageStatus().then(setUsage).catch(() => setUsage(null));
+      })
       .catch((err) => {
         if (isUnauthorized(err)) {
           authLogout();
@@ -78,9 +83,20 @@ export default function DashboardPage() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            Лимиты использования
+            План
           </h2>
-          <p className="text-gray-500 text-sm">Будет отображаться после подключения планов.</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-gray-100 text-gray-800">
+              {usage ? (usage.plan === "pro" ? "Pro" : "Free") : "—"}
+            </span>
+            <p className="mt-2 text-sm text-gray-600">
+              {usage
+                ? usage.limits.daily_runs_per_tool != null
+                  ? `Осталось запусков сегодня (Document Analyzer): ${Math.max(0, usage.limits.daily_runs_per_tool - (usage.usage_today["document-analyzer"] ?? 0))}`
+                  : "Unlimited"
+                : "—"}
+            </p>
+          </div>
         </section>
       </div>
     </main>

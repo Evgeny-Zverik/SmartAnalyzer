@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
+from app.db.session import get_db
 from app.models.user import User
+from app.services.usage import assert_can_run, log_run
 from app.schemas.tools import (
     ChecklistItem,
     ContractCheckerRunResponse,
@@ -103,8 +106,12 @@ def _stub_risk_analyzer(analysis_id: int) -> RiskAnalyzerRunResponse:
 def run_document_analyzer(
     body: ToolRunRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return _stub_document_analyzer(analysis_id=1)
+    assert_can_run(db, current_user, "document-analyzer")
+    result = _stub_document_analyzer(analysis_id=1)
+    log_run(db, current_user.id, "document-analyzer")
+    return result
 
 
 @router.post("/contract-checker/run", response_model=ContractCheckerRunResponse)

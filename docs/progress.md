@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 7 (usage-and-plans.md — планы, лимиты).
+**Следующая задача:** шаг 8 (dashboard-and-history.md — список анализов, деталка).
 
 ---
 
@@ -64,10 +64,10 @@
 
 ## 2.3 Планы/лимиты и история
 
-- [ ] 7) `docs/usage-and-plans.md` — планы free/pro, лимиты 3/день, upgrade stub
-  - [ ] Backend: users.plan, usage/status, billing/upgrade stub, assert_can_run, log_run, 429
-  - [ ] Подключить лимиты в document-analyzer run
-  - [ ] Frontend: API usage/billing, dashboard plan + runs left, pricing Upgrade, 429 → сообщение + CTA
+- [x] 7) `docs/usage-and-plans.md` — планы free/pro, лимиты 3/день, upgrade stub
+  - [x] Backend: users.plan, usage/status, billing/upgrade stub, assert_can_run, log_run, 429
+  - [x] Подключить лимиты в document-analyzer run
+  - [x] Frontend: API usage/billing, dashboard plan + runs left, pricing Upgrade, 429 → сообщение + CTA
 
 - [ ] 8) `docs/dashboard-and-history.md` — список анализов, деталка, фильтры, Download JSON
   - [ ] Backend: GET /analyses (filters, pagination), GET /analyses/{id}, GET /documents

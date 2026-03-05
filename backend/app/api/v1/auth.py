@@ -33,7 +33,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         id=user.id,
         email=user.email,
         created_at=user.created_at,
-        plan="free",
+        plan=user.plan,
     )
 
 
@@ -55,5 +55,5 @@ def me(current_user: User = Depends(get_current_user)):
         id=current_user.id,
         email=current_user.email,
         created_at=current_user.created_at,
-        plan="free",
+        plan=current_user.plan,
     )
