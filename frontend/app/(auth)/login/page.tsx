@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { ApiError } from "@/lib/api/client";
+import { parseApiError } from "@/lib/api/errors";
 import { login } from "@/lib/api/auth";
 
 export default function LoginPage() {
@@ -25,11 +26,8 @@ export default function LoginPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message ?? "Ошибка входа");
-      } else {
-        setError("Ошибка входа");
-      }
+      const parsed = parseApiError(err);
+      setError(parsed.message || "Ошибка входа");
     } finally {
       setLoading(false);
     }
@@ -56,14 +54,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && (
-            <div
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-              role="alert"
-            >
-              {error}
-            </div>
-          )}
+          {error && <Alert variant="error">{error}</Alert>}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Вход…" : "Войти"}
           </Button>

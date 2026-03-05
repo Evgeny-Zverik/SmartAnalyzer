@@ -1,9 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { notFound } from "next/navigation";
 import { getToolBySlug } from "@/lib/config/tools";
 import { runToolAnalysis } from "@/lib/api/tools";
+import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
+import { logout } from "@/lib/api/auth";
 import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
@@ -12,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 
 export default function ToolPage({ params }: { params: { slug: string } }) {
+  const router = useRouter();
   const tool = getToolBySlug(params.slug);
 
   if (!tool) {
@@ -22,6 +26,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showUpgradeCta, setShowUpgradeCta] = useState(false);
 
   const handleFileChange = useCallback((f: File | null) => {
     setFile(f);
@@ -35,15 +40,23 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setState("loading");
     setErrorMessage(null);
     setResult(null);
+    setShowUpgradeCta(false);
     try {
       const data = await runToolAnalysis(tool.slug, file);
       setResult(data as Record<string, unknown>);
       setState("success");
     } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : "Unknown error");
+      if (isUnauthorized(e)) {
+        logout();
+        router.replace("/login");
+        return;
+      }
+      const parsed = parseApiError(e);
+      setErrorMessage(parsed.message);
+      setShowUpgradeCta(isLimitReached(e));
       setState("error");
     }
-  }, [file, tool.slug]);
+  }, [file, tool.slug, router]);
 
   return (
     <ToolShell tool={tool}>
@@ -74,6 +87,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             status={state === "idle" || state === "ready" ? "idle" : state}
             result={result ?? undefined}
             errorMessage={errorMessage ?? undefined}
+            showUpgradeCta={showUpgradeCta}
           />
         </section>
       </div>

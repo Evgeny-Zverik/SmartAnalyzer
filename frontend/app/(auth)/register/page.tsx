@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { ApiError } from "@/lib/api/client";
+import { parseApiError } from "@/lib/api/errors";
 import { register } from "@/lib/api/auth";
 
 export default function RegisterPage() {
@@ -30,15 +31,12 @@ export default function RegisterPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(
-          err.status === 409
-            ? "Этот email уже зарегистрирован"
-            : err.message ?? "Ошибка регистрации"
-        );
-      } else {
-        setError("Ошибка регистрации");
-      }
+      const parsed = parseApiError(err);
+      const message =
+        parsed.status === 409
+          ? "Этот email уже зарегистрирован"
+          : parsed.message || "Ошибка регистрации";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -73,14 +71,7 @@ export default function RegisterPage() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
           />
-          {error && (
-            <div
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-              role="alert"
-            >
-              {error}
-            </div>
-          )}
+          {error && <Alert variant="error">{error}</Alert>}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Регистрация…" : "Зарегистрироваться"}
           </Button>

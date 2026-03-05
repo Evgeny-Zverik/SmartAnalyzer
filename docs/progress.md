@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 6 (error-handling.md — parseApiError, CTA 401/429).
+**Следующая задача:** шаг 7 (usage-and-plans.md — планы, лимиты).
 
 ---
 
@@ -53,10 +53,10 @@
   - [x] Ошибки в едином формате (error-handling.md)
   - [x] OpenAPI (Swagger) отражает схемы
 
-- [ ] 6) `docs/error-handling.md` — формат ошибок, parseApiError, CTA 401/429
-  - [ ] Backend: формат {error, message, details}, raise_error + exception handlers
-  - [ ] Frontend: parseApiError, isUnauthorized, isLimitReached
-  - [ ] Tool pages: лимит → CTA на /pricing; 401 → logout + redirect; 422 читаемо
+- [x] 6) `docs/error-handling.md` — формат ошибок, parseApiError, CTA 401/429
+  - [x] Backend: формат {error, message, details}, raise_error + exception handlers
+  - [x] Frontend: parseApiError, isUnauthorized, isLimitReached
+  - [x] Tool pages: лимит → CTA на /pricing; 401 → logout + redirect; 422 читаемо
 
 **Проверка:** register/login/me, единый формат ошибок, frontend обрабатывает 401/429.
 

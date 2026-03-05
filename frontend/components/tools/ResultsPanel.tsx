@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 type ResultsPanelProps = {
   status: "idle" | "loading" | "success" | "error";
   result?: Record<string, unknown>;
   errorMessage?: string;
+  showUpgradeCta?: boolean;
 };
 
 function formatKey(key: string): string {
@@ -43,6 +46,7 @@ export function ResultsPanel({
   status,
   result,
   errorMessage,
+  showUpgradeCta = false,
 }: ResultsPanelProps) {
   if (status === "idle") {
     return (
@@ -67,9 +71,18 @@ export function ResultsPanel({
   if (status === "error") {
     return (
       <Card className="border-red-200 bg-red-50">
-        <p className="text-sm text-red-700" role="alert">
-          {errorMessage ?? "Произошла ошибка"}
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm text-red-700" role="alert">
+            {errorMessage ?? "Произошла ошибка"}
+          </p>
+          {showUpgradeCta && (
+            <Link href="/pricing">
+              <Button type="button" variant="primary">
+                Upgrade
+              </Button>
+            </Link>
+          )}
+        </div>
       </Card>
     );
   }

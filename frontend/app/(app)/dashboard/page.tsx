@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { getToken } from "@/lib/auth/token";
+import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout, me, type User } from "@/lib/api/auth";
 
 export default function DashboardPage() {
@@ -20,8 +21,10 @@ export default function DashboardPage() {
     }
     me()
       .then(setUser)
-      .catch(() => {
-        authLogout();
+      .catch((err) => {
+        if (isUnauthorized(err)) {
+          authLogout();
+        }
         router.replace("/login");
       })
       .finally(() => setChecking(false));
