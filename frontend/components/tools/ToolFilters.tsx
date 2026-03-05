@@ -1,7 +1,7 @@
 "use client";
 
 import type { Tool, ToolCategory } from "@/lib/config/tools";
-import { CATEGORIES } from "@/lib/config/tools";
+import { CATEGORIES, CATEGORY_LABELS } from "@/lib/config/tools";
 
 export const ALL_CATEGORY = "All";
 
@@ -24,11 +24,11 @@ export function ToolFilters({
     <div className="space-y-4">
       <input
         type="search"
-        placeholder="Search tools..."
+        placeholder="Поиск инструментов…"
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        aria-label="Search tools"
+        aria-label="Поиск инструментов"
       />
       <div className="flex flex-wrap gap-2">
         {chips.map((chip) => (
@@ -42,7 +42,7 @@ export function ToolFilters({
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            {chip}
+            {CATEGORY_LABELS[chip] ?? chip}
           </button>
         ))}
       </div>

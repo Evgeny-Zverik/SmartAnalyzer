@@ -90,3 +90,10 @@ export function getToolBySlug(slug: string): Tool | undefined {
 }
 
 export const CATEGORIES: ToolCategory[] = ["Documents", "Risk", "Data"];
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  All: "Все",
+  Documents: "Документы",
+  Risk: "Риски",
+  Data: "Данные",
+};

@@ -20,14 +20,14 @@ export function ToolShell({ tool, children }: ToolShellProps) {
             href="/"
             className="hover:text-gray-700 focus:text-gray-700 focus:outline-none"
           >
-            Home
+            Главная
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
           <Link
             href="/tools"
             className="hover:text-gray-700 focus:text-gray-700 focus:outline-none"
           >
-            Tools
+            Инструменты
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-medium text-gray-900">{tool.title}</span>
@@ -42,7 +42,7 @@ export function ToolShell({ tool, children }: ToolShellProps) {
 
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-gray-700">
-            Accepted files
+            Поддерживаемые форматы
           </h2>
           <div className="mt-2 flex flex-wrap gap-2">
             {tool.mvp.accepts.map((ext) => (
@@ -52,7 +52,7 @@ export function ToolShell({ tool, children }: ToolShellProps) {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-700">Outputs</h2>
+          <h2 className="text-sm font-semibold text-gray-700">Результат</h2>
           <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-gray-600">
             {tool.mvp.output.map((out) => (
               <li key={out}>{out}</li>

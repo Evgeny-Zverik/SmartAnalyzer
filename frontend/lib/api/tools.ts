@@ -26,6 +26,16 @@ export type ContractCheckerRunResponse = {
   };
 };
 
+export type DataExtractorRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    fields: Array<{ key: string; value: string }>;
+    tables: Array<{ name: string; rows: string[][] }>;
+    confidence: number;
+  };
+};
+
 export type LLMConfigRequest = {
   base_url?: string;
   api_key?: string;
@@ -48,6 +58,13 @@ export async function runDocumentAnalyzer(
 
 export async function runContractChecker(documentId: number): Promise<ContractCheckerRunResponse> {
   return apiFetch<ContractCheckerRunResponse>("/api/v1/tools/contract-checker/run", {
+    method: "POST",
+    body: JSON.stringify({ document_id: documentId }),
+  });
+}
+
+export async function runDataExtractor(documentId: number): Promise<DataExtractorRunResponse> {
+  return apiFetch<DataExtractorRunResponse>("/api/v1/tools/data-extractor/run", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
   });
@@ -91,7 +108,7 @@ export async function runToolAnalysis(
   const startMs = Date.now();
   const elapsed = () => Math.round((Date.now() - startMs) / 1000);
 
-  if (toolSlug === "document-analyzer" || toolSlug === "contract-checker") {
+  if (toolSlug === "document-analyzer" || toolSlug === "contract-checker" || toolSlug === "data-extractor") {
     onProgress?.("upload", elapsed());
     const { uploadDocument } = await import("@/lib/api/documents");
     const uploadRes = await uploadDocument(file);
@@ -101,8 +118,11 @@ export async function runToolAnalysis(
     if (toolSlug === "document-analyzer") {
       const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig);
       result = runRes.result as unknown as Record<string, unknown>;
-    } else {
+    } else if (toolSlug === "contract-checker") {
       const runRes = await runContractChecker(uploadRes.document_id);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else {
+      const runRes = await runDataExtractor(uploadRes.document_id);
       result = runRes.result as unknown as Record<string, unknown>;
     }
     onProgress?.("done", elapsed());

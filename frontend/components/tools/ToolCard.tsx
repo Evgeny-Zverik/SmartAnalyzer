@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Tool } from "@/lib/config/tools";
+import { CATEGORY_LABELS } from "@/lib/config/tools";
 
 const iconMap: Record<string, LucideIcon> = {
   FileText,
@@ -33,7 +34,7 @@ export function ToolCard({ tool }: ToolCardProps) {
         <div className="flex items-start justify-between gap-2">
           <Icon className="h-8 w-8 shrink-0 text-emerald-600" aria-hidden />
           <div className="flex flex-wrap gap-1">
-            <Badge>{tool.category}</Badge>
+            <Badge>{CATEGORY_LABELS[tool.category] ?? tool.category}</Badge>
             <Badge className="bg-emerald-100 text-emerald-800">MVP</Badge>
           </div>
         </div>
@@ -43,7 +44,7 @@ export function ToolCard({ tool }: ToolCardProps) {
         <p className="mt-2 flex-1 text-sm text-gray-600">{tool.description}</p>
         <div className="mt-4">
           <Button href={`/tools/${tool.slug}`} variant="primary" className="w-full sm:w-auto">
-            Open
+            Открыть
           </Button>
         </div>
       </div>

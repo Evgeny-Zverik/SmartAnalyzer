@@ -8,8 +8,8 @@ from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.usage import assert_can_run, log_run
-from app.services.text_extraction import extract_text
-from app.services.llm_client import analyze_document, check_contract
+from app.services.text_extraction import extract_text, extract_tables_from_xlsx
+from app.services.llm_client import analyze_document, check_contract, extract_structured_data
 from app.utils.errors import raise_error
 from app.schemas.tools import (
     ChecklistItem,
@@ -178,12 +178,26 @@ def run_data_extractor(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _get_document_for_user(db, body.document_id, current_user.id)
-    stub = _stub_data_extractor(analysis_id=0)
+    assert_can_run(db, current_user, "data-extractor")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    text = extract_text(doc.storage_path, doc.mime_type)
+    xlsx_tables: list[dict] = []
+    if doc.mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        xlsx_tables = extract_tables_from_xlsx(doc.storage_path)
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    raw_result = extract_structured_data(text, overrides=overrides)
+    if xlsx_tables:
+        existing = raw_result.get("tables") or []
+        raw_result["tables"] = xlsx_tables + existing[: max(0, 3 - len(xlsx_tables))]
+    try:
+        result = DataExtractorResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "LLM_INVALID_RESPONSE", "Data extraction result format invalid. Try again.", {})
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "data-extractor", stub.result.model_dump()
+        db, current_user.id, body.document_id, "data-extractor", result.model_dump()
     )
-    return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
+    log_run(db, current_user.id, "data-extractor")
+    return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug="data-extractor", result=result)
 
 
 @router.post("/tender-analyzer/run", response_model=TenderAnalyzerRunResponse)

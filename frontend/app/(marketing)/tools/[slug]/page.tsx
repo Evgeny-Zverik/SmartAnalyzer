@@ -82,15 +82,21 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       } else if (parsed.status === 413) {
         message = "File too large. Maximum size 20 MB.";
       } else if (parsed.status === 400 && parsed.error === "BAD_REQUEST") {
-        message =
-          tool.slug === "contract-checker"
-            ? message || "Cannot extract text from contract."
-            : message || "Cannot read text from document.";
+        if (tool.slug === "contract-checker") {
+          message = message || "Cannot extract text from contract.";
+        } else if (tool.slug === "data-extractor") {
+          message = message || "Cannot read text from document or unsupported format.";
+        } else {
+          message = message || "Cannot read text from document.";
+        }
       } else if (parsed.status === 500) {
-        message =
-          tool.slug === "contract-checker"
-            ? message || "Contract analysis failed. Try again."
-            : message || "Analysis failed. Try again.";
+        if (tool.slug === "contract-checker") {
+          message = message || "Contract analysis failed. Try again.";
+        } else if (tool.slug === "data-extractor") {
+          message = message || "Data extraction failed. Try again.";
+        } else {
+          message = message || "Analysis failed. Try again.";
+        }
       }
       setErrorMessage(message);
       setShowUpgradeCta(limitReached);
@@ -128,7 +134,13 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             disabled={!file || state === "loading"}
             onClick={handleAnalyze}
           >
-            {state === "loading" ? "Analyzing…" : "Analyze"}
+            {state === "loading"
+              ? tool.slug === "data-extractor"
+                ? "Extracting…"
+                : "Analyzing…"
+              : tool.slug === "data-extractor"
+                ? "Extract"
+                : "Analyze"}
           </Button>
         </div>
         {tool.slug === "document-analyzer" && (

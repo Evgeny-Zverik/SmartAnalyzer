@@ -5,6 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
 import { ChecklistView } from "@/components/tools/ChecklistView";
+import { FieldsTable } from "@/components/tools/FieldsTable";
+import { TablesView } from "@/components/tools/TablesView";
+import { JsonActions } from "@/components/tools/JsonActions";
 
 type AnalysisStage = "upload" | "analyze" | "done";
 
@@ -95,6 +98,51 @@ function isContractCheckerResult(r: Record<string, unknown>): r is {
     Array.isArray(r.obligations) &&
     Array.isArray(r.deadlines) &&
     Array.isArray(r.checklist)
+  );
+}
+
+function isDataExtractorResult(r: Record<string, unknown>): r is {
+  fields: Array<{ key: string; value: string }>;
+  tables: Array<{ name: string; rows: string[][] }>;
+  confidence: number;
+} {
+  return (
+    Array.isArray(r.fields) &&
+    Array.isArray(r.tables) &&
+    typeof r.confidence === "number"
+  );
+}
+
+function DataExtractorResultView({
+  result,
+}: {
+  result: {
+    fields: Array<{ key: string; value: string }>;
+    tables: Array<{ name: string; rows: string[][] }>;
+    confidence: number;
+  };
+}) {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Уверенность</h3>
+        <p className="text-sm text-gray-600">
+          {typeof result.confidence === "number"
+            ? (result.confidence * 100).toFixed(0)
+            : "—"}
+          %
+        </p>
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Поля</h3>
+        <FieldsTable fields={result.fields} />
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Таблицы</h3>
+        <TablesView tables={result.tables} />
+      </Card>
+      <JsonActions data={result as unknown as Record<string, unknown>} />
+    </div>
   );
 }
 
@@ -288,6 +336,9 @@ export function ResultsPanel({
   if (status === "success" && result) {
     if (toolSlug === "contract-checker" && isContractCheckerResult(result)) {
       return <ContractCheckerResultView result={result} />;
+    }
+    if (toolSlug === "data-extractor" && isDataExtractorResult(result)) {
+      return <DataExtractorResultView result={result} />;
     }
     const entries = Object.entries(result).filter(
       ([_, v]) => v !== undefined && v !== null

@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 11 (data-extractor).
+**Следующая задача:** шаг 12 (tender-analyzer).
 
 ---
 
@@ -96,9 +96,9 @@
   - [x] Backend: Pydantic schema, check_contract в llm_client, endpoint run, limits, save analysis
   - [x] Frontend: runContractChecker, page upload→analyze→render, severity + checklist UI, ошибки
 
-- [ ] 11) `docs/data-extractor.md`
-  - [ ] Backend: DataExtractorResult schema, extract_structured_data, xlsx helper, run + limits + save
-  - [ ] Frontend: runDataExtractor, UI fields/tables, Copy/Download JSON, ошибки
+- [x] 11) `docs/data-extractor.md`
+  - [x] Backend: DataExtractorResult schema, extract_structured_data, xlsx helper, run + limits + save
+  - [x] Frontend: runDataExtractor, UI fields/tables, Copy/Download JSON, ошибки
 
 - [ ] 12) `docs/feature/tender-analyzer.md`
   - [ ] Backend: Pydantic schema, llm_client.analyze_tender, endpoint run, limits + store

@@ -214,3 +214,77 @@ Contract text:
         data["checklist"] = out_check
 
     return data
+
+
+def extract_structured_data(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    opts = overrides or {}
+    client, model = _build_openai_client(opts)
+    prompt = f"""Extract structured data from the following document. Return a JSON object with exactly these keys (no other keys):
+- "fields": array of 5 to 30 objects, each with "key" (string) and "value" (string). Extract key-value pairs (names, dates, amounts, identifiers, etc.).
+- "tables": array of 0 to 3 objects, each with "name" (string) and "rows" (array of arrays of strings). Each table at most 20 rows. Represent tabular blocks as rows of cell values.
+- "confidence": number between 0.3 and 0.9 indicating your confidence in the extraction.
+
+IMPORTANT: Respond in the same language as the document. Return only valid JSON, no markdown or explanation.
+
+Document text:
+---
+{text[:50000]}
+---"""
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            timeout=60,
+        )
+    except Exception as e:
+        raise_error(500, "LLM_ERROR", "Data extraction failed. Try again.", {"detail": str(e)})
+
+    content = response.choices[0].message.content
+    if not content:
+        raise_error(500, "LLM_ERROR", "Empty response from extraction service.", {})
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise_error(500, "LLM_ERROR", "Invalid JSON from extraction service.", {"detail": str(e)})
+
+    if not isinstance(data, dict):
+        raise_error(500, "LLM_ERROR", "Extraction result must be an object.", {})
+
+    fields = data.get("fields")
+    if not isinstance(fields, list):
+        data["fields"] = []
+    else:
+        out_fields = []
+        for item in fields[:30]:
+            if isinstance(item, dict) and "key" in item and "value" in item:
+                out_fields.append({"key": str(item["key"]), "value": str(item["value"])})
+        data["fields"] = out_fields
+
+    tables = data.get("tables")
+    if not isinstance(tables, list):
+        data["tables"] = []
+    else:
+        out_tables = []
+        for t in tables[:3]:
+            if isinstance(t, dict) and "name" in t and "rows" in t:
+                rows = t["rows"]
+                if not isinstance(rows, list):
+                    rows = []
+                out_rows = []
+                for row in rows[:20]:
+                    if isinstance(row, list):
+                        out_rows.append([str(c) for c in row])
+                out_tables.append({"name": str(t["name"]), "rows": out_rows})
+        data["tables"] = out_tables
+
+    conf = data.get("confidence")
+    if isinstance(conf, (int, float)):
+        data["confidence"] = max(0.0, min(1.0, float(conf)))
+    else:
+        data["confidence"] = 0.5
+
+    return data
