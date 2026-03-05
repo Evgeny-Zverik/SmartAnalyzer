@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 4 (auth-system.md — регистрация, логин, JWT).
+**Следующая задача:** шаг 6 (error-handling.md — parseApiError, CTA 401/429).
 
 ---
 
@@ -41,17 +41,17 @@
 
 ## 2.2 Авторизация и общие правила API/ошибок
 
-- [ ] 4) `docs/auth-system.md` — регистрация, логин, JWT, guard
-  - [ ] Backend: POST /auth/register, POST /auth/login, GET /auth/me
-  - [ ] Пароль хеш, 401 при неверном логине, миграции, таблица users
-  - [ ] Frontend: /register, /login → /dashboard; /dashboard защищён; logout → /
-  - [ ] Ошибки отображаются
+- [x] 4) `docs/auth-system.md` — регистрация, логин, JWT, guard
+  - [x] Backend: POST /auth/register, POST /auth/login, GET /auth/me
+  - [x] Пароль хеш, 401 при неверном логине, миграции, таблица users
+  - [x] Frontend: /register, /login → /dashboard; /dashboard защищён; logout → /
+  - [x] Ошибки отображаются
 
-- [ ] 5) `docs/api-contract.md` — единый контракт эндпоинтов
-  - [ ] Все перечисленные эндпоинты существуют
-  - [ ] Форматы запросов/ответов соответствуют описанию
-  - [ ] Ошибки в едином формате (error-handling.md)
-  - [ ] OpenAPI (Swagger) отражает схемы
+- [x] 5) `docs/api-contract.md` — единый контракт эндпоинтов
+  - [x] Все перечисленные эндпоинты существуют
+  - [x] Форматы запросов/ответов соответствуют описанию
+  - [x] Ошибки в едином формате (error-handling.md)
+  - [x] OpenAPI (Swagger) отражает схемы
 
 - [ ] 6) `docs/error-handling.md` — формат ошибок, parseApiError, CTA 401/429
   - [ ] Backend: формат {error, message, details}, raise_error + exception handlers

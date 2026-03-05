@@ -6,7 +6,6 @@ type ResultsPanelProps = {
   status: "idle" | "loading" | "success" | "error";
   result?: Record<string, unknown>;
   errorMessage?: string;
-  outputLabels?: string[];
 };
 
 function formatKey(key: string): string {

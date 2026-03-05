@@ -74,7 +74,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             status={state === "idle" || state === "ready" ? "idle" : state}
             result={result ?? undefined}
             errorMessage={errorMessage ?? undefined}
-            outputLabels={tool.mvp.output}
           />
         </section>
       </div>

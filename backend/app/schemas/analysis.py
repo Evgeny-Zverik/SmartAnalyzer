@@ -1,0 +1,31 @@
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class DocumentRef(BaseModel):
+    document_id: int
+    filename: str
+
+
+class AnalysisListItem(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    document_id: int
+    filename: str
+    created_at: datetime
+
+
+class AnalysisListResponse(BaseModel):
+    items: list[AnalysisListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class AnalysisDetailResponse(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    document: DocumentRef
+    created_at: datetime
+    result: dict
