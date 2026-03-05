@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 8 (dashboard-and-history.md — список анализов, деталка).
+**Следующая задача:** шаг 10 (contract-checker).
 
 ---
 
@@ -69,11 +69,11 @@
   - [x] Подключить лимиты в document-analyzer run
   - [x] Frontend: API usage/billing, dashboard plan + runs left, pricing Upgrade, 429 → сообщение + CTA
 
-- [ ] 8) `docs/dashboard-and-history.md` — список анализов, деталка, фильтры, Download JSON
-  - [ ] Backend: GET /analyses (filters, pagination), GET /analyses/{id}, GET /documents
-  - [ ] Frontend: analyses API client, таблица + фильтры + пагинация
-  - [ ] Detail view (modal/page) с рендером по tool_slug
-  - [ ] Download JSON
+- [x] 8) `docs/dashboard-and-history.md` — список анализов, деталка, фильтры, Download JSON
+  - [x] Backend: GET /analyses (filters, pagination), GET /analyses/{id}, GET /documents
+  - [x] Frontend: analyses API client, таблица + фильтры + пагинация
+  - [x] Detail view (modal/page) с рендером по tool_slug
+  - [x] Download JSON
 
 **Проверка:** план и лимиты отображаются, история анализов и деталка работают.
 
@@ -81,10 +81,10 @@
 
 ## 2.4 Первый «живой» инструмент
 
-- [ ] 9) `docs/feature/document-analyzer.md` — upload, run, LLM, сохранение в историю
-  - [ ] Backend: модели + миграции (documents, document_analyses, usage_logs)
-  - [ ] Upload endpoint, text extraction, LLM client + strict JSON, usage limit (3/day), run endpoint, recent analyses
-  - [ ] Frontend: uploadDocument, runDocumentAnalyzer → backend, /tools/document-analyzer flow, ResultsPanel, ошибки, dashboard recent list
+- [x] 9) `docs/feature/document-analyzer.md` — upload, run, LLM, сохранение в историю
+  - [x] Backend: модели + миграции (documents, document_analyses, usage_logs)
+  - [x] Upload endpoint, text extraction, LLM client + strict JSON, usage limit (3/day), run endpoint, recent analyses
+  - [x] Frontend: uploadDocument, runDocumentAnalyzer → backend, /tools/document-analyzer flow, ResultsPanel, ошибки, dashboard recent list
 
 **Проверка:** документ загружается → анализируется → результат в истории.
 

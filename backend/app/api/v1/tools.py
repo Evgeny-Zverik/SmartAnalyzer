@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Depends
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
 from app.db.session import get_db
+from app.models.document import Document
+from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.usage import assert_can_run, log_run
+from app.services.text_extraction import extract_text
+from app.services.llm_client import analyze_document
+from app.utils.errors import raise_error
 from app.schemas.tools import (
     ChecklistItem,
     ContractCheckerRunResponse,
@@ -32,6 +38,26 @@ from app.schemas.tools import (
 )
 
 router = APIRouter()
+
+
+def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Document:
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == user_id).first()
+    if not doc:
+        raise_error(404, "NOT_FOUND", "Document not found", {"document_id": document_id})
+    return doc
+
+
+def _save_analysis(db: Session, user_id: int, document_id: int, tool_slug: str, result: dict) -> int:
+    row = DocumentAnalysis(
+        user_id=user_id,
+        document_id=document_id,
+        tool_slug=tool_slug,
+        result_json=result,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row.id
 
 
 def _stub_document_analyzer(analysis_id: int) -> DocumentAnalyzerRunResponse:
@@ -109,38 +135,72 @@ def run_document_analyzer(
     db: Session = Depends(get_db),
 ):
     assert_can_run(db, current_user, "document-analyzer")
-    result = _stub_document_analyzer(analysis_id=1)
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    text = extract_text(doc.storage_path, doc.mime_type)
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    raw_result = analyze_document(text, overrides=overrides)
+    try:
+        result = DocumentAnalyzerResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "LLM_ERROR", "Analysis result format invalid. Try again.", {})
+    analysis_id = _save_analysis(
+        db, current_user.id, body.document_id, "document-analyzer", result.model_dump()
+    )
     log_run(db, current_user.id, "document-analyzer")
-    return result
+    return DocumentAnalyzerRunResponse(analysis_id=analysis_id, tool_slug="document-analyzer", result=result)
 
 
 @router.post("/contract-checker/run", response_model=ContractCheckerRunResponse)
 def run_contract_checker(
     body: ToolRunRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return _stub_contract_checker(analysis_id=1)
+    _get_document_for_user(db, body.document_id, current_user.id)
+    stub = _stub_contract_checker(analysis_id=0)
+    analysis_id = _save_analysis(
+        db, current_user.id, body.document_id, "contract-checker", stub.result.model_dump()
+    )
+    return ContractCheckerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
 
 @router.post("/data-extractor/run", response_model=DataExtractorRunResponse)
 def run_data_extractor(
     body: ToolRunRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return _stub_data_extractor(analysis_id=1)
+    _get_document_for_user(db, body.document_id, current_user.id)
+    stub = _stub_data_extractor(analysis_id=0)
+    analysis_id = _save_analysis(
+        db, current_user.id, body.document_id, "data-extractor", stub.result.model_dump()
+    )
+    return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
 
 @router.post("/tender-analyzer/run", response_model=TenderAnalyzerRunResponse)
 def run_tender_analyzer(
     body: ToolRunRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return _stub_tender_analyzer(analysis_id=1)
+    _get_document_for_user(db, body.document_id, current_user.id)
+    stub = _stub_tender_analyzer(analysis_id=0)
+    analysis_id = _save_analysis(
+        db, current_user.id, body.document_id, "tender-analyzer", stub.result.model_dump()
+    )
+    return TenderAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
 
 @router.post("/risk-analyzer/run", response_model=RiskAnalyzerRunResponse)
 def run_risk_analyzer(
     body: ToolRunRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return _stub_risk_analyzer(analysis_id=1)
+    _get_document_for_user(db, body.document_id, current_user.id)
+    stub = _stub_risk_analyzer(analysis_id=0)
+    analysis_id = _save_analysis(
+        db, current_user.id, body.document_id, "risk-analyzer", stub.result.model_dump()
+    )
+    return RiskAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)

@@ -114,8 +114,16 @@ Response 200:
 ### `POST /api/v1/tools/document-analyzer/run`
 Body:
 ```json
-{ "document_id": 123 }
+{
+  "document_id": 123,
+  "llm_config": {
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "ollama",
+    "model": "llama3.2"
+  }
+}
 ```
+`llm_config` опционально. Поля внутри: `base_url`, `api_key`, `model` (все опциональны). Если переданы — используются вместо env при вызове LLM.
 Response 200:
 ```json
 {
@@ -245,6 +253,20 @@ Response 200:
   "limit": 20,
   "offset": 0
 }
+```
+
+## Recent analyses
+### `GET /api/v1/analyses/recent?limit=20`
+Response 200:
+```json
+[
+  {
+    "analysis_id": 456,
+    "tool_slug": "document-analyzer",
+    "filename": "file.pdf",
+    "created_at": "2026-03-04T10:00:00Z"
+  }
+]
 ```
 
 ## Detail analysis

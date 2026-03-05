@@ -17,6 +17,9 @@ dependencies = [
     "python-jose[cryptography]",
     "passlib[bcrypt]",
     "python-multipart",
+    "pypdf",
+    "python-docx",
+    "openai",
 ]
 
 [project.optional-dependencies]

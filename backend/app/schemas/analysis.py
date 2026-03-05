@@ -23,6 +23,13 @@ class AnalysisListResponse(BaseModel):
     offset: int
 
 
+class AnalysisRecentItem(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    filename: str
+    created_at: datetime
+
+
 class AnalysisDetailResponse(BaseModel):
     analysis_id: int
     tool_slug: str

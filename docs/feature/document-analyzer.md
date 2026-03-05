@@ -125,8 +125,16 @@ Headers:
 
 Body:
 ```json
-{ "document_id": 123 }
+{
+  "document_id": 123,
+  "llm_config": {
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "ollama",
+    "model": "llama3.2"
+  }
+}
 ```
+Поле `llm_config` опционально. Если передано — backend использует указанные `base_url`, `api_key`, `model` для вызова LLM вместо переменных окружения. Любое из полей внутри `llm_config` можно опустить (тогда берётся значение из env).
 
 Response 200:
 ```json
@@ -189,16 +197,18 @@ Response 200:
 Файл: `backend/app/services/llm_client.py`
 
 Функция:
-- `analyze_document(text: str) -> dict`
+- `analyze_document(text: str, overrides: dict | None = None) -> dict`
 
 Требования:
 - единая точка вызова LLM
 - prompt должен требовать **строгий JSON**
 - таймаут и обработка ошибок
+- если передан `overrides` с ключами `base_url`, `api_key`, `model` — они подменяют значения из env (OpenAI-совместимый API, в т.ч. локальный Ollama)
 
-ENV:
-- LLM_PROVIDER=openai
+ENV (используются, если не переданы в overrides):
 - OPENAI_API_KEY=...
+- OPENAI_BASE_URL=... (опционально)
+- OPENAI_MODEL=... (по умолчанию gpt-4o-mini)
 
 ---
 
@@ -273,6 +283,28 @@ UI блоки:
 - 429 → показать: `Daily limit reached. Upgrade to Pro.`
 - 400 → `Cannot read text from document.`
 - 500 → `Analysis failed, try again.`
+
+---
+
+## 2.4 Настройки LLM (локальная модель / API)
+
+На странице Document Analyzer слева от кнопки «Analyze» отображается кнопка-шестерёнка (Settings). По клику открывается попап «Настройки LLM» с двумя вкладками:
+
+**Вкладка «Локальная модель»**
+- Base URL — адрес OpenAI-совместимого API (по умолчанию `http://localhost:11434/v1` для Ollama).
+- Модель — имя модели (по умолчанию `llama3.2`).
+- Для Ollama API key не обязателен (можно оставить placeholder).
+
+**Вкладка «API»**
+- Base URL — по умолчанию `https://api.openai.com/v1`.
+- API Key — ключ провайдера.
+- Модель — по умолчанию `gpt-4o-mini`.
+
+Выбранные значения сохраняются в localStorage (ключ `smartanalyzer_llm_config`) и при нажатии «Analyze» передаются в теле запроса `POST /api/v1/tools/document-analyzer/run` в поле `llm_config`. Если пользователь не открывал настройки — используется конфигурация backend из env.
+
+Компоненты:
+- `frontend/components/tools/LLMSettingsModal.tsx` — попап с табами и сохранением.
+- В `tools/[slug]/page.tsx` кнопка-шестерёнка и модалка показываются только при `tool.slug === "document-analyzer"`.
 
 ---
 

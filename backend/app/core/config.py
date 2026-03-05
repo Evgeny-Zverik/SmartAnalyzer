@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     storage_path: str = "/storage/documents"
+    max_upload_bytes: int = 20 * 1024 * 1024
 
     class Config:
         env_file = ".env"

@@ -106,8 +106,15 @@ class RiskAnalyzerResult(BaseModel):
     recommendations: list[RecommendationItem]
 
 
+class LlmConfigOptional(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+
+
 class ToolRunRequest(BaseModel):
     document_id: int
+    llm_config: LlmConfigOptional | None = None
 
 
 class DocumentAnalyzerRunResponse(BaseModel):

@@ -4,16 +4,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { AnalysesFilters } from "@/components/dashboard/AnalysesFilters";
+import { AnalysesTable } from "@/components/dashboard/AnalysesTable";
+import { AnalysisModal } from "@/components/analyses/AnalysisModal";
 import { getToken } from "@/lib/auth/token";
 import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout, me, type User } from "@/lib/api/auth";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
+import { listAnalyses, type AnalysisListResponse } from "@/lib/api/analyses";
+
+const PAGE_SIZE = 20;
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<UsageStatus | null>(null);
   const [checking, setChecking] = useState(true);
+  const [toolSlug, setToolSlug] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [listData, setListData] = useState<AnalysisListResponse | null>(null);
+  const [listLoading, setListLoading] = useState(false);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<number | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -34,6 +46,34 @@ export default function DashboardPage() {
       })
       .finally(() => setChecking(false));
   }, [router]);
+
+  function handleToolSlugChange(value: string) {
+    setToolSlug(value);
+    setOffset(0);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setOffset(0);
+  }
+
+  function handlePageChange(newOffset: number) {
+    setOffset(newOffset);
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    setListLoading(true);
+    listAnalyses({
+      limit: PAGE_SIZE,
+      offset,
+      toolSlug: toolSlug || undefined,
+      q: searchQuery || undefined,
+    })
+      .then(setListData)
+      .catch(() => setListData({ items: [], total: 0, limit: PAGE_SIZE, offset }))
+      .finally(() => setListLoading(false));
+  }, [user, offset, toolSlug, searchQuery]);
 
   function handleLogout() {
     authLogout();
@@ -77,12 +117,6 @@ export default function DashboardPage() {
         </p>
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            Недавние анализы
-          </h2>
-          <p className="text-gray-500 text-sm">Список появится после подключения истории.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
             План
           </h2>
           <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -98,7 +132,35 @@ export default function DashboardPage() {
             </p>
           </div>
         </section>
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+            История анализов
+          </h2>
+          <AnalysesFilters
+            toolSlug={toolSlug}
+            searchQuery={searchQuery}
+            onToolSlugChange={handleToolSlugChange}
+            onSearchChange={handleSearchChange}
+          />
+          <div className="mt-4">
+            {listLoading ? (
+              <p className="py-8 text-center text-gray-500">Загрузка…</p>
+            ) : listData ? (
+              <AnalysesTable
+                items={listData.items}
+                total={listData.total}
+                offset={listData.offset}
+                onView={setSelectedAnalysisId}
+                onPageChange={handlePageChange}
+              />
+            ) : null}
+          </div>
+        </section>
       </div>
+      <AnalysisModal
+        analysisId={selectedAnalysisId}
+        onClose={() => setSelectedAnalysisId(null)}
+      />
     </main>
   );
 }

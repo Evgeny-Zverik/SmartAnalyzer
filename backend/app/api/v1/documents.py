@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import get_current_user
+from app.utils.errors import raise_error
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.user import User
@@ -24,10 +25,11 @@ def upload(
     current_user: User = Depends(get_current_user),
 ):
     if file.content_type and file.content_type not in ALLOWED_MIME:
-        from app.utils.errors import raise_error
         raise_error(400, "BAD_REQUEST", "Unsupported file type. Use PDF, DOCX or XLSX.", {"mime_type": file.content_type})
     content = file.file.read()
     size_bytes = len(content)
+    if size_bytes > settings.max_upload_bytes:
+        raise_error(413, "PAYLOAD_TOO_LARGE", "File too large. Maximum size 20 MB.", {"max_bytes": settings.max_upload_bytes})
     ext = Path(file.filename or "file").suffix
     safe_name = f"{current_user.id}_{uuid.uuid4().hex}{ext}"
     storage_path = os.path.join(settings.storage_path, safe_name)
