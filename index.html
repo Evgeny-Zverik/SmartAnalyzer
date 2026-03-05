@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartAnalyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header__inner">
+      <a href="/" class="header__logo">
+        <span class="header__logo-icon">◇</span>
+        <span class="header__logo-text">SmartAnalyzer</span>
+      </a>
+      <nav class="header__nav">
+        <div class="header__dropdown">
+          <button type="button" class="header__link header__dropdown-trigger" aria-expanded="false" aria-haspopup="true">
+            AI Инструменты
+            <span class="header__dropdown-chevron">▼</span>
+          </button>
+          <div class="header__dropdown-panel" hidden>
+            <a href="#document-analyzer" class="header__dropdown-item">
+              <span class="header__dropdown-item-title">Анализатор документов</span>
+              <span class="header__dropdown-item-desc">AI анализирует загруженные документы и извлекает ключевые выводы.</span>
+            </a>
+            <a href="#contract-checker" class="header__dropdown-item">
+              <span class="header__dropdown-item-title">Проверка контрактов</span>
+              <span class="header__dropdown-item-desc">Проверяет контракты на риски и важные пункты.</span>
+            </a>
+            <a href="#data-extractor" class="header__dropdown-item">
+              <span class="header__dropdown-item-title">Извлечение данных</span>
+              <span class="header__dropdown-item-desc">Извлекает структурированные данные из PDF и документов.</span>
+            </a>
+            <a href="#tender-analyzer" class="header__dropdown-item">
+              <span class="header__dropdown-item-title">Анализатор тендеров</span>
+              <span class="header__dropdown-item-desc">Анализирует тендерную документацию и требования.</span>
+            </a>
+            <a href="#risk-analyzer" class="header__dropdown-item">
+              <span class="header__dropdown-item-title">Анализатор рисков</span>
+              <span class="header__dropdown-item-desc">Анализирует бизнес-риски на основе документов и данных.</span>
+            </a>
+          </div>
+        </div>
+        <a href="#tools" class="header__link">Инструменты</a>
+        <a href="#pricing" class="header__link">Тарифы</a>
+        <a href="#api" class="header__link">API</a>
+        <a href="#docs" class="header__link">Документация</a>
+      </nav>
+      <div class="header__actions">
+        <a href="#login" class="header__btn header__btn--ghost">Войти</a>
+        <a href="#signup" class="header__btn header__btn--primary">Начать</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero__inner">
+        <h1 class="hero__title">Аналитика и AI в одном месте</h1>
+        <p class="hero__subtitle">Единый доступ к моделям и инструментам без лишних подписок</p>
+        <div class="hero__actions">
+          <a href="#signup" class="btn btn--primary">Попробовать бесплатно</a>
+          <a href="#docs" class="btn btn--outline">Документация</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="tools" class="section section--tools">
+      <div class="section__inner section__inner--tools">
+        <h2 class="tools-section__title">Все инструменты</h2>
+        <div class="tool-cards">
+          <article id="document-analyzer" class="tool-card">
+            <span class="tool-card__badge">Скоро</span>
+            <span class="tool-card__icon">▣</span>
+            <h3 class="tool-card__title">Анализатор документов</h3>
+            <p class="tool-card__text">AI анализирует загруженные документы и извлекает ключевые выводы.</p>
+          </article>
+          <article id="contract-checker" class="tool-card">
+            <span class="tool-card__badge">Скоро</span>
+            <span class="tool-card__icon">◇</span>
+            <h3 class="tool-card__title">Проверка контрактов</h3>
+            <p class="tool-card__text">Проверяет контракты на риски и важные пункты.</p>
+          </article>
+          <article id="data-extractor" class="tool-card">
+            <span class="tool-card__badge">Скоро</span>
+            <span class="tool-card__icon">▤</span>
+            <h3 class="tool-card__title">Извлечение данных</h3>
+            <p class="tool-card__text">Извлекает структурированные данные из PDF и документов.</p>
+          </article>
+          <article id="tender-analyzer" class="tool-card">
+            <span class="tool-card__badge">Скоро</span>
+            <span class="tool-card__icon">▣</span>
+            <h3 class="tool-card__title">Анализатор тендеров</h3>
+            <p class="tool-card__text">Анализирует тендерную документацию и требования.</p>
+          </article>
+          <article id="risk-analyzer" class="tool-card">
+            <span class="tool-card__badge">Скоро</span>
+            <span class="tool-card__icon">◇</span>
+            <h3 class="tool-card__title">Анализатор рисков</h3>
+            <p class="tool-card__text">Анализирует бизнес-риски на основе документов и данных.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <span class="footer__copy">© SmartAnalyzer</span>
+    </div>
+  </footer>
+</body>
+</html>

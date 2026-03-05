@@ -1,0 +1,5 @@
+{
+  "name": "smartanalyzer",
+  "private": true,
+  "packageManager": "pnpm@9.14.2"
+}
