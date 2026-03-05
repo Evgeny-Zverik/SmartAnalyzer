@@ -2,7 +2,7 @@
 
 Отмечай выполненное галочкой `[x]`. Следующая задача — первый пункт с `[ ]`.
 
-**Следующая задача:** шаг 3 (tools-page.md — каталог, UI страниц инструментов).
+**Следующая задача:** шаг 4 (auth-system.md — регистрация, логин, JWT).
 
 ---
 
@@ -28,11 +28,11 @@
   - [x] Pricing: тарифы, CTA кнопки
   - [ ] Ручная проверка: /, /tools, /pricing, /tools/document-analyzer, мобилка
 
-- [ ] 3) `docs/tools-page.md` — каталог инструментов, UI страниц инструментов (mock)
-  - [ ] `tools.ts`: category, icon, mvp.accepts, mvp.output, getToolBySlug(slug)
-  - [ ] Каталог /tools: поиск, фильтр по category, 5 карточек, empty state + reset
-  - [ ] Страницы /tools/[slug]: ToolShell, UploadDropzone, ResultsPanel, state-machine, mock runToolAnalysis
-  - [ ] UI: responsive, отступы/шрифты, hover/focus
+- [x] 3) `docs/tools-page.md` — каталог инструментов, UI страниц инструментов (mock)
+  - [x] `tools.ts`: category, icon, mvp.accepts, mvp.output, getToolBySlug(slug)
+  - [x] Каталог /tools: поиск, фильтр по category, 5 карточек, empty state + reset
+  - [x] Страницы /tools/[slug]: ToolShell, UploadDropzone, ResultsPanel, state-machine, mock runToolAnalysis
+  - [x] UI: responsive, отступы/шрифты, hover/focus
   - [ ] QA: поиск, фильтры, pdf/docx принимаются, loading→success, mock results, все 5 инструментов
 
 **Проверка:** docker compose поднимает фронт/бэк, маркетинг-страницы работают.

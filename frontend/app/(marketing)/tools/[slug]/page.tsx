@@ -1,81 +1,83 @@
+"use client";
+
+import { useState, useCallback } from "react";
 import { notFound } from "next/navigation";
-import { getToolBySlug, tools } from "@/lib/config/tools";
+import { getToolBySlug } from "@/lib/config/tools";
+import { runToolAnalysis } from "@/lib/api/tools";
+import { ToolShell } from "@/components/tools/ToolShell";
+import { UploadDropzone } from "@/components/tools/UploadDropzone";
+import { ResultsPanel } from "@/components/tools/ResultsPanel";
 import { Button } from "@/components/ui/Button";
 
-export function generateStaticParams() {
-  return tools.map((t) => ({ slug: t.slug }));
-}
+type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 
-const whatYouGet: Record<string, string[]> = {
-  "document-analyzer": [
-    "Структурированные выводы по документу",
-    "Риски и рекомендации",
-    "Ключевые даты и стороны",
-    "Экспорт в JSON",
-  ],
-  "contract-checker": [
-    "Проверка на соответствие и риски",
-    "Отсутствующие пункты",
-    "Чек-лист по типу договора",
-    "Экспорт отчёта",
-  ],
-  "data-extractor": [
-    "Извлечение полей и таблиц",
-    "Структурированные данные",
-    "Экспорт JSON / XLSX",
-    "Копирование в буфер",
-  ],
-  "tender-analyzer": [
-    "Требования и критерии",
-    "Чек-лист соответствия",
-    "Дедлайны и этапы",
-    "Оценка рисков",
-  ],
-  "risk-analyzer": [
-    "Оценка рисков по документу",
-    "Score и категории",
-    "Рекомендации по снижению",
-    "Экспорт отчёта",
-  ],
-};
-
-export default function ToolStubPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const { slug } = params;
-  const tool = getToolBySlug(slug);
+export default function ToolPage({ params }: { params: { slug: string } }) {
+  const tool = getToolBySlug(params.slug);
 
   if (!tool) {
     notFound();
   }
 
-  const points = whatYouGet[tool.slug] ?? [
-    "Структурированный результат",
-    "Экспорт данных",
-    "Быстрый анализ",
-  ];
+  const [state, setState] = useState<ToolState>("idle");
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleFileChange = useCallback((f: File | null) => {
+    setFile(f);
+    setState(f ? "ready" : "idle");
+    setResult(null);
+    setErrorMessage(null);
+  }, []);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!file) return;
+    setState("loading");
+    setErrorMessage(null);
+    setResult(null);
+    try {
+      const data = await runToolAnalysis(tool.slug, file);
+      setResult(data as Record<string, unknown>);
+      setState("success");
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : "Unknown error");
+      setState("error");
+    }
+  }, [file, tool.slug]);
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900">{tool.title}</h1>
-        <p className="mt-4 text-gray-600">{tool.description}</p>
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900">Что вы получите</h2>
-          <ul className="mt-3 list-inside list-disc space-y-2 text-gray-600">
-            {points.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
+    <ToolShell tool={tool}>
+      <div className="space-y-8">
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Upload</h2>
+          <UploadDropzone
+            acceptedExtensions={tool.mvp.accepts}
+            file={file}
+            onFileChange={handleFileChange}
+          />
         </section>
-        <div className="mt-10">
-          <Button href="/login" variant="primary">
-            Попробовать
+
+        <div className="flex items-center gap-4">
+          <Button
+            type="button"
+            variant="primary"
+            disabled={!file || state === "loading"}
+            onClick={handleAnalyze}
+          >
+            {state === "loading" ? "Analyzing…" : "Analyze"}
           </Button>
         </div>
+
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Results</h2>
+          <ResultsPanel
+            status={state === "idle" || state === "ready" ? "idle" : state}
+            result={result ?? undefined}
+            errorMessage={errorMessage ?? undefined}
+            outputLabels={tool.mvp.output}
+          />
+        </section>
       </div>
-    </main>
+    </ToolShell>
   );
 }
