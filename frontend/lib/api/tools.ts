@@ -13,6 +13,19 @@ export type DocumentAnalyzerRunResponse = {
   };
 };
 
+export type ContractCheckerRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    summary: string;
+    risky_clauses: Array<{ title: string; reason: string; severity: string }>;
+    penalties: Array<{ trigger: string; amount_or_formula: string }>;
+    obligations: Array<{ party: string; text: string }>;
+    deadlines: Array<{ date: string; description: string }>;
+    checklist: Array<{ item: string; status: string; note: string }>;
+  };
+};
+
 export type LLMConfigRequest = {
   base_url?: string;
   api_key?: string;
@@ -30,6 +43,13 @@ export async function runDocumentAnalyzer(
   return apiFetch<DocumentAnalyzerRunResponse>("/api/v1/tools/document-analyzer/run", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export async function runContractChecker(documentId: number): Promise<ContractCheckerRunResponse> {
+  return apiFetch<ContractCheckerRunResponse>("/api/v1/tools/contract-checker/run", {
+    method: "POST",
+    body: JSON.stringify({ document_id: documentId }),
   });
 }
 
@@ -58,19 +78,40 @@ const mockBySlug: Record<string, Record<string, unknown>> = {
   },
 };
 
+export type AnalysisStage = "upload" | "analyze" | "done";
+
+export type ProgressCallback = (stage: AnalysisStage, elapsedSec: number) => void;
+
 export async function runToolAnalysis(
   toolSlug: string,
   file: File,
-  llmConfig?: LLMConfigRequest | null
+  llmConfig?: LLMConfigRequest | null,
+  onProgress?: ProgressCallback
 ): Promise<Record<string, unknown>> {
-  if (toolSlug === "document-analyzer") {
+  const startMs = Date.now();
+  const elapsed = () => Math.round((Date.now() - startMs) / 1000);
+
+  if (toolSlug === "document-analyzer" || toolSlug === "contract-checker") {
+    onProgress?.("upload", elapsed());
     const { uploadDocument } = await import("@/lib/api/documents");
     const uploadRes = await uploadDocument(file);
-    const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig);
-    return runRes.result as unknown as Record<string, unknown>;
+
+    onProgress?.("analyze", elapsed());
+    let result: Record<string, unknown>;
+    if (toolSlug === "document-analyzer") {
+      const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else {
+      const runRes = await runContractChecker(uploadRes.document_id);
+      result = runRes.result as unknown as Record<string, unknown>;
+    }
+    onProgress?.("done", elapsed());
+    return result;
   }
+  onProgress?.("analyze", elapsed());
   await new Promise((r) => setTimeout(r, MOCK_DELAY_MS));
   const data = mockBySlug[toolSlug];
+  onProgress?.("done", elapsed());
   if (data) {
     return data;
   }

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     storage_path: str = "/storage/documents"
     max_upload_bytes: int = 20 * 1024 * 1024
+    openai_api_key: str = ""
+    openai_base_url: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     class Config:
         env_file = ".env"

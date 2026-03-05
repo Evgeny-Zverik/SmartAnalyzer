@@ -20,3 +20,6 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+*.db
+storage/documents/*
+!storage/documents/.gitkeep

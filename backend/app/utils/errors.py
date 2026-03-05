@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse

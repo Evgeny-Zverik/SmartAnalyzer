@@ -9,7 +9,7 @@ from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_text
-from app.services.llm_client import analyze_document
+from app.services.llm_client import analyze_document, check_contract
 from app.utils.errors import raise_error
 from app.schemas.tools import (
     ChecklistItem,
@@ -156,12 +156,20 @@ def run_contract_checker(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _get_document_for_user(db, body.document_id, current_user.id)
-    stub = _stub_contract_checker(analysis_id=0)
+    assert_can_run(db, current_user, "contract-checker")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    text = extract_text(doc.storage_path, doc.mime_type)
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    raw_result = check_contract(text, overrides=overrides)
+    try:
+        result = ContractCheckerResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "LLM_INVALID_RESPONSE", "Contract analysis result format invalid. Try again.", {})
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "contract-checker", stub.result.model_dump()
+        db, current_user.id, body.document_id, "contract-checker", result.model_dump()
     )
-    return ContractCheckerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
+    log_run(db, current_user.id, "contract-checker")
+    return ContractCheckerRunResponse(analysis_id=analysis_id, tool_slug="contract-checker", result=result)
 
 
 @router.post("/data-extractor/run", response_model=DataExtractorRunResponse)

@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 import { notFound } from "next/navigation";
 import { Settings } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
-import { runToolAnalysis } from "@/lib/api/tools";
+import { runToolAnalysis, type AnalysisStage } from "@/lib/api/tools";
 import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import { ToolShell } from "@/components/tools/ToolShell";
@@ -31,6 +31,8 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [showUpgradeCta, setShowUpgradeCta] = useState(false);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
   const [llmModalOpen, setLlmModalOpen] = useState(false);
+  const [stage, setStage] = useState<AnalysisStage | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -43,15 +45,27 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setErrorMessage(null);
   }, []);
 
+  useEffect(() => {
+    if (state !== "loading") return;
+    const id = setInterval(() => {
+      setElapsedSec((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state]);
+
   const handleAnalyze = useCallback(async () => {
     if (!file) return;
     setState("loading");
+    setStage(null);
+    setElapsedSec(0);
     setErrorMessage(null);
     setResult(null);
     setShowUpgradeCta(false);
     try {
       const requestLlm = tool.slug === "document-analyzer" ? getLLMConfigForRequest(llmConfig) : undefined;
-      const data = await runToolAnalysis(tool.slug, file, requestLlm);
+      const data = await runToolAnalysis(tool.slug, file, requestLlm, (s) => {
+        setStage(s);
+      });
       setResult(data as Record<string, unknown>);
       setState("success");
     } catch (e) {
@@ -68,9 +82,15 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       } else if (parsed.status === 413) {
         message = "File too large. Maximum size 20 MB.";
       } else if (parsed.status === 400 && parsed.error === "BAD_REQUEST") {
-        message = message || "Cannot read text from document.";
+        message =
+          tool.slug === "contract-checker"
+            ? message || "Cannot extract text from contract."
+            : message || "Cannot read text from document.";
       } else if (parsed.status === 500) {
-        message = message || "Analysis failed. Try again.";
+        message =
+          tool.slug === "contract-checker"
+            ? message || "Contract analysis failed. Try again."
+            : message || "Analysis failed. Try again.";
       }
       setErrorMessage(message);
       setShowUpgradeCta(limitReached);
@@ -125,8 +145,11 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           <ResultsPanel
             status={state === "idle" || state === "ready" ? "idle" : state}
             result={result ?? undefined}
+            toolSlug={tool.slug}
             errorMessage={errorMessage ?? undefined}
             showUpgradeCta={showUpgradeCta}
+            stage={stage ?? undefined}
+            elapsedSec={elapsedSec}
           />
         </section>
       </div>
