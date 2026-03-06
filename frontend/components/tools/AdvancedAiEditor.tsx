@@ -1,7 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  ChevronDown,
+  Heading1,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Redo2,
+  Strikethrough,
+  UnderlineIcon,
+  Undo2,
+} from "lucide-react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import FontFamily from "@tiptap/extension-font-family";
+import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Underline from "@tiptap/extension-underline";
+import { Extension } from "@tiptap/core";
+import type { EditorView } from "@tiptap/pm/view";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
@@ -32,6 +60,8 @@ type AdvancedAiEditorProps = {
 type AnnotationFilter = "all" | "risk" | "improvement";
 type EditorFormatPreset = DownloadFormatPreset;
 type EditorAlignment = DownloadTextAlignment;
+
+const AI_ANNOTATIONS_PLUGIN_KEY = new PluginKey("ai-annotations");
 
 const FORMAT_PRESETS: Array<{
   value: EditorFormatPreset;
@@ -76,6 +106,38 @@ const ALIGNMENT_OPTIONS: Array<{
   { value: "justify", label: "По ширине", className: "text-justify" },
 ];
 
+const FONT_FAMILIES = [
+  { label: "Arial", value: "Arial, sans-serif" },
+  { label: "Times New Roman", value: "\"Times New Roman\", serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Courier New", value: "\"Courier New\", monospace" },
+];
+
+const FONT_SIZES = ["12", "14", "16", "18", "20", "24", "28", "32"];
+
+const FontSize = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return { style: `font-size: ${attributes.fontSize}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
+
 function annotationChipClass(filter: AnnotationFilter, active: boolean): string {
   if (active) {
     if (filter === "risk") return "border-red-200 bg-red-50 text-red-700";
@@ -83,6 +145,14 @@ function annotationChipClass(filter: AnnotationFilter, active: boolean): string 
     return "border-gray-900 bg-gray-900 text-white";
   }
   return "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900";
+}
+
+function toolbarButtonClass(active = false): string {
+  return `inline-flex h-10 w-10 items-center justify-center rounded-xl border text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 ${
+    active
+      ? "border-gray-900 bg-gray-900 text-white"
+      : "border-gray-300 bg-white hover:bg-gray-50"
+  }`;
 }
 
 function annotationSpanClass(annotation: AdvancedAnnotation, active: boolean): string {
@@ -98,38 +168,6 @@ function annotationSpanClass(annotation: AdvancedAnnotation, active: boolean): s
 
 function getAnnotationExcerpt(text: string, annotation: AdvancedAnnotation): string {
   return text.slice(annotation.start_offset, annotation.end_offset).trim();
-}
-
-function buildSegments(text: string, annotations: AdvancedAnnotation[]) {
-  const ordered = [...annotations].sort((a, b) => a.start_offset - b.start_offset);
-  const segments: Array<
-    | { type: "text"; key: string; text: string }
-    | { type: "annotation"; key: string; text: string; annotation: AdvancedAnnotation }
-  > = [];
-  let cursor = 0;
-
-  ordered.forEach((annotation) => {
-    const start = Math.max(cursor, annotation.start_offset);
-    const end = Math.min(text.length, annotation.end_offset);
-    if (start > cursor) {
-      segments.push({ type: "text", key: `text-${cursor}`, text: text.slice(cursor, start) });
-    }
-    if (end > start) {
-      segments.push({
-        type: "annotation",
-        key: annotation.id,
-        text: text.slice(start, end),
-        annotation,
-      });
-      cursor = end;
-    }
-  });
-
-  if (cursor < text.length) {
-    segments.push({ type: "text", key: `text-${cursor}`, text: text.slice(cursor) });
-  }
-
-  return segments;
 }
 
 function shiftAnnotations(
@@ -156,6 +194,117 @@ function shiftAnnotations(
     });
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function textToHtml(text: string): string {
+  const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
+  return paragraphs
+    .map((paragraph) =>
+      paragraph.trim().length === 0 ? "<p></p>" : `<p>${escapeHtml(paragraph)}</p>`
+    )
+    .join("");
+}
+
+function getOffsetRange(
+  doc: ProseMirrorNode,
+  startOffset: number,
+  endOffset: number
+): { from: number; to: number } | null {
+  if (startOffset >= endOffset) return null;
+
+  let textOffset = 0;
+  let from: number | null = null;
+  let to: number | null = null;
+
+  doc.forEach((child: ProseMirrorNode, offset: number, index: number) => {
+    const textLength = child.textContent.length;
+    const startPos = offset + 1;
+    const endPos = startPos + textLength;
+
+    if (from === null && startOffset <= textOffset + textLength) {
+      from = startPos + Math.max(0, Math.min(textLength, startOffset - textOffset));
+    }
+
+    if (to === null && endOffset <= textOffset + textLength) {
+      to = startPos + Math.max(0, Math.min(textLength, endOffset - textOffset));
+    }
+
+    textOffset += textLength;
+    if (index < doc.childCount - 1) {
+      if (from === null && startOffset === textOffset) {
+        from = endPos;
+      }
+      if (to === null && endOffset === textOffset) {
+        to = endPos;
+      }
+      textOffset += 1;
+    }
+  });
+
+  if (from === null) {
+    from = Math.max(1, doc.content.size);
+  }
+  if (to === null) {
+    to = Math.max(from, doc.content.size);
+  }
+
+  return from < to ? { from, to } : null;
+}
+
+function createAiAnnotationsExtension(config: {
+  getAnnotations: () => AdvancedAnnotation[];
+  getActiveId: () => string | null;
+  onSelect: (id: string) => void;
+}) {
+  return Extension.create({
+    name: "aiAnnotations",
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: AI_ANNOTATIONS_PLUGIN_KEY,
+          props: {
+            decorations: (state: { doc: ProseMirrorNode }) => {
+              const decorations = config
+                .getAnnotations()
+                .map((annotation) => {
+                  const range = getOffsetRange(
+                    state.doc,
+                    annotation.start_offset,
+                    annotation.end_offset
+                  );
+                  if (!range) return null;
+                  const isActive = config.getActiveId() === annotation.id;
+                  const className = annotationSpanClass(annotation, isActive);
+                  return Decoration.inline(range.from, range.to, {
+                    class: `${className} ai-annotation-fragment`,
+                    "data-annotation-id": annotation.id,
+                  });
+                })
+                .filter((decoration): decoration is Decoration => decoration !== null);
+
+              return DecorationSet.create(state.doc, decorations);
+            },
+            handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
+              const target = event.target as HTMLElement | null;
+              const id = target?.closest<HTMLElement>("[data-annotation-id]")?.dataset.annotationId;
+              if (!id) return false;
+              config.onSelect(id);
+              return false;
+            },
+          },
+        }),
+      ];
+    },
+  });
+}
+
 export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   const [editorText, setEditorText] = useState(data.full_text);
   const [annotations, setAnnotations] = useState<AdvancedAnnotation[]>(data.annotations);
@@ -167,9 +316,74 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   const [downloadState, setDownloadState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [formatPreset, setFormatPreset] = useState<EditorFormatPreset>("document");
   const [alignment, setAlignment] = useState<EditorAlignment>("justify");
-  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
-  const annotationRefs = useRef<Record<string, HTMLSpanElement | null>>({});
+  const [toolbarHeading, setToolbarHeading] = useState<"paragraph" | "heading1">("paragraph");
+  const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
+  const [toolbarFontSize, setToolbarFontSize] = useState("16");
+  const filteredAnnotationsRef = useRef<AdvancedAnnotation[]>(data.annotations);
+  const activeIdRef = useRef<string | null>(data.annotations[0]?.id ?? null);
+  const suppressManualWarningRef = useRef(false);
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+      }),
+      TextStyle,
+      FontSize,
+      FontFamily,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: false,
+      }),
+      TextAlign.configure({
+        types: ["paragraph", "heading"],
+      }),
+      createAiAnnotationsExtension({
+        getAnnotations: () => filteredAnnotationsRef.current,
+        getActiveId: () => activeIdRef.current,
+        onSelect: (id) => setActiveId(id),
+      }),
+    ],
+    content: textToHtml(data.full_text),
+    onUpdate: ({ editor: currentEditor }) => {
+      setEditorText(currentEditor.getText({ blockSeparator: "\n" }));
+      if (suppressManualWarningRef.current) {
+        suppressManualWarningRef.current = false;
+        return;
+      }
+      setManualEditWarning(true);
+    },
+    editorProps: {
+      attributes: {
+        class: "min-h-[960px] outline-none",
+      },
+    },
+  });
+
+  const syncToolbarState = useMemo(
+    () => () => {
+      if (!editor) return;
+      setToolbarHeading(editor.isActive("heading", { level: 1 }) ? "heading1" : "paragraph");
+      const textStyleAttrs = editor.getAttributes("textStyle");
+      setToolbarFontFamily(textStyleAttrs.fontFamily || FONT_FAMILIES[1]?.value || "inherit");
+      setToolbarFontSize((textStyleAttrs.fontSize || "16px").replace("px", ""));
+      if (editor.isActive({ textAlign: "justify" })) {
+        setAlignment("justify");
+      } else if (editor.isActive({ textAlign: "center" })) {
+        setAlignment("center");
+      } else if (editor.isActive({ textAlign: "right" })) {
+        setAlignment("right");
+      } else {
+        setAlignment("left");
+      }
+    },
+    [editor]
+  );
 
   useEffect(() => {
     setEditorText(data.full_text);
@@ -182,9 +396,24 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     setDownloadState("idle");
     setFormatPreset("document");
     setAlignment("justify");
-    setFormatMenuOpen(false);
+    setToolbarHeading("paragraph");
+    setToolbarFontFamily(FONT_FAMILIES[1]?.value ?? "inherit");
+    setToolbarFontSize("16");
     setDownloadMenuOpen(false);
-  }, [data]);
+    suppressManualWarningRef.current = true;
+    editor?.commands.setContent(textToHtml(data.full_text), { emitUpdate: false });
+  }, [data, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    syncToolbarState();
+    editor.on("selectionUpdate", syncToolbarState);
+    editor.on("transaction", syncToolbarState);
+    return () => {
+      editor.off("selectionUpdate", syncToolbarState);
+      editor.off("transaction", syncToolbarState);
+    };
+  }, [editor, syncToolbarState]);
 
   const counts = useMemo(
     () => ({
@@ -198,6 +427,12 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     if (filter === "all") return annotations;
     return annotations.filter((annotation) => annotation.type === filter);
   }, [annotations, filter]);
+
+  useEffect(() => {
+    filteredAnnotationsRef.current = filteredAnnotations;
+    if (!editor) return;
+    editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
+  }, [filteredAnnotations, editor]);
 
   const activeAnnotation = useMemo(() => {
     const found = filteredAnnotations.find((annotation) => annotation.id === activeId);
@@ -214,7 +449,11 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     }
   }, [activeAnnotation, activeId]);
 
-  const segments = useMemo(() => buildSegments(editorText, filteredAnnotations), [editorText, filteredAnnotations]);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    if (!editor) return;
+    editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
+  }, [activeId, editor]);
 
   const handleCopyText = async () => {
     try {
@@ -250,12 +489,19 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   };
 
   const handleApplyChange = () => {
-    if (!activeAnnotation) return;
-    const nextText =
-      editorText.slice(0, activeAnnotation.start_offset) +
-      activeAnnotation.suggested_rewrite +
-      editorText.slice(activeAnnotation.end_offset);
-    setEditorText(nextText);
+    if (!activeAnnotation || !editor) return;
+    const range = getOffsetRange(
+      editor.state.doc,
+      activeAnnotation.start_offset,
+      activeAnnotation.end_offset
+    );
+    if (!range) return;
+    suppressManualWarningRef.current = true;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(range, activeAnnotation.suggested_rewrite)
+      .run();
     setAnnotations((prev) => shiftAnnotations(prev, activeAnnotation, activeAnnotation.suggested_rewrite.length));
     setActiveId(null);
     setManualEditWarning(false);
@@ -274,13 +520,15 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     const nextIndex = (baseIndex + direction + filteredAnnotations.length) % filteredAnnotations.length;
     const next = filteredAnnotations[nextIndex];
     setActiveId(next.id);
-    annotationRefs.current[next.id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!editor) return;
+    const range = getOffsetRange(editor.state.doc, next.start_offset, next.end_offset);
+    if (!range) return;
+    editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
   };
 
   const activeExcerpt = activeAnnotation ? getAnnotationExcerpt(editorText, activeAnnotation) : "";
   const activePreset = FORMAT_PRESETS.find((preset) => preset.value === formatPreset) ?? FORMAT_PRESETS[0];
   const activeAlignment = ALIGNMENT_OPTIONS.find((option) => option.value === alignment) ?? ALIGNMENT_OPTIONS[0];
-
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-gradient-to-br from-white via-gray-50 to-amber-50/50">
@@ -318,72 +566,7 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setFormatMenuOpen((prev) => !prev);
-                  setDownloadMenuOpen(false);
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-              >
-                Форматировать
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              </button>
-              {formatMenuOpen && (
-                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-[280px] rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Стиль документа</p>
-                    <div className="mt-2 space-y-1">
-                      {FORMAT_PRESETS.map((preset) => (
-                        <button
-                          key={preset.value}
-                          type="button"
-                          onClick={() => {
-                            setFormatPreset(preset.value);
-                            setFormatMenuOpen(false);
-                          }}
-                          className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                            formatPreset === preset.value
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <p className="text-sm font-medium">{preset.label}</p>
-                          <p className={`mt-1 text-xs ${formatPreset === preset.value ? "text-white/75" : "text-gray-500"}`}>
-                            {preset.description}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-4 border-t border-gray-100 pt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Выравнивание</p>
-                    <div className="mt-2 space-y-1">
-                      {ALIGNMENT_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            setAlignment(option.value);
-                            setFormatMenuOpen(false);
-                          }}
-                          className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
-                            alignment === option.value
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
                   setDownloadMenuOpen((prev) => !prev);
-                  setFormatMenuOpen(false);
                 }}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
               >
@@ -432,7 +615,7 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
         </p>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_380px]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="overflow-hidden p-0">
           <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -452,49 +635,218 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
               </div>
             </div>
           </div>
-          <div className="space-y-4 p-5">
+          <div className="space-y-4 bg-[#edf1f5] p-4 sm:p-6 lg:p-8">
             {manualEditWarning && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="mx-auto max-w-[980px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 После ручных правок подсветка может немного сместиться. AI-аннотации не пересчитываются в реальном времени.
               </div>
             )}
-            <div
-              className={`min-h-[520px] rounded-2xl border border-gray-200 bg-white p-5 text-gray-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 whitespace-pre-wrap ${activePreset.className} ${activeAlignment.className}`}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={(event) => {
-                setEditorText(event.currentTarget.textContent ?? "");
-                setManualEditWarning(true);
-              }}
-            >
-              {segments.length > 0 ? (
-                segments.map((segment) => {
-                  if (segment.type === "text") {
-                    return <span key={segment.key}>{segment.text}</span>;
-                  }
-                  const isActive = activeAnnotation?.id === segment.annotation.id;
-                  return (
-                    <span
-                      key={segment.key}
-                      ref={(node) => {
-                        annotationRefs.current[segment.annotation.id] = node;
-                      }}
-                      onClick={() => setActiveId(segment.annotation.id)}
-                      className={`${annotationSpanClass(segment.annotation, isActive)} cursor-pointer transition`}
-                      title={segment.annotation.title}
-                    >
-                      {segment.text}
-                    </span>
-                  );
-                })
-              ) : (
-                <span>{editorText}</span>
-              )}
+            <div className="mx-auto w-full max-w-[1180px]">
+              <div className="mb-4 rounded-[24px] border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={toolbarButtonClass()}
+                    onClick={() => editor?.chain().focus().undo().run()}
+                    disabled={!editor?.can().chain().focus().undo().run()}
+                    aria-label="Undo"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass()}
+                    onClick={() => editor?.chain().focus().redo().run()}
+                    disabled={!editor?.can().chain().focus().redo().run()}
+                    aria-label="Redo"
+                  >
+                    <Redo2 className="h-4 w-4" />
+                  </button>
+                  <div className="mx-1 h-8 w-px bg-gray-200" />
+                  <select
+                    value={toolbarHeading}
+                    onChange={(event) => {
+                      const value = event.target.value as "paragraph" | "heading1";
+                      setToolbarHeading(value);
+                      if (!editor) return;
+                      if (value === "heading1") {
+                        editor.chain().focus().toggleHeading({ level: 1 }).run();
+                        return;
+                      }
+                      editor.chain().focus().setParagraph().run();
+                    }}
+                    className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  >
+                    <option value="paragraph">Обычный текст</option>
+                    <option value="heading1">Заголовок 1</option>
+                  </select>
+                  <select
+                    value={toolbarFontFamily}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setToolbarFontFamily(value);
+                      editor?.chain().focus().setFontFamily(value).run();
+                    }}
+                    className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  >
+                    {FONT_FAMILIES.map((family) => (
+                      <option key={family.value} value={family.value}>
+                        {family.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={toolbarFontSize}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setToolbarFontSize(value);
+                      editor?.chain().focus().setMark("textStyle", { fontSize: `${value}px` }).run();
+                    }}
+                    className="h-10 w-[84px] rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  >
+                    {FONT_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mx-1 h-8 w-px bg-gray-200" />
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("bold"))}
+                    onClick={() => editor?.chain().focus().toggleBold().run()}
+                    aria-label="Bold"
+                  >
+                    <Bold className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("italic"))}
+                    onClick={() => editor?.chain().focus().toggleItalic().run()}
+                    aria-label="Italic"
+                  >
+                    <Italic className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("underline"))}
+                    onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                    aria-label="Underline"
+                  >
+                    <UnderlineIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("strike"))}
+                    onClick={() => editor?.chain().focus().toggleStrike().run()}
+                    aria-label="Strike"
+                  >
+                    <Strikethrough className="h-4 w-4" />
+                  </button>
+                  <div className="mx-1 h-8 w-px bg-gray-200" />
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(toolbarHeading === "heading1")}
+                    onClick={() => {
+                      setToolbarHeading("heading1");
+                      editor?.chain().focus().toggleHeading({ level: 1 }).run();
+                    }}
+                    aria-label="Heading 1"
+                  >
+                    <Heading1 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(alignment === "left")}
+                    onClick={() => {
+                      setAlignment("left");
+                      editor?.chain().focus().setTextAlign("left").run();
+                    }}
+                    aria-label="Align left"
+                  >
+                    <AlignLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(alignment === "center")}
+                    onClick={() => {
+                      setAlignment("center");
+                      editor?.chain().focus().setTextAlign("center").run();
+                    }}
+                    aria-label="Align center"
+                  >
+                    <AlignCenter className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(alignment === "right")}
+                    onClick={() => {
+                      setAlignment("right");
+                      editor?.chain().focus().setTextAlign("right").run();
+                    }}
+                    aria-label="Align right"
+                  >
+                    <AlignRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(alignment === "justify")}
+                    onClick={() => {
+                      setAlignment("justify");
+                      editor?.chain().focus().setTextAlign("justify").run();
+                    }}
+                    aria-label="Align justify"
+                  >
+                    <AlignJustify className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("bulletList"))}
+                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                    aria-label="Bullet list"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("orderedList"))}
+                    onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                    aria-label="Ordered list"
+                  >
+                    <ListOrdered className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={toolbarButtonClass(editor?.isActive("link"))}
+                    onClick={() => {
+                      if (!editor) return;
+                      const previousUrl = editor.getAttributes("link").href as string | undefined;
+                      const url = window.prompt("Введите ссылку", previousUrl || "");
+                      if (url === null) return;
+                      if (url.trim() === "") {
+                        editor.chain().focus().unsetLink().run();
+                        return;
+                      }
+                      editor.chain().focus().setLink({ href: url.trim() }).run();
+                    }}
+                    aria-label="Link"
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="mx-auto w-full">
+                <div
+                  className={`min-h-[960px] rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 whitespace-pre-wrap ${activePreset.className}`}
+                >
+                  {editor ? <EditorContent editor={editor} /> : null}
+                </div>
+              </div>
             </div>
           </div>
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-6 2xl:pt-[2px]">
           <Card>
             <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
             {activeAnnotation ? (
@@ -563,10 +915,14 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
                     type="button"
                     onClick={() => {
                       setActiveId(annotation.id);
-                      annotationRefs.current[annotation.id]?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
+                      if (!editor) return;
+                      const range = getOffsetRange(
+                        editor.state.doc,
+                        annotation.start_offset,
+                        annotation.end_offset
+                      );
+                      if (!range) return;
+                      editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
                     }}
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       activeAnnotation?.id === annotation.id

@@ -12,7 +12,7 @@ type ToolShellProps = {
 export function ToolShell({ tool, children, metaAction }: ToolShellProps) {
   return (
     <main className="min-h-screen">
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-[1540px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         <nav
           className="mb-4 flex items-center gap-1 text-sm text-gray-500"
           aria-label="Breadcrumb"
