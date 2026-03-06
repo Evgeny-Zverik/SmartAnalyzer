@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
-import { downloadText } from "@/lib/utils/downloadText";
+import {
+  downloadDocumentFile,
+  type DownloadFormatPreset,
+  type DownloadTextAlignment,
+} from "@/lib/utils/downloadDocumentFile";
 
 export type AdvancedAnnotation = {
   id: string;
@@ -25,6 +30,51 @@ type AdvancedAiEditorProps = {
 };
 
 type AnnotationFilter = "all" | "risk" | "improvement";
+type EditorFormatPreset = DownloadFormatPreset;
+type EditorAlignment = DownloadTextAlignment;
+
+const FORMAT_PRESETS: Array<{
+  value: EditorFormatPreset;
+  label: string;
+  description: string;
+  className: string;
+}> = [
+  {
+    value: "standard",
+    label: "Стандарт",
+    description: "Сбалансированный режим для редактирования",
+    className: "font-mono text-[13px] leading-7 tracking-normal",
+  },
+  {
+    value: "compact",
+    label: "Компактно",
+    description: "Больше текста на экране, плотные абзацы",
+    className: "font-mono text-[12px] leading-6 tracking-normal",
+  },
+  {
+    value: "document",
+    label: "Документ",
+    description: "Более формальный вид для договоров и актов",
+    className: "font-serif text-[15px] leading-8 tracking-[0.01em]",
+  },
+  {
+    value: "draft",
+    label: "Черновик",
+    description: "Удобно для вычитки и обсуждения текста",
+    className: "font-sans text-[14px] leading-8 tracking-normal",
+  },
+];
+
+const ALIGNMENT_OPTIONS: Array<{
+  value: EditorAlignment;
+  label: string;
+  className: string;
+}> = [
+  { value: "left", label: "По левому краю", className: "text-left" },
+  { value: "center", label: "По центру", className: "text-center" },
+  { value: "right", label: "По правому краю", className: "text-right" },
+  { value: "justify", label: "По ширине", className: "text-justify" },
+];
 
 function annotationChipClass(filter: AnnotationFilter, active: boolean): string {
   if (active) {
@@ -114,6 +164,11 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   const [manualEditWarning, setManualEditWarning] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "done" | "error">("idle");
   const [rewriteCopyState, setRewriteCopyState] = useState<"idle" | "done" | "error">("idle");
+  const [downloadState, setDownloadState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [formatPreset, setFormatPreset] = useState<EditorFormatPreset>("document");
+  const [alignment, setAlignment] = useState<EditorAlignment>("justify");
+  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const annotationRefs = useRef<Record<string, HTMLSpanElement | null>>({});
 
   useEffect(() => {
@@ -124,6 +179,11 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     setManualEditWarning(false);
     setCopyState("idle");
     setRewriteCopyState("idle");
+    setDownloadState("idle");
+    setFormatPreset("document");
+    setAlignment("justify");
+    setFormatMenuOpen(false);
+    setDownloadMenuOpen(false);
   }, [data]);
 
   const counts = useMemo(
@@ -162,6 +222,20 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
       setCopyState("done");
     } catch {
       setCopyState("error");
+    }
+  };
+
+  const handleDownload = async (format: "txt" | "pdf" | "docx") => {
+    setDownloadMenuOpen(false);
+    setDownloadState("loading");
+    try {
+      await downloadDocumentFile(editorText, format, "document-analyzer-edited", {
+        preset: formatPreset,
+        alignment,
+      });
+      setDownloadState("done");
+    } catch {
+      setDownloadState("error");
     }
   };
 
@@ -204,6 +278,8 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   };
 
   const activeExcerpt = activeAnnotation ? getAnnotationExcerpt(editorText, activeAnnotation) : "";
+  const activePreset = FORMAT_PRESETS.find((preset) => preset.value === formatPreset) ?? FORMAT_PRESETS[0];
+  const activeAlignment = ALIGNMENT_OPTIONS.find((option) => option.value === alignment) ?? ALIGNMENT_OPTIONS[0];
 
   return (
     <div className="space-y-6">
@@ -236,17 +312,124 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={handleCopyText}>
-              {copyState === "done" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy text"}
+              {copyState === "done" ? "Скопировано" : copyState === "error" ? "Ошибка копирования" : "Копировать текст"}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => downloadText(editorText, "document-analyzer-edited.txt")}
-            >
-              Download .txt
-            </Button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormatMenuOpen((prev) => !prev);
+                  setDownloadMenuOpen(false);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              >
+                Форматировать
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </button>
+              {formatMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-[280px] rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Стиль документа</p>
+                    <div className="mt-2 space-y-1">
+                      {FORMAT_PRESETS.map((preset) => (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          onClick={() => {
+                            setFormatPreset(preset.value);
+                            setFormatMenuOpen(false);
+                          }}
+                          className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                            formatPreset === preset.value
+                              ? "border-gray-900 bg-gray-900 text-white"
+                              : "border-gray-200 bg-white hover:border-gray-300"
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{preset.label}</p>
+                          <p className={`mt-1 text-xs ${formatPreset === preset.value ? "text-white/75" : "text-gray-500"}`}>
+                            {preset.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Выравнивание</p>
+                    <div className="mt-2 space-y-1">
+                      {ALIGNMENT_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setAlignment(option.value);
+                            setFormatMenuOpen(false);
+                          }}
+                          className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
+                            alignment === option.value
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setDownloadMenuOpen((prev) => !prev);
+                  setFormatMenuOpen(false);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              >
+                Скачать
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </button>
+              {downloadMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-[180px] rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload("txt")}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+                  >
+                    Скачать как TXT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload("pdf")}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+                  >
+                    Скачать как PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload("docx")}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+                  >
+                    Скачать как DOCX
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        {downloadState !== "idle" && (
+          <p className="text-xs text-gray-500">
+            {downloadState === "loading"
+              ? "Готовим файл..."
+              : downloadState === "done"
+                ? "Файл скачан"
+                : "Не удалось скачать файл"}
+          </p>
+        )}
+        <p className="text-xs text-gray-500">
+          Формат: {activePreset.label}. Выравнивание: {activeAlignment.label.toLowerCase()}.
+        </p>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_380px]">
@@ -261,10 +444,10 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Button type="button" variant="ghost" onClick={() => handleNavigate(-1)} disabled={filteredAnnotations.length === 0}>
-                  Previous
+                  Назад
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => handleNavigate(1)} disabled={filteredAnnotations.length === 0}>
-                  Next
+                  Вперед
                 </Button>
               </div>
             </div>
@@ -276,7 +459,7 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
               </div>
             )}
             <div
-              className="min-h-[520px] rounded-2xl border border-gray-200 bg-white p-5 font-mono text-[13px] leading-7 text-gray-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 whitespace-pre-wrap"
+              className={`min-h-[520px] rounded-2xl border border-gray-200 bg-white p-5 text-gray-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 whitespace-pre-wrap ${activePreset.className} ${activeAlignment.className}`}
               contentEditable
               suppressContentEditableWarning
               onInput={(event) => {
@@ -333,30 +516,30 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
                   <p className="mt-2 text-sm leading-6 text-gray-600">{activeAnnotation.reason}</p>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Original fragment</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Исходный фрагмент</p>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-800">
                     {activeExcerpt || "Фрагмент недоступен"}
                   </p>
                 </div>
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Suggested rewrite</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Предлагаемая формулировка</p>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-900">
                     {activeAnnotation.suggested_rewrite}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="primary" onClick={handleApplyChange}>
-                    Apply change
+                    Применить
                   </Button>
                   <Button type="button" variant="secondary" onClick={handleDismiss}>
-                    Dismiss
+                    Скрыть
                   </Button>
                   <Button type="button" variant="ghost" onClick={handleCopyRewrite}>
                     {rewriteCopyState === "done"
-                      ? "Copied rewrite"
+                      ? "Скопировано"
                       : rewriteCopyState === "error"
-                        ? "Copy failed"
-                        : "Copy"}
+                        ? "Ошибка копирования"
+                        : "Копировать"}
                   </Button>
                 </div>
               </div>
@@ -369,8 +552,8 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
 
           <Card>
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-gray-900">Review Queue</h3>
-              <span className="text-xs text-gray-500">{filteredAnnotations.length} items</span>
+              <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
+              <span className="text-xs text-gray-500">{filteredAnnotations.length} шт.</span>
             </div>
             {filteredAnnotations.length > 0 ? (
               <div className="mt-4 space-y-3">
