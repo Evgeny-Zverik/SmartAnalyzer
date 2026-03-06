@@ -183,19 +183,30 @@ def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any
 def analyze_document(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     opts = overrides or {}
     client, model = _build_openai_client(opts)
+    analysis_text = text[:50000]
     prompt = f"""Analyze the following document and return a JSON object with exactly these keys (no other keys):
 - "summary": string, brief summary of the document (2-5 sentences)
 - "key_points": array of 3 to 10 strings, main points
 - "risks": array of 0 to 10 strings, identified risks
 - "important_dates": array of 0 to 10 objects, each with "date" (YYYY-MM-DD) and "description" (string). If no dates found, use []
+- "advanced_editor": object with:
+  - "annotations": array of 0 to 20 objects
+  - each annotation object must contain:
+    - "type": exactly one of "risk" or "improvement"
+    - "severity": exactly one of "low", "medium", "high"
+    - "title": short label
+    - "reason": short explanation of why this fragment is risky or can be improved
+    - "suggested_rewrite": a concise replacement wording in the same language as the document
+    - "exact_quote": exact substring copied verbatim from the document text. It must match the document text exactly so the client can anchor the annotation.
 
 IMPORTANT: Always respond in the same language as the document. If the document is in Russian, all text values in JSON must be in Russian.
+IMPORTANT: "exact_quote" must be copied character-for-character from the document text. Do not invent quotes and do not include fragments that are not present verbatim.
 
 Return only valid JSON, no markdown or explanation.
 
 Document text:
 ---
-{text[:50000]}
+{analysis_text}
 ---"""
 
     content = _create_completion(client, model, prompt, opts, "analysis")
@@ -236,7 +247,109 @@ Document text:
                 out_dates.append({"date": str(item["date"])[:10], "description": str(item["description"])})
         data["important_dates"] = out_dates
 
+    data["advanced_editor"] = _normalize_advanced_editor(data.get("advanced_editor"), analysis_text)
+
     return data
+
+
+def _normalize_advanced_editor(raw: Any, full_text: str) -> dict[str, Any]:
+    if not isinstance(full_text, str):
+        full_text = str(full_text or "")
+
+    annotations_raw = raw.get("annotations") if isinstance(raw, dict) else []
+    if not isinstance(annotations_raw, list):
+        annotations_raw = []
+
+    annotations: list[dict[str, Any]] = []
+    used_ranges: list[tuple[int, int]] = []
+
+    for idx, item in enumerate(annotations_raw[:20], start=1):
+        normalized = _normalize_document_annotation(item, full_text, idx, used_ranges)
+        if normalized is not None:
+            annotations.append(normalized)
+            used_ranges.append((normalized["start_offset"], normalized["end_offset"]))
+
+    return {"full_text": full_text, "annotations": annotations}
+
+
+def _normalize_document_annotation(
+    item: Any,
+    full_text: str,
+    idx: int,
+    used_ranges: list[tuple[int, int]],
+) -> dict[str, Any] | None:
+    if not isinstance(item, dict):
+        return None
+
+    quote = str(item.get("exact_quote") or "").strip()
+    start = item.get("start_offset")
+    end = item.get("end_offset")
+
+    start_offset: int | None = None
+    end_offset: int | None = None
+
+    if isinstance(start, int) and isinstance(end, int):
+        if 0 <= start < end <= len(full_text):
+            start_offset = start
+            end_offset = end
+
+    if start_offset is None or end_offset is None:
+        anchored = _find_annotation_range(full_text, quote, used_ranges)
+        if anchored is None:
+            return None
+        start_offset, end_offset = anchored
+
+    annotation_type = str(item.get("type") or "improvement").lower()
+    if annotation_type not in ("risk", "improvement"):
+        annotation_type = "improvement"
+
+    severity = str(item.get("severity") or "medium").lower()
+    if severity not in ("low", "medium", "high"):
+        severity = "medium"
+
+    title = str(item.get("title") or "").strip()
+    reason = str(item.get("reason") or "").strip()
+    suggested_rewrite = str(item.get("suggested_rewrite") or "").strip()
+    if not title or not reason or not suggested_rewrite:
+        return None
+
+    return {
+        "id": f"ann-{idx}",
+        "type": annotation_type,
+        "severity": severity,
+        "start_offset": start_offset,
+        "end_offset": end_offset,
+        "title": title,
+        "reason": reason,
+        "suggested_rewrite": suggested_rewrite,
+    }
+
+
+def _find_annotation_range(
+    full_text: str,
+    quote: str,
+    used_ranges: list[tuple[int, int]],
+) -> tuple[int, int] | None:
+    quote = quote.strip()
+    if not quote:
+        return None
+
+    cursor = 0
+    while True:
+        found = full_text.find(quote, cursor)
+        if found == -1:
+            return None
+        candidate = (found, found + len(quote))
+        if candidate[0] < candidate[1] and not _ranges_overlap(candidate, used_ranges):
+            return candidate
+        cursor = found + 1
+
+
+def _ranges_overlap(candidate: tuple[int, int], existing: list[tuple[int, int]]) -> bool:
+    for start, end in existing:
+        if candidate[0] < end and candidate[1] > start:
+            return True
+    return False
 
 
 def check_contract(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:

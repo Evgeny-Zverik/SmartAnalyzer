@@ -10,6 +10,19 @@ export type DocumentAnalyzerRunResponse = {
     key_points: string[];
     risks: string[];
     important_dates: Array<{ date: string; description: string }>;
+    advanced_editor: {
+      full_text: string;
+      annotations: Array<{
+        id: string;
+        type: "risk" | "improvement";
+        severity: "low" | "medium" | "high";
+        start_offset: number;
+        end_offset: number;
+        title: string;
+        reason: string;
+        suggested_rewrite: string;
+      }>;
+    };
   };
 };
 
@@ -95,7 +108,7 @@ const mockBySlug: Record<string, Record<string, unknown>> = {
   },
 };
 
-export type AnalysisStage = "upload" | "analyze" | "done";
+export type AnalysisStage = "upload" | "analyze" | "review" | "done";
 
 export type ProgressCallback = (stage: AnalysisStage, elapsedSec: number) => void;
 
@@ -117,6 +130,7 @@ export async function runToolAnalysis(
     let result: Record<string, unknown>;
     if (toolSlug === "document-analyzer") {
       const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig);
+      onProgress?.("review", elapsed());
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "contract-checker") {
       const runRes = await runContractChecker(uploadRes.document_id);

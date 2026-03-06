@@ -9,7 +9,8 @@ import { FieldsTable } from "@/components/tools/FieldsTable";
 import { TablesView } from "@/components/tools/TablesView";
 import { JsonActions } from "@/components/tools/JsonActions";
 
-type AnalysisStage = "upload" | "analyze" | "done";
+type AnalysisStage = "upload" | "analyze" | "review" | "done";
+type DocumentViewMode = "summary" | "advanced";
 
 type ResultsPanelProps = {
   status: "idle" | "loading" | "success" | "error";
@@ -19,6 +20,7 @@ type ResultsPanelProps = {
   showUpgradeCta?: boolean;
   stage?: AnalysisStage;
   elapsedSec?: number;
+  documentView?: DocumentViewMode;
 };
 
 const KEY_LABELS: Record<string, string> = {
@@ -241,9 +243,56 @@ function ContractCheckerResultView({
   );
 }
 
+function isDocumentAnalyzerResult(r: Record<string, unknown>): r is {
+  summary: string;
+  key_points: string[];
+  risks: string[];
+  important_dates: Array<{ date: string; description: string }>;
+} {
+  return (
+    typeof r.summary === "string" &&
+    Array.isArray(r.key_points) &&
+    Array.isArray(r.risks) &&
+    Array.isArray(r.important_dates)
+  );
+}
+
+function DocumentAnalyzerSummaryView({
+  result,
+}: {
+  result: {
+    summary: string;
+    key_points: string[];
+    risks: string[];
+    important_dates: Array<{ date: string; description: string }>;
+  };
+}) {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700">Резюме</h3>
+        <div className="mt-2 text-sm text-gray-600">{renderValue(result.summary)}</div>
+      </Card>
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700">Ключевые пункты</h3>
+        <div className="mt-2 text-sm text-gray-600">{renderValue(result.key_points)}</div>
+      </Card>
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700">Риски</h3>
+        <div className="mt-2 text-sm text-gray-600">{renderValue(result.risks)}</div>
+      </Card>
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700">Важные даты</h3>
+        <div className="mt-2 text-sm text-gray-600">{renderValue(result.important_dates)}</div>
+      </Card>
+    </div>
+  );
+}
+
 const STAGE_LABELS: Record<AnalysisStage, string> = {
   upload: "Загрузка файла…",
   analyze: "Анализ документа (LLM)…",
+  review: "Размечаем документ и готовим AI-редактор…",
   done: "Готово",
 };
 
@@ -254,16 +303,32 @@ function formatTime(sec: number): string {
   return `${s} сек`;
 }
 
-function AnalysisProgress({ stage, elapsedSec }: { stage?: AnalysisStage; elapsedSec: number }) {
-  const steps: AnalysisStage[] = ["upload", "analyze", "done"];
+function AnalysisProgress({
+  stage,
+  elapsedSec,
+  toolSlug,
+  documentView = "summary",
+}: {
+  stage?: AnalysisStage;
+  elapsedSec: number;
+  toolSlug?: string;
+  documentView?: DocumentViewMode;
+}) {
+  const steps: AnalysisStage[] = toolSlug === "document-analyzer" ? ["upload", "analyze", "review", "done"] : ["upload", "analyze", "done"];
   const currentIdx = stage ? steps.indexOf(stage) : 0;
+  const currentLabel =
+    toolSlug === "document-analyzer" && documentView === "advanced" && stage === "analyze"
+      ? "Анализируем документ и готовим AI-редактор…"
+      : stage
+        ? STAGE_LABELS[stage]
+        : "Подготовка…";
 
   return (
     <Card>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-gray-700">
-            {stage ? STAGE_LABELS[stage] : "Подготовка…"}
+            {currentLabel}
           </p>
           <span className="text-xs tabular-nums text-gray-500">{formatTime(elapsedSec)}</span>
         </div>
@@ -285,6 +350,7 @@ function AnalysisProgress({ stage, elapsedSec }: { stage?: AnalysisStage; elapse
         <div className="flex justify-between text-xs text-gray-400">
           <span>Загрузка</span>
           <span>Анализ LLM</span>
+          {toolSlug === "document-analyzer" && <span>AI Editor</span>}
         </div>
       </div>
     </Card>
@@ -299,6 +365,7 @@ export function ResultsPanel({
   showUpgradeCta = false,
   stage,
   elapsedSec = 0,
+  documentView = "summary",
 }: ResultsPanelProps) {
   if (status === "idle") {
     return (
@@ -311,7 +378,7 @@ export function ResultsPanel({
   }
 
   if (status === "loading") {
-    return <AnalysisProgress stage={stage} elapsedSec={elapsedSec} />;
+    return <AnalysisProgress stage={stage} elapsedSec={elapsedSec} toolSlug={toolSlug} documentView={documentView} />;
   }
 
   if (status === "error") {
@@ -334,6 +401,9 @@ export function ResultsPanel({
   }
 
   if (status === "success" && result) {
+    if (toolSlug === "document-analyzer" && isDocumentAnalyzerResult(result)) {
+      return <DocumentAnalyzerSummaryView result={result} />;
+    }
     if (toolSlug === "contract-checker" && isContractCheckerResult(result)) {
       return <ContractCheckerResultView result={result} />;
     }

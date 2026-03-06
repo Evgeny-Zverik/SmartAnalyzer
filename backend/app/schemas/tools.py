@@ -8,11 +8,28 @@ class DateItem(BaseModel):
     description: str
 
 
+class DocumentAnnotationItem(BaseModel):
+    id: str
+    type: str
+    severity: str
+    start_offset: int
+    end_offset: int
+    title: str
+    reason: str
+    suggested_rewrite: str
+
+
+class DocumentAdvancedEditorResult(BaseModel):
+    full_text: str
+    annotations: list[DocumentAnnotationItem]
+
+
 class DocumentAnalyzerResult(BaseModel):
     summary: str
     key_points: list[str]
     risks: list[str]
     important_dates: list[DateItem]
+    advanced_editor: DocumentAdvancedEditorResult
 
 
 class RiskyClauseItem(BaseModel):

@@ -15,6 +15,8 @@ from app.schemas.tools import (
     ChecklistItem,
     ContractCheckerRunResponse,
     ContractCheckerResult,
+    DocumentAdvancedEditorResult,
+    DocumentAnnotationItem,
     DataExtractorRunResponse,
     DataExtractorResult,
     DateItem,
@@ -69,6 +71,21 @@ def _stub_document_analyzer(analysis_id: int) -> DocumentAnalyzerRunResponse:
             key_points=["Stub point"],
             risks=[],
             important_dates=[DateItem(date="2026-03-05", description="Stub date")],
+            advanced_editor=DocumentAdvancedEditorResult(
+                full_text="Stub document text.",
+                annotations=[
+                    DocumentAnnotationItem(
+                        id="ann-1",
+                        type="risk",
+                        severity="medium",
+                        start_offset=0,
+                        end_offset=4,
+                        title="Stub annotation",
+                        reason="Stub reason",
+                        suggested_rewrite="Stub rewrite",
+                    )
+                ],
+            ),
         ),
     )
 

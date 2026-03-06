@@ -11,6 +11,7 @@ import { logout } from "@/lib/api/auth";
 import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
+import { AdvancedAiEditor } from "@/components/tools/AdvancedAiEditor";
 import {
   LLMSettingsModal,
   getStoredLLMConfig,
@@ -21,6 +22,7 @@ import {
 import { Button } from "@/components/ui/Button";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
+type DocumentTab = "summary" | "advanced";
 
 function getHelpfulLlmMessage(parsed: { error: string; message: string; details: unknown }): string {
   if (parsed.error === "LLM_UNAVAILABLE") {
@@ -61,6 +63,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [llmModalOpen, setLlmModalOpen] = useState(false);
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -76,6 +79,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setState(f ? "ready" : "idle");
     setResult(null);
     setErrorMessage(null);
+    setDocumentTab("summary");
   }, []);
 
   useEffect(() => {
@@ -100,6 +104,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         setStage(s);
       });
       setResult(data as Record<string, unknown>);
+      if (tool.slug === "document-analyzer") {
+        setDocumentTab("advanced");
+      }
       setState("success");
     } catch (e) {
       if (isUnauthorized(e)) {
@@ -226,15 +233,84 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Results</h2>
-          <ResultsPanel
-            status={state === "idle" || state === "ready" ? "idle" : state}
-            result={result ?? undefined}
-            toolSlug={tool.slug}
-            errorMessage={errorMessage ?? undefined}
-            showUpgradeCta={showUpgradeCta}
-            stage={stage ?? undefined}
-            elapsedSec={elapsedSec}
-          />
+          {tool.slug === "document-analyzer" && state === "success" && result ? (
+            <div className="space-y-5">
+              <div
+                className="inline-flex rounded-2xl border border-gray-200 bg-gray-100 p-1"
+                role="tablist"
+                aria-label="Режим результатов"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={documentTab === "summary"}
+                  onClick={() => setDocumentTab("summary")}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    documentTab === "summary"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Summary
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={documentTab === "advanced"}
+                  onClick={() => setDocumentTab("advanced")}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    documentTab === "advanced"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Advanced AI Editor
+                </button>
+              </div>
+
+              {documentTab === "summary" ? (
+                <ResultsPanel
+                  status="success"
+                  result={result}
+                  toolSlug={tool.slug}
+                  errorMessage={errorMessage ?? undefined}
+                  showUpgradeCta={showUpgradeCta}
+                  stage={stage ?? undefined}
+                  elapsedSec={elapsedSec}
+                  documentView="summary"
+                />
+              ) : (
+                <AdvancedAiEditor
+                  data={
+                    (result.advanced_editor as {
+                      full_text: string;
+                      annotations: Array<{
+                        id: string;
+                        type: "risk" | "improvement";
+                        severity: "low" | "medium" | "high";
+                        start_offset: number;
+                        end_offset: number;
+                        title: string;
+                        reason: string;
+                        suggested_rewrite: string;
+                      }>;
+                    }) ?? { full_text: "", annotations: [] }
+                  }
+                />
+              )}
+            </div>
+          ) : (
+            <ResultsPanel
+              status={state === "idle" || state === "ready" ? "idle" : state}
+              result={result ?? undefined}
+              toolSlug={tool.slug}
+              errorMessage={errorMessage ?? undefined}
+              showUpgradeCta={showUpgradeCta}
+              stage={stage ?? undefined}
+              elapsedSec={elapsedSec}
+              documentView={documentTab}
+            />
+          )}
         </section>
       </div>
     </ToolShell>
