@@ -35,11 +35,12 @@ export async function listDocuments(params: ListDocumentsParams = {}): Promise<D
   return apiFetch<DocumentListResponse>("/api/v1/documents", { params: searchParams });
 }
 
-export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
+export async function uploadDocument(file: File, signal?: AbortSignal): Promise<DocumentUploadResponse> {
   const form = new FormData();
   form.append("file", file);
   return apiFetch<DocumentUploadResponse>("/api/v1/documents/upload", {
     method: "POST",
     body: form,
+    signal,
   });
 }

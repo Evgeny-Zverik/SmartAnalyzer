@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { notFound } from "next/navigation";
 import { FileText, Settings, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
@@ -52,6 +52,12 @@ function getHelpfulLlmMessage(parsed: { error: string; message: string; details:
   return parsed.message;
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
+}
+
 export default function ToolPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const tool = getToolBySlug(params.slug);
@@ -71,6 +77,14 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
   const isIntroCollapsed = !!file && (state === "loading" || state === "success" || state === "error");
+  const analysisAbortRef = useRef<AbortController | null>(null);
+  const actionHint = file
+    ? state === "loading"
+      ? "Идет анализ документа. Можно остановить процесс в любой момент."
+      : state === "success"
+        ? ""
+        : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
+    : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку.";
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -99,6 +113,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
   const handleAnalyze = useCallback(async () => {
     if (!file) return;
+    analysisAbortRef.current?.abort();
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
     setState("loading");
     setStage(null);
     setElapsedSec(0);
@@ -109,13 +126,21 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       const requestLlm = tool.slug === "document-analyzer" ? getLLMConfigForRequest(llmConfig) : undefined;
       const data = await runToolAnalysis(tool.slug, file, requestLlm, (s) => {
         setStage(s);
-      });
+      }, controller.signal);
       setResult(data as Record<string, unknown>);
       if (tool.slug === "document-analyzer") {
         setDocumentTab("advanced");
       }
       setState("success");
     } catch (e) {
+      if (isAbortError(e)) {
+        setState(file ? "ready" : "idle");
+        setStage(null);
+        setElapsedSec(0);
+        setErrorMessage(null);
+        setShowUpgradeCta(false);
+        return;
+      }
       if (isUnauthorized(e)) {
         logout();
         router.replace("/login");
@@ -157,11 +182,45 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       setErrorMessage(message);
       setShowUpgradeCta(limitReached);
       setState("error");
+    } finally {
+      if (analysisAbortRef.current === controller) {
+        analysisAbortRef.current = null;
+      }
     }
   }, [file, tool.slug, router, llmConfig]);
 
+  const handleAbortAnalysis = useCallback(() => {
+    analysisAbortRef.current?.abort();
+    analysisAbortRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      analysisAbortRef.current?.abort();
+    };
+  }, []);
+
   return (
-    <ToolShell tool={tool}>
+    <ToolShell
+      tool={tool}
+      metaAction={
+        file ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              if (state === "loading") {
+                handleAbortAnalysis();
+              }
+              handleFileChange(null);
+            }}
+            className="whitespace-nowrap"
+          >
+            Сменить файл
+          </Button>
+        ) : null
+      }
+    >
       <div className="space-y-8">
         {!isIntroCollapsed && (
           <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
@@ -189,8 +248,8 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
         <div className="sticky top-4 z-30">
           <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
                   <FileText className="h-5 w-5" />
                 </div>
@@ -209,28 +268,19 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 lg:min-w-[430px] lg:items-end">
-                <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                  {file && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => handleFileChange(null)}
-                    >
-                      Сменить файл
-                    </Button>
-                  )}
+              <div className="space-y-3 xl:max-w-[760px] xl:justify-self-end">
+                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
                   {tool.slug === "document-analyzer" && (
-                    <>
+                    <div className="flex flex-wrap items-center gap-3">
                       <div
-                        className="flex rounded-xl border border-gray-300 bg-gray-100 p-0.5"
+                        className="flex shrink-0 rounded-xl border border-gray-300 bg-gray-100 p-0.5"
                         role="group"
                         aria-label="Режим LLM"
                       >
                         <button
                           type="button"
                           onClick={() => setLlmMode("local")}
-                          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                          className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
                             currentMode === "local"
                               ? "bg-white text-gray-900 shadow-sm"
                               : "text-gray-600 hover:text-gray-900"
@@ -241,7 +291,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                         <button
                           type="button"
                           onClick={() => setLlmMode("api")}
-                          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                          className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
                             currentMode === "api"
                               ? "bg-white text-gray-900 shadow-sm"
                               : "text-gray-600 hover:text-gray-900"
@@ -253,35 +303,37 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                       <button
                         type="button"
                         onClick={() => setLlmModalOpen(true)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
                         title="Настройки LLM"
                         aria-label="Настройки LLM"
                       >
                         <Settings className="h-5 w-5" />
                       </button>
-                    </>
+                    </div>
                   )}
                   <Button
                     type="button"
-                    variant="primary"
-                    disabled={!file || state === "loading"}
-                    onClick={handleAnalyze}
-                    className="min-w-[140px]"
+                    variant={state === "success" ? "secondary" : "primary"}
+                    disabled={!file || state === "success"}
+                    onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
+                    className={`shrink-0 whitespace-nowrap ${
+                      state === "success"
+                        ? "min-w-[180px] border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "min-w-[220px]"
+                    }`}
                   >
                     {state === "loading"
-                      ? tool.slug === "data-extractor"
-                        ? "Extracting…"
-                        : "Analyzing…"
-                      : tool.slug === "data-extractor"
-                        ? "Extract"
-                        : "Analyze"}
+                      ? "Остановить анализ"
+                      : state === "success"
+                        ? "Проанализировано"
+                        : tool.slug === "data-extractor"
+                        ? "Запустить извлечение"
+                        : "Запустить анализ"}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 lg:text-right">
-                  {file
-                    ? "Панель закреплена, чтобы можно было быстро перезапустить анализ при скролле."
-                    : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку."}
-                </p>
+                {actionHint ? (
+                  <p className="text-xs text-gray-500 xl:text-right">{actionHint}</p>
+                ) : null}
               </div>
             </div>
           </div>

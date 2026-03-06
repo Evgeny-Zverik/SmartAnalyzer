@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/Badge";
 type ToolShellProps = {
   tool: Tool;
   children: React.ReactNode;
+  metaAction?: React.ReactNode;
 };
 
-export function ToolShell({ tool, children }: ToolShellProps) {
+export function ToolShell({ tool, children, metaAction }: ToolShellProps) {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -63,6 +64,7 @@ export function ToolShell({ tool, children }: ToolShellProps) {
                   </Badge>
                 ))}
               </div>
+              {metaAction ? <div className="ml-2">{metaAction}</div> : null}
             </div>
           </div>
         </section>

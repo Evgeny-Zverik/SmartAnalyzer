@@ -57,7 +57,8 @@ export type LLMConfigRequest = {
 
 export async function runDocumentAnalyzer(
   documentId: number,
-  llmConfig?: LLMConfigRequest | null
+  llmConfig?: LLMConfigRequest | null,
+  signal?: AbortSignal
 ): Promise<DocumentAnalyzerRunResponse> {
   const body: { document_id: number; llm_config?: LLMConfigRequest } = { document_id: documentId };
   if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model)) {
@@ -66,20 +67,23 @@ export async function runDocumentAnalyzer(
   return apiFetch<DocumentAnalyzerRunResponse>("/api/v1/tools/document-analyzer/run", {
     method: "POST",
     body: JSON.stringify(body),
+    signal,
   });
 }
 
-export async function runContractChecker(documentId: number): Promise<ContractCheckerRunResponse> {
+export async function runContractChecker(documentId: number, signal?: AbortSignal): Promise<ContractCheckerRunResponse> {
   return apiFetch<ContractCheckerRunResponse>("/api/v1/tools/contract-checker/run", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
+    signal,
   });
 }
 
-export async function runDataExtractor(documentId: number): Promise<DataExtractorRunResponse> {
+export async function runDataExtractor(documentId: number, signal?: AbortSignal): Promise<DataExtractorRunResponse> {
   return apiFetch<DataExtractorRunResponse>("/api/v1/tools/data-extractor/run", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
+    signal,
   });
 }
 
@@ -116,7 +120,8 @@ export async function runToolAnalysis(
   toolSlug: string,
   file: File,
   llmConfig?: LLMConfigRequest | null,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal
 ): Promise<Record<string, unknown>> {
   const startMs = Date.now();
   const elapsed = () => Math.round((Date.now() - startMs) / 1000);
@@ -124,19 +129,19 @@ export async function runToolAnalysis(
   if (toolSlug === "document-analyzer" || toolSlug === "contract-checker" || toolSlug === "data-extractor") {
     onProgress?.("upload", elapsed());
     const { uploadDocument } = await import("@/lib/api/documents");
-    const uploadRes = await uploadDocument(file);
+    const uploadRes = await uploadDocument(file, signal);
 
     onProgress?.("analyze", elapsed());
     let result: Record<string, unknown>;
     if (toolSlug === "document-analyzer") {
-      const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig);
+      const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig, signal);
       onProgress?.("review", elapsed());
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "contract-checker") {
-      const runRes = await runContractChecker(uploadRes.document_id);
+      const runRes = await runContractChecker(uploadRes.document_id, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else {
-      const runRes = await runDataExtractor(uploadRes.document_id);
+      const runRes = await runDataExtractor(uploadRes.document_id, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     }
     onProgress?.("done", elapsed());
