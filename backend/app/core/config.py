@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = ""
     openai_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: int = 60
+    llm_max_retries: int = 2
 
     class Config:
         env_file = ".env"

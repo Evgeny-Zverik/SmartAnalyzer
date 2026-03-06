@@ -11,10 +11,38 @@ import { logout } from "@/lib/api/auth";
 import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
-import { LLMSettingsModal, getStoredLLMConfig, getLLMConfigForRequest, type LLMConfig } from "@/components/tools/LLMSettingsModal";
+import {
+  LLMSettingsModal,
+  getStoredLLMConfig,
+  getStoredLLMConfigForMode,
+  getLLMConfigForRequest,
+  type LLMConfig,
+} from "@/components/tools/LLMSettingsModal";
 import { Button } from "@/components/ui/Button";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
+
+function getHelpfulLlmMessage(parsed: { error: string; message: string; details: unknown }): string {
+  if (parsed.error === "LLM_UNAVAILABLE") {
+    return parsed.message;
+  }
+  if (parsed.error === "LLM_MODEL_NOT_FOUND") {
+    return parsed.message;
+  }
+  if (parsed.error === "LLM_BAD_BASE_URL") {
+    return parsed.message;
+  }
+  if (parsed.error === "LLM_AUTH_ERROR") {
+    return parsed.message;
+  }
+  if (parsed.error === "CONFIG_ERROR") {
+    return parsed.message;
+  }
+  if (parsed.error === "LLM_ERROR" && parsed.message) {
+    return parsed.message;
+  }
+  return parsed.message;
+}
 
 export default function ToolPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
@@ -36,6 +64,11 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
+  }, []);
+
+  const currentMode = llmConfig?.mode ?? "local";
+  const setLlmMode = useCallback((mode: "local" | "api") => {
+    setLlmConfig(getStoredLLMConfigForMode(mode));
   }, []);
 
   const handleFileChange = useCallback((f: File | null) => {
@@ -90,7 +123,16 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           message = message || "Cannot read text from document.";
         }
       } else if (parsed.status === 500) {
-        if (tool.slug === "contract-checker") {
+        if (
+          parsed.error === "LLM_UNAVAILABLE" ||
+          parsed.error === "LLM_MODEL_NOT_FOUND" ||
+          parsed.error === "LLM_BAD_BASE_URL" ||
+          parsed.error === "LLM_AUTH_ERROR" ||
+          parsed.error === "CONFIG_ERROR" ||
+          parsed.error === "LLM_ERROR"
+        ) {
+          message = getHelpfulLlmMessage(parsed);
+        } else if (tool.slug === "contract-checker") {
           message = message || "Contract analysis failed. Try again.";
         } else if (tool.slug === "data-extractor") {
           message = message || "Data extraction failed. Try again.";
@@ -116,17 +158,47 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           />
         </section>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {tool.slug === "document-analyzer" && (
-            <button
-              type="button"
-              onClick={() => setLlmModalOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
-              title="Настройки LLM"
-              aria-label="Настройки LLM"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
+            <>
+              <div
+                className="flex rounded-lg border border-gray-300 bg-gray-100 p-0.5"
+                role="group"
+                aria-label="Режим LLM"
+              >
+                <button
+                  type="button"
+                  onClick={() => setLlmMode("local")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    currentMode === "local"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Свой сервер
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLlmMode("api")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    currentMode === "api"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  API
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLlmModalOpen(true)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
+                title="Настройки LLM"
+                aria-label="Настройки LLM"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            </>
           )}
           <Button
             type="button"

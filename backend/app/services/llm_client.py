@@ -1,10 +1,65 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
+from app.core.logging import logger
 from app.core.config import settings as app_settings
 from app.utils.errors import raise_error
+
+
+def _is_llm_unavailable_error(e: Exception) -> bool:
+    msg = str(e).lower()
+    return any(
+        s in msg
+        for s in (
+            "connection refused",
+            "connection error",
+            "connecterror",
+            "timed out",
+            "timeout",
+            "name or service not known",
+            "nodename nor servname provided",
+            "temporary failure in name resolution",
+        )
+    )
+
+
+def _summarize_llm_error(e: Exception, opts: dict[str, Any]) -> tuple[str, str]:
+    message = str(e).strip()
+    normalized = message.lower()
+    model = (opts.get("model") or app_settings.openai_model).strip() or "gpt-4o-mini"
+    base_url = (opts.get("base_url") or app_settings.openai_base_url).strip() or ""
+
+    if _is_llm_unavailable_error(e):
+        hint = (
+            f"LLM service is unavailable at {base_url}. "
+            "Start the service (for example, Ollama) or check OPENAI_API_KEY / OPENAI_BASE_URL."
+        ).strip()
+        return "LLM_UNAVAILABLE", hint
+
+    if "404" in normalized and "model" in normalized:
+        return "LLM_MODEL_NOT_FOUND", f"Model '{model}' was not found in the LLM service. Check the selected model name."
+
+    if "model" in normalized and "not found" in normalized:
+        return "LLM_MODEL_NOT_FOUND", f"Model '{model}' was not found in the LLM service. Check the selected model name."
+
+    if "404" in normalized and "/v1" in normalized:
+        return "LLM_BAD_BASE_URL", f"LLM endpoint was not found at {base_url}. Check that Base URL ends with /v1."
+
+    if "unauthorized" in normalized or "invalid api key" in normalized or "incorrect api key" in normalized:
+        return "LLM_AUTH_ERROR", "LLM authorization failed. Check the API key in LLM settings."
+
+    if "rate limit" in normalized or "429" in normalized:
+        return "LLM_RATE_LIMIT", "LLM rate limit exceeded. Retry later or use another model/provider."
+
+    if message:
+        short = message if len(message) <= 240 else f"{message[:237]}..."
+        return "LLM_ERROR", f"LLM request failed: {short}"
+
+    return "LLM_ERROR", "LLM request failed. Check LLM settings and try again."
 
 
 def _build_openai_client(opts: dict[str, Any]) -> tuple:
@@ -30,9 +85,99 @@ def _build_openai_client(opts: dict[str, Any]) -> tuple:
 
     client_kwargs: dict[str, Any] = {"api_key": api_key}
     if base_url:
-        client_kwargs["base_url"] = base_url.rstrip("/")
+        client_kwargs["base_url"] = _normalize_openai_base_url(base_url)
 
     return OpenAI(**client_kwargs), model
+
+
+def _normalize_openai_base_url(base_url: str) -> str:
+    normalized = base_url.strip().rstrip("/")
+    if not normalized:
+        return normalized
+
+    parsed = urlsplit(normalized)
+    path = parsed.path.rstrip("/")
+    if not path:
+        path = "/v1"
+    elif not path.endswith("/v1"):
+        path = f"{path}/v1"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
+
+
+def _extract_message_content(response: Any) -> str | None:
+    choices = getattr(response, "choices", None)
+    if isinstance(choices, list) and choices:
+        first = choices[0]
+        message = getattr(first, "message", None)
+        if message is not None:
+            content = getattr(message, "content", None)
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+        text = getattr(first, "text", None)
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+
+    # Some OpenAI-compatible backends expose a plain dict-like payload.
+    if hasattr(response, "model_dump"):
+        payload = response.model_dump()
+    elif isinstance(response, dict):
+        payload = response
+    else:
+        payload = None
+
+    if isinstance(payload, dict):
+        raw_choices = payload.get("choices")
+        if isinstance(raw_choices, list) and raw_choices:
+            first = raw_choices[0]
+            if isinstance(first, dict):
+                message = first.get("message")
+                if isinstance(message, dict):
+                    content = message.get("content")
+                    if isinstance(content, str) and content.strip():
+                        return content.strip()
+                text = first.get("text")
+                if isinstance(text, str) and text.strip():
+                    return text.strip()
+
+    return None
+
+
+def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any], operation: str) -> str:
+    attempts = max(1, int(opts.get("max_retries") or app_settings.llm_max_retries))
+    timeout = max(1, int(opts.get("timeout") or app_settings.llm_timeout_seconds))
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            request_kwargs: dict[str, Any] = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+                "timeout": timeout,
+            }
+            response = client.chat.completions.create(**request_kwargs)
+            content = _extract_message_content(response)
+            if not content:
+                raise_error(500, "LLM_ERROR", "Empty response from analysis service.", {})
+            return content
+        except Exception as e:
+            last_error = e
+            retryable = _is_llm_unavailable_error(e)
+            logger.warning(
+                "LLM %s attempt %s/%s failed: %s",
+                operation,
+                attempt,
+                attempts,
+                str(e),
+            )
+            if not retryable or attempt >= attempts:
+                break
+            time.sleep(min(attempt, 2))
+
+    assert last_error is not None
+    error_code, hint = _summarize_llm_error(last_error, opts)
+    status_code = 503 if error_code == "LLM_UNAVAILABLE" else 500
+    raise_error(status_code, error_code, hint, {"detail": str(last_error), "operation": operation})
 
 
 def analyze_document(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -53,20 +198,7 @@ Document text:
 {text[:50000]}
 ---"""
 
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            timeout=60,
-        )
-    except Exception as e:
-        raise_error(500, "LLM_ERROR", "Analysis failed. Try again.", {"detail": str(e)})
-
-    content = response.choices[0].message.content
-    if not content:
-        raise_error(500, "LLM_ERROR", "Empty response from analysis service.", {})
+    content = _create_completion(client, model, prompt, opts, "analysis")
 
     try:
         data = json.loads(content)
@@ -127,20 +259,7 @@ Contract text:
 {text[:50000]}
 ---"""
 
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            timeout=60,
-        )
-    except Exception as e:
-        raise_error(500, "LLM_ERROR", "Contract analysis failed. Try again.", {"detail": str(e)})
-
-    content = response.choices[0].message.content
-    if not content:
-        raise_error(500, "LLM_ERROR", "Empty response from analysis service.", {})
+    content = _create_completion(client, model, prompt, opts, "contract analysis")
 
     try:
         data = json.loads(content)
@@ -231,20 +350,7 @@ Document text:
 {text[:50000]}
 ---"""
 
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            timeout=60,
-        )
-    except Exception as e:
-        raise_error(500, "LLM_ERROR", "Data extraction failed. Try again.", {"detail": str(e)})
-
-    content = response.choices[0].message.content
-    if not content:
-        raise_error(500, "LLM_ERROR", "Empty response from extraction service.", {})
+    content = _create_completion(client, model, prompt, opts, "data extraction")
 
     try:
         data = json.loads(content)

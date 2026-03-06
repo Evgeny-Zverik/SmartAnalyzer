@@ -1,8 +1,7 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.db.base import Base
 
 _kwargs = {}
 if settings.database_url:
@@ -15,14 +14,15 @@ engine = create_engine(settings.database_url, **_kwargs) if settings.database_ur
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) if engine else None
 
 
-def ensure_tables() -> None:
+def check_database_connection() -> bool:
     if engine is None:
-        return
-    import app.models.user  # noqa: F401
-    import app.models.document  # noqa: F401
-    import app.models.document_analysis  # noqa: F401
-    import app.models.usage_log  # noqa: F401
-    Base.metadata.create_all(bind=engine)
+        return False
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
 
 
 def get_db():

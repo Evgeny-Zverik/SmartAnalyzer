@@ -4,6 +4,8 @@ from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.logging import logger
+
 
 def raise_error(status_code: int, error: str, message: str, details: dict | None = None) -> None:
     raise ApiError(status_code=status_code, error=error, message=message, details=details or {})
@@ -67,6 +69,7 @@ def validation_exception_handler(request: Request, exc: RequestValidationError) 
 
 
 def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path, exc_info=exc)
     return _error_response(
         500,
         "INTERNAL_ERROR",

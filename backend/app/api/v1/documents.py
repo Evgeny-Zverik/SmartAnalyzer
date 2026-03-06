@@ -16,6 +16,7 @@ from app.schemas.document import DocumentListItem, DocumentListResponse, Documen
 router = APIRouter()
 
 ALLOWED_MIME = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=201)
@@ -26,16 +27,26 @@ def upload(
 ):
     if file.content_type and file.content_type not in ALLOWED_MIME:
         raise_error(400, "BAD_REQUEST", "Unsupported file type. Use PDF, DOCX or XLSX.", {"mime_type": file.content_type})
-    content = file.file.read()
+    ext = Path(file.filename or "file").suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise_error(400, "BAD_REQUEST", "Unsupported file extension. Use .pdf, .docx or .xlsx.", {"filename": file.filename or "file"})
+    try:
+        content = file.file.read()
+    except Exception as e:
+        raise_error(400, "BAD_REQUEST", "Cannot read uploaded file.", {"detail": str(e)})
     size_bytes = len(content)
+    if size_bytes == 0:
+        raise_error(400, "BAD_REQUEST", "Uploaded file is empty.", {})
     if size_bytes > settings.max_upload_bytes:
         raise_error(413, "PAYLOAD_TOO_LARGE", "File too large. Maximum size 20 MB.", {"max_bytes": settings.max_upload_bytes})
-    ext = Path(file.filename or "file").suffix
     safe_name = f"{current_user.id}_{uuid.uuid4().hex}{ext}"
     storage_path = os.path.join(settings.storage_path, safe_name)
     Path(settings.storage_path).mkdir(parents=True, exist_ok=True)
-    with open(storage_path, "wb") as f:
-        f.write(content)
+    try:
+        with open(storage_path, "wb") as f:
+            f.write(content)
+    except OSError as e:
+        raise_error(500, "STORAGE_ERROR", "Cannot save uploaded file.", {"detail": str(e)})
     doc = Document(
         user_id=current_user.id,
         filename=file.filename or "file",

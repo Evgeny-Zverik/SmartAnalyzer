@@ -63,6 +63,7 @@ docker compose up --build
 - **Frontend:** http://localhost:3000  
 - **Backend:** http://localhost:8000  
 - **Health:** http://localhost:8000/health  
+- В `docker compose` для разработки включён auto-reload: изменения в `backend/` и `frontend/` должны подхватываться без ручного рестарта контейнеров.
 
 ### Локально без Docker
 

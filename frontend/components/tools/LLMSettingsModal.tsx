@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -13,42 +13,97 @@ export type LLMConfig = {
   model: string;
 };
 
-const DEFAULT_LOCAL: LLMConfig = {
+export const DEFAULT_LOCAL: LLMConfig = {
   mode: "local",
   base_url: "http://localhost:11434/v1",
   api_key: "ollama",
   model: "llama3.2",
 };
 
-const DEFAULT_API: LLMConfig = {
+export const DEFAULT_API: LLMConfig = {
   mode: "api",
   base_url: "https://api.openai.com/v1",
   api_key: "",
   model: "gpt-4o-mini",
 };
 
-function loadStored(): LLMConfig | null {
-  if (typeof window === "undefined") return null;
+type StoredLLMConfig = {
+  selectedMode: "local" | "api";
+  local: LLMConfig;
+  api: LLMConfig;
+};
+
+function getDefaultConfig(mode: "local" | "api"): LLMConfig {
+  return mode === "local" ? { ...DEFAULT_LOCAL } : { ...DEFAULT_API };
+}
+
+function normalizeConfig(mode: "local" | "api", value: unknown): LLMConfig {
+  const source = value && typeof value === "object" ? (value as Partial<LLMConfig>) : {};
+  const fallback = getDefaultConfig(mode);
+  return {
+    mode,
+    base_url: typeof source.base_url === "string" ? source.base_url : fallback.base_url,
+    api_key: typeof source.api_key === "string" ? source.api_key : fallback.api_key,
+    model: typeof source.model === "string" ? source.model : fallback.model,
+  };
+}
+
+function loadStoredState(): StoredLLMConfig {
+  const fallback: StoredLLMConfig = {
+    selectedMode: "local",
+    local: { ...DEFAULT_LOCAL },
+    api: { ...DEFAULT_API },
+  };
+  if (typeof window === "undefined") return fallback;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as LLMConfig;
-    if (parsed.mode && (parsed.mode === "local" || parsed.mode === "api")) {
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<StoredLLMConfig & LLMConfig>;
+
+    if ("selectedMode" in parsed || "local" in parsed || "api" in parsed) {
+      const selectedMode = parsed.selectedMode === "api" ? "api" : "local";
       return {
-        mode: parsed.mode,
-        base_url: typeof parsed.base_url === "string" ? parsed.base_url : "",
-        api_key: typeof parsed.api_key === "string" ? parsed.api_key : "",
-        model: typeof parsed.model === "string" ? parsed.model : "",
+        selectedMode,
+        local: normalizeConfig("local", parsed.local),
+        api: normalizeConfig("api", parsed.api),
+      };
+    }
+
+    if (parsed.mode && (parsed.mode === "local" || parsed.mode === "api")) {
+      const selectedMode = parsed.mode;
+      const current = normalizeConfig(selectedMode, parsed);
+      return {
+        selectedMode,
+        local: selectedMode === "local" ? current : { ...DEFAULT_LOCAL },
+        api: selectedMode === "api" ? current : { ...DEFAULT_API },
       };
     }
   } catch {
-    return null;
+    return fallback;
   }
-  return null;
+  return fallback;
+}
+
+function saveStoredConfig(config: LLMConfig): void {
+  if (typeof window === "undefined") return;
+  const state = loadStoredState();
+  const next: StoredLLMConfig = {
+    ...state,
+    selectedMode: config.mode,
+    local: config.mode === "local" ? config : state.local,
+    api: config.mode === "api" ? config : state.api,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
 
 export function getStoredLLMConfig(): LLMConfig | null {
-  return loadStored();
+  const state = loadStoredState();
+  return state.selectedMode === "api" ? state.api : state.local;
+}
+
+export function getStoredLLMConfigForMode(mode: "local" | "api"): LLMConfig {
+  const state = loadStoredState();
+  return mode === "api" ? state.api : state.local;
 }
 
 export function getLLMConfigForRequest(config: LLMConfig | null): { base_url?: string; api_key?: string; model?: string } | null {
@@ -68,40 +123,48 @@ type LLMSettingsModalProps = {
 };
 
 export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLMSettingsModalProps) {
-  const stored = loadStored();
-  const [activeTab, setActiveTab] = useState<"local" | "api">(initialConfig?.mode ?? stored?.mode ?? "local");
-  const [baseUrl, setBaseUrl] = useState(initialConfig?.base_url ?? stored?.base_url ?? DEFAULT_LOCAL.base_url);
-  const [apiKey, setApiKey] = useState(initialConfig?.api_key ?? stored?.api_key ?? "");
-  const [model, setModel] = useState(initialConfig?.model ?? stored?.model ?? DEFAULT_LOCAL.model);
+  const [activeTab, setActiveTab] = useState<"local" | "api">("local");
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_LOCAL.base_url);
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState(DEFAULT_LOCAL.model);
+  const openedRef = useRef(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      openedRef.current = false;
+      return;
+    }
+    if (openedRef.current) return;
+    openedRef.current = true;
+    const stored = getStoredLLMConfig();
     const c = initialConfig ?? stored;
     if (c) {
       setActiveTab(c.mode);
-      setBaseUrl(c.base_url);
-      setApiKey(c.api_key);
-      setModel(c.model);
+      setBaseUrl(c.base_url ?? "");
+      setApiKey(c.api_key ?? "");
+      setModel(c.model ?? "");
     } else {
       setActiveTab("local");
       setBaseUrl(DEFAULT_LOCAL.base_url);
       setApiKey(DEFAULT_LOCAL.api_key);
       setModel(DEFAULT_LOCAL.model);
     }
-  }, [isOpen, initialConfig, stored]);
+  }, [isOpen]);
 
   function handleTabLocal() {
+    const next = getStoredLLMConfigForMode("local");
     setActiveTab("local");
-    setBaseUrl(DEFAULT_LOCAL.base_url);
-    setApiKey(DEFAULT_LOCAL.api_key);
-    setModel(DEFAULT_LOCAL.model);
+    setBaseUrl(next.base_url);
+    setApiKey(next.api_key);
+    setModel(next.model);
   }
 
   function handleTabApi() {
+    const next = getStoredLLMConfigForMode("api");
     setActiveTab("api");
-    setBaseUrl(DEFAULT_API.base_url);
-    setApiKey(DEFAULT_API.api_key);
-    setModel(DEFAULT_API.model);
+    setBaseUrl(next.base_url);
+    setApiKey(next.api_key);
+    setModel(next.model);
   }
 
   function handleSave() {
@@ -112,7 +175,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
       model: model.trim(),
     };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      saveStoredConfig(config);
     } catch {
       //
     }
@@ -184,7 +247,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
                 placeholder="llama3.2"
               />
               <p className="text-xs text-gray-500">
-                Для Ollama оставьте API key пустым или «ollama». Укажите URL и имя модели.
+                Укажите адрес OpenAI-совместимого сервера и имя модели. Для локальных или домашних серверов API key можно оставить пустым, если он не требуется.
               </p>
             </>
           )}
