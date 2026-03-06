@@ -136,15 +136,28 @@ class LlmConfigOptional(BaseModel):
     model: str | None = None
 
 
+class EditedDocumentPayload(BaseModel):
+    full_text: str
+    rich_content: dict[str, Any] | None = None
+    source_format: str | None = None
+
+
 class ToolRunRequest(BaseModel):
     document_id: int
     llm_config: LlmConfigOptional | None = None
+    edited_document: EditedDocumentPayload | None = None
 
 
 class DocumentAnalyzerRunResponse(BaseModel):
     analysis_id: int
     tool_slug: str
     result: DocumentAnalyzerResult
+
+
+class DocumentAnalyzerPrepareResponse(BaseModel):
+    document_id: int
+    tool_slug: str
+    advanced_editor: DocumentAdvancedEditorResult
 
 
 class ContractCheckerRunResponse(BaseModel):

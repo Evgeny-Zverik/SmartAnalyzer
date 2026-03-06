@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -9,7 +12,12 @@ from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
-from app.services.llm_client import analyze_document, check_contract, extract_structured_data
+from app.services.llm_client import (
+    analyze_document,
+    check_contract,
+    extract_structured_data,
+    stream_document_analysis_events,
+)
 from app.utils.errors import raise_error
 from app.schemas.tools import (
     ChecklistItem,
@@ -21,6 +29,7 @@ from app.schemas.tools import (
     DataExtractorResult,
     DateItem,
     DocumentAnalyzerRunResponse,
+    DocumentAnalyzerPrepareResponse,
     DocumentAnalyzerResult,
     FieldItem,
     ObligationItem,
@@ -146,6 +155,26 @@ def _stub_risk_analyzer(analysis_id: int) -> RiskAnalyzerRunResponse:
     )
 
 
+@router.post("/document-analyzer/prepare", response_model=DocumentAnalyzerPrepareResponse)
+def prepare_document_analyzer(
+    body: ToolRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
+    return DocumentAnalyzerPrepareResponse(
+        document_id=doc.id,
+        tool_slug="document-analyzer",
+        advanced_editor=DocumentAdvancedEditorResult(
+            full_text=editor_payload["full_text"],
+            annotations=[],
+            rich_content=editor_payload.get("rich_content"),
+            source_format=editor_payload.get("source_format"),
+        ),
+    )
+
+
 @router.post("/document-analyzer/run", response_model=DocumentAnalyzerRunResponse)
 def run_document_analyzer(
     body: ToolRunRequest,
@@ -154,7 +183,14 @@ def run_document_analyzer(
 ):
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
-    editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
+    if body.edited_document and body.edited_document.full_text.strip():
+        editor_payload = {
+            "full_text": body.edited_document.full_text,
+            "rich_content": body.edited_document.rich_content,
+            "source_format": body.edited_document.source_format or "edited_document",
+        }
+    else:
+        editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
     raw_result = analyze_document(text, overrides=overrides)
@@ -171,6 +207,68 @@ def run_document_analyzer(
     )
     log_run(db, current_user.id, "document-analyzer")
     return DocumentAnalyzerRunResponse(analysis_id=analysis_id, tool_slug="document-analyzer", result=result)
+
+
+@router.post("/document-analyzer/stream")
+def stream_document_analyzer(
+    body: ToolRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    assert_can_run(db, current_user, "document-analyzer")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    if body.edited_document and body.edited_document.full_text.strip():
+        editor_payload = {
+            "full_text": body.edited_document.full_text,
+            "rich_content": body.edited_document.rich_content,
+            "source_format": body.edited_document.source_format or "edited_document",
+        }
+    else:
+        editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
+    text = editor_payload["full_text"]
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+
+    def event_stream():
+        final_result: DocumentAnalyzerResult | None = None
+        try:
+            for event in stream_document_analysis_events(text, overrides=overrides):
+                if event.get("type") == "final":
+                    raw_result = event.get("result") or {}
+                    raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
+                    if isinstance(raw_advanced, dict):
+                        raw_advanced["rich_content"] = editor_payload.get("rich_content")
+                        raw_advanced["source_format"] = editor_payload.get("source_format")
+                    final_result = DocumentAnalyzerResult.model_validate(raw_result)
+                    analysis_id = _save_analysis(
+                        db,
+                        current_user.id,
+                        body.document_id,
+                        "document-analyzer",
+                        final_result.model_dump(),
+                    )
+                    log_run(db, current_user.id, "document-analyzer")
+                    payload = {
+                        "type": "final",
+                        "analysis_id": analysis_id,
+                        "tool_slug": "document-analyzer",
+                        "result": final_result.model_dump(),
+                    }
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                    continue
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            payload = {"type": "error", "message": str(e)}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/contract-checker/run", response_model=ContractCheckerRunResponse)

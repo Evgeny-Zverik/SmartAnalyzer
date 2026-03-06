@@ -1,6 +1,34 @@
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
+import { getToken } from "@/lib/auth/token";
 
 const MOCK_DELAY_MS = 1500;
+const configuredBaseURL =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) ||
+  "http://localhost:8000";
+
+function getBaseURL(): string {
+  if (typeof window === "undefined") {
+    return configuredBaseURL;
+  }
+
+  const currentHost = window.location.hostname;
+  const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
+
+  try {
+    const url = new URL(configuredBaseURL);
+    const apiHost = url.hostname;
+    const apiIsLocalHost = apiHost === "localhost" || apiHost === "127.0.0.1";
+
+    if (!isLocalHost && apiIsLocalHost) {
+      url.hostname = currentHost;
+      return url.toString().replace(/\/$/, "");
+    }
+
+    return configuredBaseURL;
+  } catch {
+    return configuredBaseURL;
+  }
+}
 
 export type DocumentAnalyzerRunResponse = {
   analysis_id: number;
@@ -26,6 +54,27 @@ export type DocumentAnalyzerRunResponse = {
         suggested_rewrite: string;
       }>;
     };
+  };
+};
+
+export type DocumentAnalyzerPrepareResponse = {
+  document_id: number;
+  tool_slug: string;
+  advanced_editor: {
+    full_text: string;
+    rich_content?: Record<string, unknown> | null;
+    source_format?: string | null;
+    annotations: Array<{
+      id: string;
+      type: "risk" | "improvement";
+      severity: "low" | "medium" | "high";
+      start_offset: number;
+      end_offset: number;
+      exact_quote: string;
+      title: string;
+      reason: string;
+      suggested_rewrite: string;
+    }>;
   };
 };
 
@@ -58,18 +107,43 @@ export type LLMConfigRequest = {
   model?: string;
 };
 
+export type EditedDocumentRequest = {
+  full_text: string;
+  rich_content?: Record<string, unknown> | null;
+  source_format?: string | null;
+};
+
 export async function runDocumentAnalyzer(
   documentId: number,
   llmConfig?: LLMConfigRequest | null,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  editedDocument?: EditedDocumentRequest | null
 ): Promise<DocumentAnalyzerRunResponse> {
-  const body: { document_id: number; llm_config?: LLMConfigRequest } = { document_id: documentId };
+  const body: {
+    document_id: number;
+    llm_config?: LLMConfigRequest;
+    edited_document?: EditedDocumentRequest;
+  } = { document_id: documentId };
   if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model)) {
     body.llm_config = llmConfig;
+  }
+  if (editedDocument?.full_text?.trim()) {
+    body.edited_document = editedDocument;
   }
   return apiFetch<DocumentAnalyzerRunResponse>("/api/v1/tools/document-analyzer/run", {
     method: "POST",
     body: JSON.stringify(body),
+    signal,
+  });
+}
+
+export async function prepareDocumentAnalyzer(
+  documentId: number,
+  signal?: AbortSignal
+): Promise<DocumentAnalyzerPrepareResponse> {
+  return apiFetch<DocumentAnalyzerPrepareResponse>("/api/v1/tools/document-analyzer/prepare", {
+    method: "POST",
+    body: JSON.stringify({ document_id: documentId }),
     signal,
   });
 }
@@ -119,43 +193,169 @@ export type AnalysisStage = "upload" | "analyze" | "review" | "done";
 
 export type ProgressCallback = (stage: AnalysisStage, elapsedSec: number) => void;
 
+export type ToolAnalysisResult = {
+  result: Record<string, unknown>;
+  documentId?: number;
+};
+
+export type DocumentAnalyzerStreamEvent =
+  | {
+      type: "progress";
+      stage: "analyze" | "review";
+      message: string;
+      current: number;
+      total: number;
+    }
+  | {
+      type: "annotations_batch";
+      annotations: DocumentAnalyzerRunResponse["result"]["advanced_editor"]["annotations"];
+      current: number;
+      total: number;
+    }
+  | {
+      type: "final";
+      analysis_id: number;
+      tool_slug: string;
+      result: DocumentAnalyzerRunResponse["result"];
+    }
+  | {
+      type: "error";
+      message: string;
+    };
+
+export async function streamDocumentAnalyzer(
+  documentId: number,
+  llmConfig: LLMConfigRequest | null | undefined,
+  signal: AbortSignal | undefined,
+  editedDocument: EditedDocumentRequest | null | undefined,
+  onEvent: (event: DocumentAnalyzerStreamEvent) => void
+): Promise<void> {
+  const url = new URL(`${getBaseURL()}/api/v1/tools/document-analyzer/stream`);
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const token = getToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const body: {
+    document_id: number;
+    llm_config?: LLMConfigRequest;
+    edited_document?: EditedDocumentRequest;
+  } = { document_id: documentId };
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model)) {
+    body.llm_config = llmConfig;
+  }
+  if (editedDocument?.full_text?.trim()) {
+    body.edited_document = editedDocument;
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text) as {
+        error?: string;
+        message?: string;
+        detail?: string | unknown;
+        details?: unknown;
+      };
+      const message =
+        data.message ??
+        (typeof data.detail === "string" ? data.detail : undefined) ??
+        `API error ${response.status}`;
+      throw new ApiError(response.status, data.error, message, data.details ?? data.detail);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new Error(text || `Request failed: ${response.status}`);
+    }
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming response body is not available.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+
+    for (const chunk of chunks) {
+      const lines = chunk
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const dataLine = lines.find((line) => line.startsWith("data:"));
+      if (!dataLine) continue;
+      const raw = dataLine.slice(5).trim();
+      if (!raw) continue;
+      const event = JSON.parse(raw) as DocumentAnalyzerStreamEvent;
+      onEvent(event);
+    }
+  }
+}
+
 export async function runToolAnalysis(
   toolSlug: string,
   file: File,
   llmConfig?: LLMConfigRequest | null,
   onProgress?: ProgressCallback,
-  signal?: AbortSignal
-): Promise<Record<string, unknown>> {
+  signal?: AbortSignal,
+  options?: {
+    existingDocumentId?: number | null;
+    editedDocument?: EditedDocumentRequest | null;
+  }
+): Promise<ToolAnalysisResult> {
   const startMs = Date.now();
   const elapsed = () => Math.round((Date.now() - startMs) / 1000);
 
   if (toolSlug === "document-analyzer" || toolSlug === "contract-checker" || toolSlug === "data-extractor") {
-    onProgress?.("upload", elapsed());
-    const { uploadDocument } = await import("@/lib/api/documents");
-    const uploadRes = await uploadDocument(file, signal);
+    let documentId = options?.existingDocumentId ?? null;
+    if (!documentId) {
+      onProgress?.("upload", elapsed());
+      const { uploadDocument } = await import("@/lib/api/documents");
+      const uploadRes = await uploadDocument(file, signal);
+      documentId = uploadRes.document_id;
+    }
 
     onProgress?.("analyze", elapsed());
     let result: Record<string, unknown>;
     if (toolSlug === "document-analyzer") {
-      const runRes = await runDocumentAnalyzer(uploadRes.document_id, llmConfig, signal);
+      const runRes = await runDocumentAnalyzer(
+        documentId,
+        llmConfig,
+        signal,
+        options?.editedDocument
+      );
       onProgress?.("review", elapsed());
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "contract-checker") {
-      const runRes = await runContractChecker(uploadRes.document_id, signal);
+      const runRes = await runContractChecker(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else {
-      const runRes = await runDataExtractor(uploadRes.document_id, signal);
+      const runRes = await runDataExtractor(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     }
     onProgress?.("done", elapsed());
-    return result;
+    return { result, documentId };
   }
   onProgress?.("analyze", elapsed());
   await new Promise((r) => setTimeout(r, MOCK_DELAY_MS));
   const data = mockBySlug[toolSlug];
   onProgress?.("done", elapsed());
   if (data) {
-    return data;
+    return { result: data };
   }
-  return { message: "Mock result", toolSlug };
+  return { result: { message: "Mock result", toolSlug } };
 }

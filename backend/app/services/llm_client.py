@@ -252,6 +252,223 @@ Document text:
     return data
 
 
+def stream_document_analysis_events(text: str, overrides: dict[str, Any] | None = None):
+    opts = overrides or {}
+    client, model = _build_openai_client(opts)
+    analysis_text = text[:50000]
+    chunks = _split_document_for_streaming(analysis_text)
+    aggregated_annotations: list[dict[str, Any]] = []
+    aggregated_key_points: list[str] = []
+    aggregated_risks: list[str] = []
+    aggregated_dates: list[dict[str, str]] = []
+    used_ranges: list[tuple[int, int]] = []
+
+    yield {
+        "type": "progress",
+        "stage": "analyze",
+        "message": "Запускаем поэтапный AI-анализ документа.",
+        "current": 0,
+        "total": len(chunks),
+    }
+
+    for index, chunk in enumerate(chunks, start=1):
+        yield {
+            "type": "progress",
+            "stage": "analyze",
+            "message": f"Анализируем часть {index} из {len(chunks)}.",
+            "current": index,
+            "total": len(chunks),
+        }
+        chunk_payload = _analyze_document_chunk(client, model, chunk, opts, index, len(chunks), analysis_text)
+        batch_annotations = _normalize_advanced_editor_for_stream(
+            chunk_payload.get("annotations"),
+            analysis_text,
+            len(aggregated_annotations) + 1,
+            used_ranges,
+        )
+        if batch_annotations:
+            aggregated_annotations.extend(batch_annotations)
+            used_ranges.extend((item["start_offset"], item["end_offset"]) for item in batch_annotations)
+            for batch_start in range(0, len(batch_annotations), 2):
+                yield {
+                    "type": "annotations_batch",
+                    "annotations": batch_annotations[batch_start:batch_start + 2],
+                    "current": index,
+                    "total": len(chunks),
+                }
+
+        aggregated_key_points = _merge_unique_strings(
+            aggregated_key_points,
+            [str(item) for item in chunk_payload.get("key_points", []) if str(item).strip()],
+            10,
+        )
+        aggregated_risks = _merge_unique_strings(
+            aggregated_risks,
+            [str(item) for item in chunk_payload.get("risks", []) if str(item).strip()],
+            10,
+        )
+        aggregated_dates = _merge_unique_dates(
+            aggregated_dates,
+            chunk_payload.get("important_dates", []),
+            10,
+        )
+
+    yield {
+        "type": "progress",
+        "stage": "review",
+        "message": "Делаем финальный полный проход по документу.",
+        "current": len(chunks),
+        "total": len(chunks),
+    }
+
+    final_result = analyze_document(analysis_text, overrides=opts)
+    yield {"type": "final", "result": final_result}
+
+
+def _split_document_for_streaming(text: str, chunk_size: int = 4000, overlap: int = 250) -> list[str]:
+    source = text.strip()
+    if not source:
+        return [""]
+
+    chunks: list[str] = []
+    cursor = 0
+    text_len = len(source)
+
+    while cursor < text_len:
+        target_end = min(text_len, cursor + chunk_size)
+        end = target_end
+        if end < text_len:
+            for separator in ("\n\n", "\n", ". ", "; ", ", "):
+                found = source.rfind(separator, cursor + max(1000, chunk_size // 2), target_end)
+                if found != -1:
+                    end = found + len(separator)
+                    break
+        if end <= cursor:
+            end = min(text_len, cursor + chunk_size)
+
+        chunk = source[cursor:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end >= text_len:
+            break
+        cursor = max(end - overlap, cursor + 1)
+
+    return chunks or [source[:chunk_size]]
+
+
+def _analyze_document_chunk(
+    client: Any,
+    model: str,
+    chunk_text: str,
+    opts: dict[str, Any],
+    index: int,
+    total: int,
+    full_text: str,
+) -> dict[str, Any]:
+    prompt = f"""Analyze part {index} of {total} of the document and return a JSON object with exactly these keys:
+- "key_points": array of 0 to 3 strings
+- "risks": array of 0 to 3 strings
+- "important_dates": array of 0 to 3 objects, each with "date" (YYYY-MM-DD) and "description" (string)
+- "annotations": array of 0 to 3 objects
+
+Each annotation object must contain:
+- "type": exactly one of "risk" or "improvement"
+- "severity": exactly one of "low", "medium", "high"
+- "title": short label
+- "reason": short explanation
+- "suggested_rewrite": concise replacement wording in the same language as the document
+- "exact_quote": exact substring copied verbatim from this chunk
+
+IMPORTANT: Respond in the same language as the document.
+IMPORTANT: "exact_quote" must be copied character-for-character from the chunk text.
+IMPORTANT: Use only findings that are grounded in the provided chunk text.
+
+Chunk text:
+---
+{chunk_text}
+---"""
+    content = _create_completion(client, model, prompt, opts, f"analysis chunk {index}/{total}")
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
+    if not isinstance(data, dict):
+        raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
+    key_points = data.get("key_points")
+    risks = data.get("risks")
+    dates = data.get("important_dates")
+    annotations = data.get("annotations")
+    return {
+        "key_points": [str(item) for item in key_points[:3]] if isinstance(key_points, list) else [],
+        "risks": [str(item) for item in risks[:3]] if isinstance(risks, list) else [],
+        "important_dates": [
+            {"date": str(item.get("date", ""))[:10], "description": str(item.get("description", ""))}
+            for item in dates[:3]
+            if isinstance(item, dict)
+        ] if isinstance(dates, list) else [],
+        "annotations": annotations if isinstance(annotations, list) else [],
+    }
+
+
+def _normalize_advanced_editor_for_stream(
+    annotations_raw: Any,
+    full_text: str,
+    start_idx: int,
+    used_ranges: list[tuple[int, int]],
+) -> list[dict[str, Any]]:
+    if not isinstance(annotations_raw, list):
+        return []
+    annotations: list[dict[str, Any]] = []
+    next_idx = start_idx
+    local_used_ranges = list(used_ranges)
+    for item in annotations_raw:
+        normalized = _normalize_document_annotation(item, full_text, next_idx, local_used_ranges)
+        if normalized is None:
+            continue
+        annotations.append(normalized)
+        local_used_ranges.append((normalized["start_offset"], normalized["end_offset"]))
+        next_idx += 1
+        if len(annotations) >= 3:
+            break
+    return annotations
+
+
+def _merge_unique_strings(existing: list[str], incoming: list[str], limit: int) -> list[str]:
+    out = list(existing)
+    normalized = {item.strip().lower() for item in out if item.strip()}
+    for item in incoming:
+        key = item.strip().lower()
+        if not key or key in normalized:
+            continue
+        out.append(item)
+        normalized.add(key)
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
+def _merge_unique_dates(
+    existing: list[dict[str, str]],
+    incoming: list[dict[str, str]],
+    limit: int,
+) -> list[dict[str, str]]:
+    out = list(existing)
+    seen = {(item.get("date", ""), item.get("description", "").strip().lower()) for item in out}
+    for item in incoming:
+        if not isinstance(item, dict):
+            continue
+        date = str(item.get("date") or "")[:10]
+        description = str(item.get("description") or "").strip()
+        key = (date, description.lower())
+        if (not date and not description) or key in seen:
+            continue
+        out.append({"date": date, "description": description})
+        seen.add(key)
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
 def _normalize_advanced_editor(raw: Any, full_text: str) -> dict[str, Any]:
     if not isinstance(full_text, str):
         full_text = str(full_text or "")
@@ -292,12 +509,17 @@ def _normalize_document_annotation(
         if 0 <= start < end <= len(full_text):
             start_offset = start
             end_offset = end
+            if quote and full_text[start_offset:end_offset] != quote:
+                start_offset = None
+                end_offset = None
 
     if start_offset is None or end_offset is None:
-        anchored = _find_annotation_range(full_text, quote, used_ranges)
+        anchored = _find_annotation_range(full_text, quote, used_ranges, preferred_start=start)
         if anchored is None:
             return None
         start_offset, end_offset = anchored
+
+    start_offset, end_offset = _expand_range_to_word_boundaries(full_text, start_offset, end_offset)
 
     annotation_type = str(item.get("type") or "improvement").lower()
     if annotation_type not in ("risk", "improvement"):
@@ -319,7 +541,7 @@ def _normalize_document_annotation(
         "severity": severity,
         "start_offset": start_offset,
         "end_offset": end_offset,
-        "exact_quote": full_text[start_offset:end_offset],
+        "exact_quote": quote or full_text[start_offset:end_offset],
         "title": title,
         "reason": reason,
         "suggested_rewrite": suggested_rewrite,
@@ -330,20 +552,52 @@ def _find_annotation_range(
     full_text: str,
     quote: str,
     used_ranges: list[tuple[int, int]],
+    preferred_start: int | None = None,
 ) -> tuple[int, int] | None:
     quote = quote.strip()
     if not quote:
         return None
 
+    matches: list[tuple[int, int]] = []
     cursor = 0
     while True:
         found = full_text.find(quote, cursor)
         if found == -1:
-            return None
+            break
         candidate = (found, found + len(quote))
         if candidate[0] < candidate[1] and not _ranges_overlap(candidate, used_ranges):
-            return candidate
+            matches.append(candidate)
         cursor = found + 1
+
+    if not matches:
+        return None
+
+    if isinstance(preferred_start, int):
+        matches.sort(key=lambda candidate: abs(candidate[0] - preferred_start))
+    return matches[0]
+
+
+def _is_word_char(char: str) -> bool:
+    return char.isalnum() or char == "_"
+
+
+def _expand_range_to_word_boundaries(
+    full_text: str,
+    start_offset: int,
+    end_offset: int,
+) -> tuple[int, int]:
+    start = max(0, start_offset)
+    end = min(len(full_text), end_offset)
+    if start >= end:
+        return start_offset, end_offset
+
+    while start > 0 and _is_word_char(full_text[start]) and _is_word_char(full_text[start - 1]):
+        start -= 1
+
+    while end < len(full_text) and _is_word_char(full_text[end - 1]) and _is_word_char(full_text[end]):
+        end += 1
+
+    return start, end
 
 
 def _ranges_overlap(candidate: tuple[int, int], existing: list[tuple[int, int]]) -> bool:

@@ -5,9 +5,17 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { notFound } from "next/navigation";
 import { FileText, Settings, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
-import { runToolAnalysis, type AnalysisStage } from "@/lib/api/tools";
+import {
+  prepareDocumentAnalyzer,
+  runToolAnalysis,
+  streamDocumentAnalyzer,
+  type AnalysisStage,
+  type DocumentAnalyzerRunResponse,
+  type EditedDocumentRequest,
+} from "@/lib/api/tools";
 import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
+import { uploadDocument } from "@/lib/api/documents";
 import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
@@ -58,6 +66,88 @@ function isAbortError(error: unknown): boolean {
     : error instanceof Error && error.name === "AbortError";
 }
 
+function mergeStreamAnnotations(
+  prev: Record<string, unknown> | null,
+  annotations: DocumentAnalyzerRunResponse["result"]["advanced_editor"]["annotations"]
+): Record<string, unknown> | null {
+  if (!prev) return prev;
+  const advanced = (prev.advanced_editor as {
+    full_text: string;
+    rich_content?: Record<string, unknown> | null;
+    source_format?: string | null;
+    annotations?: DocumentAnalyzerRunResponse["result"]["advanced_editor"]["annotations"];
+  } | undefined) ?? { full_text: "", annotations: [] };
+
+  const existing = advanced.annotations ?? [];
+  const seen = new Set(existing.map((item) => item.id));
+  const merged = [...existing];
+  annotations.forEach((item) => {
+    if (seen.has(item.id)) return;
+    merged.push(item);
+    seen.add(item.id);
+  });
+
+  return {
+    ...prev,
+    advanced_editor: {
+      ...advanced,
+      annotations: merged,
+    },
+  };
+}
+
+function PrepareEditorLoader() {
+  return (
+    <div className="overflow-hidden rounded-[32px] border border-gray-200 bg-gradient-to-br from-white via-amber-50/40 to-gray-50 shadow-sm">
+      <div className="border-b border-gray-200 px-6 py-5">
+        <div className="flex items-center gap-4">
+          <div className="relative h-12 w-12 rounded-2xl bg-emerald-100">
+            <div className="absolute inset-2 rounded-full border-[3px] border-emerald-500 border-t-transparent animate-spin" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Подготавливаем AI-редактор</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Извлекаем текст и собираем документную поверхность перед полной AI-разметкой.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-6 bg-[#edf1f5] p-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="rounded-[28px] border border-gray-200 bg-white px-10 py-12 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+          <div className="space-y-5">
+            <div className="h-8 w-2/5 animate-pulse rounded-full bg-gray-100" />
+            <div className="h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
+            <div className="h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+            <div className="h-4 w-4/6 animate-pulse rounded-full bg-gray-100" />
+            <div className="pt-4 space-y-4">
+              <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+              <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+              <div className="h-4 w-11/12 animate-pulse rounded-full bg-gray-100" />
+              <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+              <div className="h-4 w-10/12 animate-pulse rounded-full bg-gray-100" />
+              <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="h-5 w-32 animate-pulse rounded-full bg-gray-100" />
+            <div className="mt-5 h-24 animate-pulse rounded-2xl bg-gray-50" />
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="h-5 w-40 animate-pulse rounded-full bg-gray-100" />
+            <div className="mt-5 space-y-3">
+              <div className="h-20 animate-pulse rounded-2xl bg-gray-50" />
+              <div className="h-20 animate-pulse rounded-2xl bg-gray-50" />
+              <div className="h-20 animate-pulse rounded-2xl bg-gray-50" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ToolPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const tool = getToolBySlug(params.slug);
@@ -76,11 +166,16 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
+  const [documentId, setDocumentId] = useState<number | null>(null);
+  const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
+  const [hasEditorChanges, setHasEditorChanges] = useState(false);
   const isIntroCollapsed = !!file && (state === "loading" || state === "success" || state === "error");
   const analysisAbortRef = useRef<AbortController | null>(null);
   const actionHint = file
     ? state === "loading"
       ? "Идет анализ документа. Можно остановить процесс в любой момент."
+      : tool.slug === "document-analyzer" && hasEditorChanges
+        ? "Документ изменен. Можно отправить текущую отредактированную версию на повторный анализ."
       : state === "success"
         ? ""
         : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
@@ -101,6 +196,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setResult(null);
     setErrorMessage(null);
     setDocumentTab("summary");
+    setDocumentId(null);
+    setEditedDocument(null);
+    setHasEditorChanges(false);
   }, []);
 
   useEffect(() => {
@@ -124,14 +222,87 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setShowUpgradeCta(false);
     try {
       const requestLlm = tool.slug === "document-analyzer" ? getLLMConfigForRequest(llmConfig) : undefined;
-      const data = await runToolAnalysis(tool.slug, file, requestLlm, (s) => {
-        setStage(s);
-      }, controller.signal);
-      setResult(data as Record<string, unknown>);
       if (tool.slug === "document-analyzer") {
-        setDocumentTab("advanced");
+        let currentDocumentId = documentId;
+
+        if (!currentDocumentId) {
+          setStage("upload");
+          const uploadRes = await uploadDocument(file, controller.signal);
+          currentDocumentId = uploadRes.document_id;
+          setDocumentId(currentDocumentId);
+
+          setStage("analyze");
+          const prepared = await prepareDocumentAnalyzer(currentDocumentId, controller.signal);
+          setResult({
+            summary: "",
+            key_points: [],
+            risks: [],
+            important_dates: [],
+            advanced_editor: prepared.advanced_editor,
+          });
+          setDocumentTab("advanced");
+        } else if (hasEditorChanges && editedDocument) {
+          setResult((prev) => ({
+            ...(prev ?? {
+              summary: "",
+              key_points: [],
+              risks: [],
+              important_dates: [],
+            }),
+            advanced_editor: {
+              full_text: editedDocument.full_text,
+              rich_content: editedDocument.rich_content,
+              source_format: editedDocument.source_format,
+              annotations: [],
+            },
+          }));
+          setDocumentTab("advanced");
+        }
+
+        await streamDocumentAnalyzer(
+          currentDocumentId,
+          requestLlm,
+          controller.signal,
+          hasEditorChanges ? editedDocument : null,
+          (event) => {
+            if (event.type === "progress") {
+              setStage(event.stage);
+              return;
+            }
+            if (event.type === "annotations_batch") {
+              setStage("review");
+              setResult((prev) => mergeStreamAnnotations(prev, event.annotations));
+              return;
+            }
+            if (event.type === "final") {
+              setStage("done");
+              setResult(event.result as unknown as Record<string, unknown>);
+              setDocumentTab("advanced");
+              setHasEditorChanges(false);
+              setState("success");
+              return;
+            }
+            if (event.type === "error") {
+              throw new Error(event.message || "Streaming analysis failed.");
+            }
+          }
+        );
+      } else {
+        const analysis = await runToolAnalysis(
+          tool.slug,
+          file,
+          requestLlm,
+          (s) => {
+            setStage(s);
+          },
+          controller.signal
+        );
+        setResult(analysis.result as Record<string, unknown>);
+        if (analysis.documentId) {
+          setDocumentId(analysis.documentId);
+        }
+        setState("success");
       }
-      setState("success");
     } catch (e) {
       if (isAbortError(e)) {
         setState(file ? "ready" : "idle");
@@ -187,7 +358,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         analysisAbortRef.current = null;
       }
     }
-  }, [file, tool.slug, router, llmConfig]);
+  }, [file, tool.slug, router, llmConfig, documentId, editedDocument, hasEditorChanges]);
 
   const handleAbortAnalysis = useCallback(() => {
     analysisAbortRef.current?.abort();
@@ -313,18 +484,20 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                   )}
                   <Button
                     type="button"
-                    variant={state === "success" ? "secondary" : "primary"}
-                    disabled={!file || state === "success"}
+                    variant={state === "success" && !hasEditorChanges ? "secondary" : "primary"}
+                    disabled={!file || (state === "success" && !hasEditorChanges)}
                     onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
                     className={`shrink-0 whitespace-nowrap ${
-                      state === "success"
+                      state === "success" && !hasEditorChanges
                         ? "min-w-[180px] border-emerald-200 bg-emerald-50 text-emerald-700"
                         : "min-w-[220px]"
                     }`}
                   >
                     {state === "loading"
                       ? "Остановить анализ"
-                      : state === "success"
+                      : state === "success" && hasEditorChanges
+                        ? "Проанализировать еще раз"
+                        : state === "success"
                         ? "Проанализировано"
                         : tool.slug === "data-extractor"
                         ? "Запустить извлечение"
@@ -349,7 +522,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Results</h2>
-          {tool.slug === "document-analyzer" && state === "success" && result ? (
+          {tool.slug === "document-analyzer" && (state === "success" || state === "loading") && result ? (
             <div className="space-y-5">
               <div
                 className="inline-flex rounded-2xl border border-gray-200 bg-gray-100 p-1"
@@ -386,7 +559,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
               {documentTab === "summary" ? (
                 <ResultsPanel
-                  status="success"
+                  status={state === "loading" ? "loading" : "success"}
                   result={result}
                   toolSlug={tool.slug}
                   errorMessage={errorMessage ?? undefined}
@@ -415,9 +588,20 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                       }>;
                     }) ?? { full_text: "", annotations: [] }
                   }
+                  isAnalyzing={state === "loading"}
+                  onDocumentChange={(payload) => {
+                    setEditedDocument({
+                      full_text: payload.full_text,
+                      rich_content: payload.rich_content,
+                      source_format: payload.source_format,
+                    });
+                    setHasEditorChanges(payload.is_dirty);
+                  }}
                 />
               )}
             </div>
+          ) : tool.slug === "document-analyzer" && state === "loading" ? (
+            <PrepareEditorLoader />
           ) : (
             <ResultsPanel
               status={state === "idle" || state === "ready" ? "idle" : state}

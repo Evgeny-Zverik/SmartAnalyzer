@@ -63,6 +63,13 @@ type AdvancedAiEditorProps = {
     source_format?: string | null;
     annotations: AdvancedAnnotation[];
   };
+  isAnalyzing?: boolean;
+  onDocumentChange?: (payload: {
+    full_text: string;
+    rich_content: Record<string, unknown>;
+    source_format: string;
+    is_dirty: boolean;
+  }) => void;
 };
 
 type AnnotationFilter = "all" | "risk" | "improvement";
@@ -122,6 +129,7 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = ["12", "14", "16", "18", "20", "24", "28", "32"];
+const VIRTUAL_PAGE_HEIGHT = 1120;
 
 const FontSize = Extension.create({
   name: "fontSize",
@@ -363,7 +371,7 @@ function createAiAnnotationsExtension(config: {
   });
 }
 
-export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
+export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }: AdvancedAiEditorProps) {
   const [editorText, setEditorText] = useState(data.full_text);
   const [annotations, setAnnotations] = useState<AdvancedAnnotation[]>(data.annotations);
   const [filter, setFilter] = useState<AnnotationFilter>("all");
@@ -381,6 +389,10 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   const filteredAnnotationsRef = useRef<AdvancedAnnotation[]>(data.annotations);
   const activeIdRef = useRef<string | null>(data.annotations[0]?.id ?? null);
   const suppressManualWarningRef = useRef(false);
+  const initialEditorSignatureRef = useRef("");
+  const pageSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const [pageCount, setPageCount] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -464,12 +476,36 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     setToolbarFontFamily(FONT_FAMILIES[1]?.value ?? "inherit");
     setToolbarFontSize("16");
     setDownloadMenuOpen(false);
+    initialEditorSignatureRef.current = JSON.stringify(
+      (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text)
+    );
     suppressManualWarningRef.current = true;
     editor?.commands.setContent(
       (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
       { emitUpdate: false }
     );
   }, [data, editor]);
+
+  useEffect(() => {
+    if (!editor || !onDocumentChange) return;
+    const emitChange = () => {
+      const richContent = editor.getJSON() as Record<string, unknown>;
+      const fullText = buildDocTextIndex(editor.state.doc).text;
+      const isDirty = JSON.stringify(richContent) !== initialEditorSignatureRef.current;
+      onDocumentChange({
+        full_text: fullText,
+        rich_content: richContent,
+        source_format: data.source_format ?? "edited_document",
+        is_dirty: isDirty,
+      });
+    };
+
+    emitChange();
+    editor.on("update", emitChange);
+    return () => {
+      editor.off("update", emitChange);
+    };
+  }, [editor, onDocumentChange, data.source_format]);
 
   useEffect(() => {
     if (!editor) return;
@@ -521,6 +557,35 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     if (!editor) return;
     editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
   }, [activeId, editor]);
+
+  useEffect(() => {
+    const surface = pageSurfaceRef.current;
+    if (!surface) return;
+
+    const measurePages = () => {
+      const proseMirror = surface.querySelector(".ProseMirror") as HTMLElement | null;
+      const contentHeight = proseMirror?.scrollHeight ?? surface.scrollHeight ?? VIRTUAL_PAGE_HEIGHT;
+      const nextPageCount = Math.max(1, Math.ceil(contentHeight / VIRTUAL_PAGE_HEIGHT));
+      setPageCount(nextPageCount);
+    };
+
+    measurePages();
+    const resizeObserver = new ResizeObserver(() => {
+      measurePages();
+    });
+    resizeObserver.observe(surface);
+    const proseMirror = surface.querySelector(".ProseMirror") as HTMLElement | null;
+    if (proseMirror) {
+      resizeObserver.observe(proseMirror);
+    }
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [editor, editorText, formatPreset]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, pageCount));
+  }, [pageCount]);
 
   const handleCopyText = async () => {
     try {
@@ -602,6 +667,9 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
   const activeExcerpt = activeAnnotation ? getAnnotationExcerpt(editorText, activeAnnotation) : "";
   const activePreset = FORMAT_PRESETS.find((preset) => preset.value === formatPreset) ?? FORMAT_PRESETS[0];
   const activeAlignment = ALIGNMENT_OPTIONS.find((option) => option.value === alignment) ?? ALIGNMENT_OPTIONS[0];
+  const showAiLoadingState = isAnalyzing && annotations.length === 0;
+  const currentPageOffset = Math.max(0, currentPage - 1) * VIRTUAL_PAGE_HEIGHT;
+
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-gradient-to-br from-white via-gray-50 to-amber-50/50">
@@ -910,10 +978,56 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
                 </div>
               </div>
               <div className="mx-auto w-full">
-                <div
-                  className={`min-h-[960px] rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
-                >
-                  {editor ? <EditorContent editor={editor} /> : null}
+                <div className="space-y-4">
+                  <div
+                    className="overflow-hidden rounded-[28px]"
+                    style={{ height: `${VIRTUAL_PAGE_HEIGHT}px` }}
+                  >
+                    <div
+                      ref={pageSurfaceRef}
+                      className={`relative rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8 transition-transform duration-300 ease-out`}
+                      style={{ transform: `translateY(-${currentPageOffset}px)` }}
+                    >
+                      {pageCount > 1 ? (
+                        <div className="pointer-events-none absolute inset-x-10 top-0 z-0 sm:inset-x-12 lg:inset-x-20">
+                          {Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => index + 1).map((pageNumber) => (
+                            <div
+                              key={pageNumber}
+                              className="absolute inset-x-0 border-t border-dashed border-gray-200"
+                              style={{ top: `${pageNumber * VIRTUAL_PAGE_HEIGHT}px` }}
+                            >
+                              <div className="-mt-3 flex justify-center">
+                                <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm">
+                                  Страница {pageNumber + 1}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="relative z-10">
+                        {editor ? <EditorContent editor={editor} /> : null}
+                      </div>
+                    </div>
+                  </div>
+                  {pageCount > 1 ? (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-medium transition ${
+                            currentPage === pageNumber
+                              ? "border-gray-900 bg-gray-900 text-white"
+                              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:text-gray-900"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -923,7 +1037,27 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
         <div className="space-y-6 2xl:pt-[2px]">
           <Card>
             <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
-            {activeAnnotation ? (
+            {showAiLoadingState ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-10 w-10 rounded-2xl bg-amber-100">
+                    <div className="absolute inset-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">AI размечает документ</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Подготавливаем риски, улучшения и предлагаемые формулировки.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="h-3 w-24 animate-pulse rounded-full bg-amber-100" />
+                  <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+                  <div className="h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+                  <div className="h-20 w-full animate-pulse rounded-2xl bg-white/80" />
+                </div>
+              </div>
+            ) : activeAnnotation ? (
               <div className="mt-4 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -979,9 +1113,28 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
           <Card>
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
-              <span className="text-xs text-gray-500">{filteredAnnotations.length} шт.</span>
+              <span className="text-xs text-gray-500">
+                {showAiLoadingState ? "Идет анализ..." : `${filteredAnnotations.length} шт.`}
+              </span>
             </div>
-            {filteredAnnotations.length > 0 ? (
+            {showAiLoadingState ? (
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
+                      <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+                    </div>
+                    <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
+                    <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
+                    <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredAnnotations.length > 0 ? (
               <div className="mt-4 space-y-3">
                 {filteredAnnotations.map((annotation) => (
                   <button
