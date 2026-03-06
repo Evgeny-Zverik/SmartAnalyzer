@@ -8,7 +8,7 @@ from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.usage import assert_can_run, log_run
-from app.services.text_extraction import extract_text, extract_tables_from_xlsx
+from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import analyze_document, check_contract, extract_structured_data
 from app.utils.errors import raise_error
 from app.schemas.tools import (
@@ -80,6 +80,7 @@ def _stub_document_analyzer(analysis_id: int) -> DocumentAnalyzerRunResponse:
                         severity="medium",
                         start_offset=0,
                         end_offset=4,
+                        exact_quote="Stub",
                         title="Stub annotation",
                         reason="Stub reason",
                         suggested_rewrite="Stub rewrite",
@@ -153,9 +154,14 @@ def run_document_analyzer(
 ):
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
-    text = extract_text(doc.storage_path, doc.mime_type)
+    editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
+    text = editor_payload["full_text"]
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
     raw_result = analyze_document(text, overrides=overrides)
+    raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
+    if isinstance(raw_advanced, dict):
+        raw_advanced["rich_content"] = editor_payload.get("rich_content")
+        raw_advanced["source_format"] = editor_payload.get("source_format")
     try:
         result = DocumentAnalyzerResult.model_validate(raw_result)
     except ValidationError:

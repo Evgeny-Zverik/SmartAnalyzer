@@ -319,6 +319,7 @@ def _normalize_document_annotation(
         "severity": severity,
         "start_offset": start_offset,
         "end_offset": end_offset,
+        "exact_quote": full_text[start_offset:end_offset],
         "title": title,
         "reason": reason,
         "suggested_rewrite": suggested_rewrite,

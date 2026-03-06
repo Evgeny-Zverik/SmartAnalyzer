@@ -12,12 +12,15 @@ export type DocumentAnalyzerRunResponse = {
     important_dates: Array<{ date: string; description: string }>;
     advanced_editor: {
       full_text: string;
+      rich_content?: Record<string, unknown> | null;
+      source_format?: string | null;
       annotations: Array<{
         id: string;
         type: "risk" | "improvement";
         severity: "low" | "medium" | "high";
         start_offset: number;
         end_offset: number;
+        exact_quote: string;
         title: string;
         reason: string;
         suggested_rewrite: string;

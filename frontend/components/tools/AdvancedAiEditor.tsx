@@ -20,12 +20,17 @@ import {
 } from "lucide-react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import type { JSONContent } from "@tiptap/core";
 import Link from "@tiptap/extension-link";
 import FontFamily from "@tiptap/extension-font-family";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { Extension } from "@tiptap/core";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -45,6 +50,7 @@ export type AdvancedAnnotation = {
   severity: "low" | "medium" | "high";
   start_offset: number;
   end_offset: number;
+  exact_quote: string;
   title: string;
   reason: string;
   suggested_rewrite: string;
@@ -53,6 +59,8 @@ export type AdvancedAnnotation = {
 type AdvancedAiEditorProps = {
   data: {
     full_text: string;
+    rich_content?: Record<string, unknown> | null;
+    source_format?: string | null;
     annotations: AdvancedAnnotation[];
   };
 };
@@ -194,68 +202,118 @@ function shiftAnnotations(
     });
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function textToDocJson(text: string): JSONContent {
+  const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
+  return {
+    type: "doc",
+    content: paragraphs.map((paragraph) =>
+      paragraph.trim().length === 0
+        ? { type: "paragraph" }
+        : { type: "paragraph", content: [{ type: "text", text: paragraph }] }
+    ),
+  };
 }
 
-function textToHtml(text: string): string {
-  const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
-  return paragraphs
-    .map((paragraph) =>
-      paragraph.trim().length === 0 ? "<p></p>" : `<p>${escapeHtml(paragraph)}</p>`
-    )
-    .join("");
+function getNodeJoinSeparator(nodeType: string): string {
+  if (nodeType === "doc" || nodeType === "bulletList" || nodeType === "orderedList" || nodeType === "listItem" || nodeType === "table") {
+    return "\n";
+  }
+  if (nodeType === "tableRow") {
+    return " | ";
+  }
+  if (nodeType === "tableCell" || nodeType === "tableHeader") {
+    return "\n";
+  }
+  return "";
+}
+
+type TextIndexSegment = {
+  start: number;
+  end: number;
+  from: number;
+};
+
+function buildDocTextIndex(doc: ProseMirrorNode): { text: string; segments: TextIndexSegment[] } {
+  let text = "";
+  const segments: TextIndexSegment[] = [];
+
+  const appendSeparator = (value: string) => {
+    if (!value) return;
+    text += value;
+  };
+
+  const walk = (node: ProseMirrorNode, pos: number) => {
+    if (node.isText) {
+      const value = node.text ?? "";
+      if (!value) return;
+      const start = text.length;
+      text += value;
+      segments.push({ start, end: start + value.length, from: pos });
+      return;
+    }
+
+    const separator = getNodeJoinSeparator(node.type.name);
+    node.forEach((child, offset, index) => {
+      walk(child, pos + offset + 1);
+      if (index < node.childCount - 1) {
+        appendSeparator(separator);
+      }
+    });
+  };
+
+  walk(doc, 0);
+  return { text, segments };
+}
+
+function findPositionForOffset(
+  segments: TextIndexSegment[],
+  offset: number,
+  side: "start" | "end"
+): number | null {
+  if (segments.length === 0) return null;
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const length = segment.end - segment.start;
+    if (offset >= segment.start && offset <= segment.end) {
+      return segment.from + Math.max(0, Math.min(length, offset - segment.start));
+    }
+    if (offset < segment.start) {
+      const previous = segments[index - 1];
+      if (side === "end" && previous) {
+        return previous.from + (previous.end - previous.start);
+      }
+      return segment.from;
+    }
+  }
+
+  const last = segments[segments.length - 1];
+  return last.from + (last.end - last.start);
 }
 
 function getOffsetRange(
   doc: ProseMirrorNode,
   startOffset: number,
-  endOffset: number
+  endOffset: number,
+  exactQuote?: string
 ): { from: number; to: number } | null {
   if (startOffset >= endOffset) return null;
+  const index = buildDocTextIndex(doc);
+  let resolvedStart = startOffset;
+  let resolvedEnd = endOffset;
+  const candidateText = index.text.slice(startOffset, endOffset);
 
-  let textOffset = 0;
-  let from: number | null = null;
-  let to: number | null = null;
-
-  doc.forEach((child: ProseMirrorNode, offset: number, index: number) => {
-    const textLength = child.textContent.length;
-    const startPos = offset + 1;
-    const endPos = startPos + textLength;
-
-    if (from === null && startOffset <= textOffset + textLength) {
-      from = startPos + Math.max(0, Math.min(textLength, startOffset - textOffset));
+  if (exactQuote && candidateText !== exactQuote) {
+    const anchoredStart = index.text.indexOf(exactQuote);
+    if (anchoredStart !== -1) {
+      resolvedStart = anchoredStart;
+      resolvedEnd = anchoredStart + exactQuote.length;
     }
-
-    if (to === null && endOffset <= textOffset + textLength) {
-      to = startPos + Math.max(0, Math.min(textLength, endOffset - textOffset));
-    }
-
-    textOffset += textLength;
-    if (index < doc.childCount - 1) {
-      if (from === null && startOffset === textOffset) {
-        from = endPos;
-      }
-      if (to === null && endOffset === textOffset) {
-        to = endPos;
-      }
-      textOffset += 1;
-    }
-  });
-
-  if (from === null) {
-    from = Math.max(1, doc.content.size);
-  }
-  if (to === null) {
-    to = Math.max(from, doc.content.size);
   }
 
-  return from < to ? { from, to } : null;
+  const from = findPositionForOffset(index.segments, resolvedStart, "start");
+  const to = findPositionForOffset(index.segments, resolvedEnd, "end");
+  return from !== null && to !== null && from < to ? { from, to } : null;
 }
 
 function createAiAnnotationsExtension(config: {
@@ -336,6 +394,12 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
       FontSize,
       FontFamily,
       Underline,
+      Table.configure({
+        resizable: false,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Link.configure({
         openOnClick: false,
         autolink: false,
@@ -349,9 +413,9 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
         onSelect: (id) => setActiveId(id),
       }),
     ],
-    content: textToHtml(data.full_text),
+    content: (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
     onUpdate: ({ editor: currentEditor }) => {
-      setEditorText(currentEditor.getText({ blockSeparator: "\n" }));
+      setEditorText(buildDocTextIndex(currentEditor.state.doc).text);
       if (suppressManualWarningRef.current) {
         suppressManualWarningRef.current = false;
         return;
@@ -401,7 +465,10 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     setToolbarFontSize("16");
     setDownloadMenuOpen(false);
     suppressManualWarningRef.current = true;
-    editor?.commands.setContent(textToHtml(data.full_text), { emitUpdate: false });
+    editor?.commands.setContent(
+      (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
+      { emitUpdate: false }
+    );
   }, [data, editor]);
 
   useEffect(() => {
@@ -493,7 +560,8 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     const range = getOffsetRange(
       editor.state.doc,
       activeAnnotation.start_offset,
-      activeAnnotation.end_offset
+      activeAnnotation.end_offset,
+      activeAnnotation.exact_quote
     );
     if (!range) return;
     suppressManualWarningRef.current = true;
@@ -521,7 +589,12 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
     const next = filteredAnnotations[nextIndex];
     setActiveId(next.id);
     if (!editor) return;
-    const range = getOffsetRange(editor.state.doc, next.start_offset, next.end_offset);
+    const range = getOffsetRange(
+      editor.state.doc,
+      next.start_offset,
+      next.end_offset,
+      next.exact_quote
+    );
     if (!range) return;
     editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
   };
@@ -612,6 +685,7 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
         )}
         <p className="text-xs text-gray-500">
           Формат: {activePreset.label}. Выравнивание: {activeAlignment.label.toLowerCase()}.
+          {data.source_format === "docx" ? " Базовое форматирование DOCX сохранено в редакторе." : ""}
         </p>
       </Card>
 
@@ -837,7 +911,7 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
               </div>
               <div className="mx-auto w-full">
                 <div
-                  className={`min-h-[960px] rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 whitespace-pre-wrap ${activePreset.className}`}
+                  className={`min-h-[960px] rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
                 >
                   {editor ? <EditorContent editor={editor} /> : null}
                 </div>
@@ -919,7 +993,8 @@ export function AdvancedAiEditor({ data }: AdvancedAiEditorProps) {
                       const range = getOffsetRange(
                         editor.state.doc,
                         annotation.start_offset,
-                        annotation.end_offset
+                        annotation.end_offset,
+                        annotation.exact_quote
                       );
                       if (!range) return;
                       editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();

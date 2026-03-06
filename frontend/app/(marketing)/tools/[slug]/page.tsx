@@ -400,12 +400,15 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                   data={
                     (result.advanced_editor as {
                       full_text: string;
+                      rich_content?: Record<string, unknown> | null;
+                      source_format?: string | null;
                       annotations: Array<{
                         id: string;
                         type: "risk" | "improvement";
                         severity: "low" | "medium" | "high";
                         start_offset: number;
                         end_offset: number;
+                        exact_quote: string;
                         title: string;
                         reason: string;
                         suggested_rewrite: string;

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -14,6 +16,7 @@ class DocumentAnnotationItem(BaseModel):
     severity: str
     start_offset: int
     end_offset: int
+    exact_quote: str
     title: str
     reason: str
     suggested_rewrite: str
@@ -22,6 +25,8 @@ class DocumentAnnotationItem(BaseModel):
 class DocumentAdvancedEditorResult(BaseModel):
     full_text: str
     annotations: list[DocumentAnnotationItem]
+    rich_content: dict[str, Any] | None = None
+    source_format: str | None = None
 
 
 class DocumentAnalyzerResult(BaseModel):
