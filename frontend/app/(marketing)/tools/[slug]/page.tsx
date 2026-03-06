@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { notFound } from "next/navigation";
-import { Settings } from "lucide-react";
+import { FileText, Settings, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
 import { runToolAnalysis, type AnalysisStage } from "@/lib/api/tools";
 import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
@@ -23,6 +23,12 @@ import { Button } from "@/components/ui/Button";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 type DocumentTab = "summary" | "advanced";
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function getHelpfulLlmMessage(parsed: { error: string; message: string; details: unknown }): string {
   if (parsed.error === "LLM_UNAVAILABLE") {
@@ -64,6 +70,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
+  const isIntroCollapsed = !!file && (state === "loading" || state === "success" || state === "error");
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -156,71 +163,128 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   return (
     <ToolShell tool={tool}>
       <div className="space-y-8">
-        <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Upload</h2>
-          <UploadDropzone
-            acceptedExtensions={tool.mvp.accepts}
-            file={file}
-            onFileChange={handleFileChange}
-          />
-        </section>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {tool.slug === "document-analyzer" && (
-            <>
-              <div
-                className="flex rounded-lg border border-gray-300 bg-gray-100 p-0.5"
-                role="group"
-                aria-label="Режим LLM"
-              >
-                <button
-                  type="button"
-                  onClick={() => setLlmMode("local")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    currentMode === "local"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Свой сервер
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLlmMode("api")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    currentMode === "api"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  API
-                </button>
+        {!isIntroCollapsed && (
+          <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Быстрый старт
+                </div>
+                <h2 className="mt-3 text-lg font-semibold text-gray-900">Загрузите файл и запустите анализ</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Начните с документа. Остальные действия доступны в компактной панели ниже.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setLlmModalOpen(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
-                title="Настройки LLM"
-                aria-label="Настройки LLM"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-            </>
-          )}
-          <Button
-            type="button"
-            variant="primary"
-            disabled={!file || state === "loading"}
-            onClick={handleAnalyze}
-          >
-            {state === "loading"
-              ? tool.slug === "data-extractor"
-                ? "Extracting…"
-                : "Analyzing…"
-              : tool.slug === "data-extractor"
-                ? "Extract"
-                : "Analyze"}
-          </Button>
+            </div>
+            <UploadDropzone
+              acceptedExtensions={tool.mvp.accepts}
+              file={file}
+              onFileChange={handleFileChange}
+              compact
+              showFileCard={false}
+            />
+          </section>
+        )}
+
+        <div className="sticky top-4 z-30">
+          <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {file ? "Выбранный файл" : "Готово к загрузке"}
+                  </p>
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {file ? file.name : "Выберите документ для анализа"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {file
+                      ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
+                      : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 lg:min-w-[430px] lg:items-end">
+                <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                  {file && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => handleFileChange(null)}
+                    >
+                      Сменить файл
+                    </Button>
+                  )}
+                  {tool.slug === "document-analyzer" && (
+                    <>
+                      <div
+                        className="flex rounded-xl border border-gray-300 bg-gray-100 p-0.5"
+                        role="group"
+                        aria-label="Режим LLM"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setLlmMode("local")}
+                          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                            currentMode === "local"
+                              ? "bg-white text-gray-900 shadow-sm"
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
+                        >
+                          Свой сервер
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLlmMode("api")}
+                          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                            currentMode === "api"
+                              ? "bg-white text-gray-900 shadow-sm"
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
+                        >
+                          API
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLlmModalOpen(true)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
+                        title="Настройки LLM"
+                        aria-label="Настройки LLM"
+                      >
+                        <Settings className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={!file || state === "loading"}
+                    onClick={handleAnalyze}
+                    className="min-w-[140px]"
+                  >
+                    {state === "loading"
+                      ? tool.slug === "data-extractor"
+                        ? "Extracting…"
+                        : "Analyzing…"
+                      : tool.slug === "data-extractor"
+                        ? "Extract"
+                        : "Analyze"}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 lg:text-right">
+                  {file
+                    ? "Панель закреплена, чтобы можно было быстро перезапустить анализ при скролле."
+                    : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку."}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         {tool.slug === "document-analyzer" && (
           <LLMSettingsModal

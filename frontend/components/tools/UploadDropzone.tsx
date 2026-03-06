@@ -8,6 +8,8 @@ type UploadDropzoneProps = {
   file: File | null;
   onFileChange: (file: File | null) => void;
   error?: string;
+  compact?: boolean;
+  showFileCard?: boolean;
 };
 
 function getExtension(name: string): string {
@@ -26,6 +28,8 @@ export function UploadDropzone({
   file,
   onFileChange,
   error,
+  compact = false,
+  showFileCard = true,
 }: UploadDropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -96,21 +100,22 @@ export function UploadDropzone({
   const displayError = error ?? validationError;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <label className="block">
         <span className="sr-only">Выберите файл</span>
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`flex min-h-[160px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
             isDragOver
               ? "border-emerald-500 bg-emerald-50/50"
               : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2"
           }`}
+          style={{ minHeight: compact ? 118 : 160 }}
         >
-          <Upload className="h-10 w-10 text-gray-400" aria-hidden />
-          <p className="mt-2 text-sm text-gray-600">
+          <Upload className={`${compact ? "h-8 w-8" : "h-10 w-10"} text-gray-400`} aria-hidden />
+          <p className={`mt-2 ${compact ? "text-sm" : "text-sm"} text-gray-600`}>
             Перетащите файл сюда или нажмите для выбора
           </p>
           <p className="mt-1 text-xs text-gray-500">
@@ -125,8 +130,8 @@ export function UploadDropzone({
         </div>
       </label>
 
-      {file && (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+      {showFileCard && file && (
+        <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
           <div className="flex items-center gap-3">
             <FileText className="h-5 w-5 text-gray-500" aria-hidden />
             <div>
