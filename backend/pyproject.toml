@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings",
     "python-jose[cryptography]",
     "passlib[bcrypt]",
+    "bcrypt<5",
     "python-multipart",
     "pypdf",
     "python-docx",
