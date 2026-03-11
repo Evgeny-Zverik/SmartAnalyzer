@@ -227,7 +227,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
         if (!currentDocumentId) {
           setStage("upload");
-          const uploadRes = await uploadDocument(file, controller.signal);
+          const uploadRes = await uploadDocument(file, { signal: controller.signal });
           currentDocumentId = uploadRes.document_id;
           setDocumentId(currentDocumentId);
 

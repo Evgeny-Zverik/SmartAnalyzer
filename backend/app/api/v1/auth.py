@@ -10,6 +10,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserRead
+from app.services.folders import ensure_user_system_folders
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    ensure_user_system_folders(db, user.id)
     return UserRead(
         id=user.id,
         email=user.email,

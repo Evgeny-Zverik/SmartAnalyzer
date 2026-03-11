@@ -15,6 +15,8 @@ from app.schemas.analysis import (
     AnalysisRecentItem,
     DocumentRef,
 )
+from app.schemas.folder import FolderMoveRequest
+from app.services.folders import ensure_user_system_folders, get_folder_for_user, resolve_analysis_folder
 from app.utils.errors import raise_error
 
 router = APIRouter()
@@ -26,6 +28,7 @@ def list_recent_analyses(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     rows = (
         db.query(DocumentAnalysis, Document.filename)
         .join(Document, DocumentAnalysis.document_id == Document.id)
@@ -54,6 +57,7 @@ def list_analyses(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     qry = (
         db.query(DocumentAnalysis, Document.filename)
         .join(Document, DocumentAnalysis.document_id == Document.id)
@@ -70,6 +74,8 @@ def list_analyses(
             analysis_id=da.id,
             tool_slug=da.tool_slug,
             document_id=da.document_id,
+            folder_id=da.folder_id,
+            status=da.status,
             filename=filename,
             created_at=da.created_at,
         )
@@ -84,6 +90,7 @@ def get_analysis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     row = (
         db.query(DocumentAnalysis, Document)
         .join(Document, DocumentAnalysis.document_id == Document.id)
@@ -96,7 +103,37 @@ def get_analysis(
     return AnalysisDetailResponse(
         analysis_id=da.id,
         tool_slug=da.tool_slug,
+        folder_id=da.folder_id,
+        status=da.status,
         document=DocumentRef(document_id=doc.id, filename=doc.filename),
         created_at=da.created_at,
         result=da.result_json,
     )
+
+
+@router.post("/{analysis_id}/move", status_code=204)
+def move_analysis(
+    analysis_id: int,
+    body: FolderMoveRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ensure_user_system_folders(db, current_user.id)
+    analysis = (
+        db.query(DocumentAnalysis)
+        .filter(DocumentAnalysis.id == analysis_id, DocumentAnalysis.user_id == current_user.id)
+        .first()
+    )
+    if not analysis:
+        raise_error(404, "NOT_FOUND", "Analysis not found", {"analysis_id": analysis_id})
+    folder = get_folder_for_user(db, current_user.id, body.folder_id)
+    if folder.type != "user":
+        raise_error(
+            400,
+            "INVALID_MOVE_TARGET",
+            "Analyses can only be moved to user-created folders.",
+            {"folder_id": body.folder_id},
+        )
+    analysis.folder_id = folder.id
+    db.commit()
+    return None

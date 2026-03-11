@@ -2,7 +2,7 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -12,6 +12,8 @@ from app.db.session import get_db
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.document import DocumentListItem, DocumentListResponse, DocumentUploadResponse
+from app.schemas.folder import FolderMoveRequest
+from app.services.folders import ensure_user_system_folders, get_folder_for_user, resolve_document_folder
 
 router = APIRouter()
 
@@ -22,9 +24,11 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=201)
 def upload(
     file: UploadFile = File(...),
+    folder_id: int | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_user_system_folders(db, current_user.id)
     if file.content_type and file.content_type not in ALLOWED_MIME:
         raise_error(400, "BAD_REQUEST", "Unsupported file type. Use PDF, DOCX or XLSX.", {"mime_type": file.content_type})
     ext = Path(file.filename or "file").suffix.lower()
@@ -47,8 +51,10 @@ def upload(
             f.write(content)
     except OSError as e:
         raise_error(500, "STORAGE_ERROR", "Cannot save uploaded file.", {"detail": str(e)})
+    folder = resolve_document_folder(db, current_user.id, folder_id)
     doc = Document(
         user_id=current_user.id,
+        folder_id=folder.id,
         filename=file.filename or "file",
         mime_type=file.content_type or "application/octet-stream",
         size_bytes=size_bytes,
@@ -59,6 +65,7 @@ def upload(
     db.refresh(doc)
     return DocumentUploadResponse(
         document_id=doc.id,
+        folder_id=doc.folder_id,
         filename=doc.filename,
         mime_type=doc.mime_type,
         size_bytes=doc.size_bytes,
@@ -74,13 +81,45 @@ def list_documents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_user_system_folders(db, current_user.id)
     qry = db.query(Document).filter(Document.user_id == current_user.id)
     if q:
         qry = qry.filter(Document.filename.ilike(f"%{q}%"))
     total = qry.count()
     rows = qry.order_by(Document.created_at.desc()).offset(offset).limit(limit).all()
     items = [
-        DocumentListItem(document_id=r.id, filename=r.filename, created_at=r.created_at)
+        DocumentListItem(
+            document_id=r.id,
+            folder_id=r.folder_id,
+            filename=r.filename,
+            mime_type=r.mime_type,
+            size_bytes=r.size_bytes,
+            created_at=r.created_at,
+        )
         for r in rows
     ]
     return DocumentListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.post("/{document_id}/move", status_code=204)
+def move_document(
+    document_id: int,
+    body: FolderMoveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ensure_user_system_folders(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
+    if not doc:
+        raise_error(404, "NOT_FOUND", "Document not found", {"document_id": document_id})
+    folder = get_folder_for_user(db, current_user.id, body.folder_id)
+    if folder.type != "user":
+        raise_error(
+            400,
+            "INVALID_MOVE_TARGET",
+            "Documents can only be moved to user-created folders.",
+            {"folder_id": body.folder_id},
+        )
+    doc.folder_id = folder.id
+    db.commit()
+    return None

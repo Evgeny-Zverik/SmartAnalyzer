@@ -31,6 +31,7 @@ export function AnalysesTable({
   const hasPrev = offset > 0;
   const hasNext = offset + items.length < total;
   const prevOffset = Math.max(0, offset - LIMIT);
+  const nextOffset = offset + LIMIT;
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   function handleDownload(item: AnalysisListItem) {

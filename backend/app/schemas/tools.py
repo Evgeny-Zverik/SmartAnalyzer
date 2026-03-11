@@ -134,6 +134,8 @@ class LlmConfigOptional(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
+    compression_level: str | None = None
+    analysis_mode: str | None = None
 
 
 class EditedDocumentPayload(BaseModel):
@@ -144,6 +146,7 @@ class EditedDocumentPayload(BaseModel):
 
 class ToolRunRequest(BaseModel):
     document_id: int
+    folder_id: int | None = None
     llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
 

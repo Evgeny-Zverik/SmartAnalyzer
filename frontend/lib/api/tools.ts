@@ -105,6 +105,8 @@ export type LLMConfigRequest = {
   base_url?: string;
   api_key?: string;
   model?: string;
+  compression_level?: string;
+  analysis_mode?: string;
 };
 
 export type EditedDocumentRequest = {
@@ -124,7 +126,7 @@ export async function runDocumentAnalyzer(
     llm_config?: LLMConfigRequest;
     edited_document?: EditedDocumentRequest;
   } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model)) {
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
     body.llm_config = llmConfig;
   }
   if (editedDocument?.full_text?.trim()) {
@@ -242,7 +244,7 @@ export async function streamDocumentAnalyzer(
     llm_config?: LLMConfigRequest;
     edited_document?: EditedDocumentRequest;
   } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model)) {
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
     body.llm_config = llmConfig;
   }
   if (editedDocument?.full_text?.trim()) {
@@ -325,7 +327,7 @@ export async function runToolAnalysis(
     if (!documentId) {
       onProgress?.("upload", elapsed());
       const { uploadDocument } = await import("@/lib/api/documents");
-      const uploadRes = await uploadDocument(file, signal);
+      const uploadRes = await uploadDocument(file, { signal });
       documentId = uploadRes.document_id;
     }
 

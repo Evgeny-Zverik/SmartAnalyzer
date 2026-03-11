@@ -3,11 +3,16 @@ uvicorn[standard]
 sqlalchemy
 alembic
 psycopg2-binary
-pydantic
+pydantic[email]
 pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt<5
 python-multipart
+pypdf
+python-docx
+openpyxl
+openai
 
 [dev]
 ruff

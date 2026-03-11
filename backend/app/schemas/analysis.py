@@ -14,6 +14,8 @@ class AnalysisListItem(BaseModel):
     analysis_id: int
     tool_slug: str
     document_id: int
+    folder_id: int | None = None
+    status: str = "completed"
     filename: str
     created_at: datetime
 
@@ -35,6 +37,8 @@ class AnalysisRecentItem(BaseModel):
 class AnalysisDetailResponse(BaseModel):
     analysis_id: int
     tool_slug: str
+    folder_id: int | None = None
+    status: str = "completed"
     document: DocumentRef
     created_at: datetime
     result: dict

@@ -11,6 +11,7 @@ export type LLMConfig = {
   base_url: string;
   api_key: string;
   model: string;
+  analysis_mode: "fast" | "deep";
 };
 
 export const DEFAULT_LOCAL: LLMConfig = {
@@ -18,6 +19,7 @@ export const DEFAULT_LOCAL: LLMConfig = {
   base_url: "http://localhost:11434/v1",
   api_key: "ollama",
   model: "llama3.2",
+  analysis_mode: "fast",
 };
 
 export const DEFAULT_API: LLMConfig = {
@@ -25,6 +27,7 @@ export const DEFAULT_API: LLMConfig = {
   base_url: "https://api.openai.com/v1",
   api_key: "",
   model: "gpt-4o-mini",
+  analysis_mode: "deep",
 };
 
 type StoredLLMConfig = {
@@ -45,6 +48,7 @@ function normalizeConfig(mode: "local" | "api", value: unknown): LLMConfig {
     base_url: typeof source.base_url === "string" ? source.base_url : fallback.base_url,
     api_key: typeof source.api_key === "string" ? source.api_key : fallback.api_key,
     model: typeof source.model === "string" ? source.model : fallback.model,
+    analysis_mode: source.analysis_mode === "fast" ? "fast" : source.analysis_mode === "deep" ? "deep" : fallback.analysis_mode,
   };
 }
 
@@ -106,12 +110,13 @@ export function getStoredLLMConfigForMode(mode: "local" | "api"): LLMConfig {
   return mode === "api" ? state.api : state.local;
 }
 
-export function getLLMConfigForRequest(config: LLMConfig | null): { base_url?: string; api_key?: string; model?: string } | null {
+export function getLLMConfigForRequest(config: LLMConfig | null): { base_url?: string; api_key?: string; model?: string; analysis_mode?: string } | null {
   if (!config || (!config.base_url && !config.api_key && !config.model)) return null;
-  const out: { base_url?: string; api_key?: string; model?: string } = {};
+  const out: { base_url?: string; api_key?: string; model?: string; analysis_mode?: string } = {};
   if (config.base_url?.trim()) out.base_url = config.base_url.trim();
   if (config.api_key?.trim()) out.api_key = config.api_key.trim();
   if (config.model?.trim()) out.model = config.model.trim();
+  out.analysis_mode = config.analysis_mode;
   return Object.keys(out).length ? out : null;
 }
 
@@ -127,6 +132,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
   const [baseUrl, setBaseUrl] = useState(DEFAULT_LOCAL.base_url);
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(DEFAULT_LOCAL.model);
+  const [analysisMode, setAnalysisMode] = useState<"fast" | "deep">(DEFAULT_LOCAL.analysis_mode);
   const openedRef = useRef(false);
 
   useEffect(() => {
@@ -143,11 +149,13 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
       setBaseUrl(c.base_url ?? "");
       setApiKey(c.api_key ?? "");
       setModel(c.model ?? "");
+      setAnalysisMode(c.analysis_mode ?? "fast");
     } else {
       setActiveTab("local");
       setBaseUrl(DEFAULT_LOCAL.base_url);
       setApiKey(DEFAULT_LOCAL.api_key);
       setModel(DEFAULT_LOCAL.model);
+      setAnalysisMode(DEFAULT_LOCAL.analysis_mode);
     }
   }, [isOpen]);
 
@@ -157,6 +165,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
     setBaseUrl(next.base_url);
     setApiKey(next.api_key);
     setModel(next.model);
+    setAnalysisMode(next.analysis_mode);
   }
 
   function handleTabApi() {
@@ -165,6 +174,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
     setBaseUrl(next.base_url);
     setApiKey(next.api_key);
     setModel(next.model);
+    setAnalysisMode(next.analysis_mode);
   }
 
   function handleSave() {
@@ -173,6 +183,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
       base_url: baseUrl.trim(),
       api_key: apiKey.trim(),
       model: model.trim(),
+      analysis_mode: analysisMode,
     };
     try {
       saveStoredConfig(config);
@@ -246,8 +257,31 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="llama3.2"
               />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Режим анализа</label>
+                <div className="flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAnalysisMode("fast")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+                      analysisMode === "fast" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    Быстрый
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnalysisMode("deep")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+                      analysisMode === "deep" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    Глубокий
+                  </button>
+                </div>
+              </div>
               <p className="text-xs text-gray-500">
-                Укажите адрес OpenAI-совместимого сервера и имя модели. Для локальных или домашних серверов API key можно оставить пустым, если он не требуется.
+                Быстрый режим делает один проход и лучше подходит для локальных моделей. Глубокий режим медленнее, но даёт более тяжёлый структурный анализ.
               </p>
             </>
           )}
@@ -272,6 +306,29 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="gpt-4o-mini"
               />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Режим анализа</label>
+                <div className="flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAnalysisMode("fast")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+                      analysisMode === "fast" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    Быстрый
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnalysisMode("deep")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+                      analysisMode === "deep" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    Глубокий
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class DocumentUploadResponse(BaseModel):
     document_id: int
+    folder_id: int | None = None
     filename: str
     mime_type: str
     size_bytes: int
@@ -15,6 +16,9 @@ class DocumentUploadResponse(BaseModel):
 
 class DocumentListItem(BaseModel):
     document_id: int
+    folder_id: int | None = None
+    mime_type: str | None = None
+    size_bytes: int | None = None
     filename: str
     created_at: datetime
 

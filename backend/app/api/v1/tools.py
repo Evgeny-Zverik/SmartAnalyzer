@@ -10,15 +10,18 @@ from app.db.session import get_db
 from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
+from app.services.folders import ensure_user_system_folders, resolve_analysis_folder
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
     analyze_document,
+    analyze_document_fast,
     check_contract,
     extract_structured_data,
     stream_document_analysis_events,
 )
 from app.utils.errors import raise_error
+from app.utils.errors import ApiError
 from app.schemas.tools import (
     ChecklistItem,
     ContractCheckerRunResponse,
@@ -58,11 +61,21 @@ def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Docum
     return doc
 
 
-def _save_analysis(db: Session, user_id: int, document_id: int, tool_slug: str, result: dict) -> int:
+def _save_analysis(
+    db: Session,
+    user_id: int,
+    document_id: int,
+    tool_slug: str,
+    result: dict,
+    folder_id: int | None,
+    status: str = "completed",
+) -> int:
     row = DocumentAnalysis(
         user_id=user_id,
         document_id=document_id,
+        folder_id=folder_id,
         tool_slug=tool_slug,
+        status=status,
         result_json=result,
     )
     db.add(row)
@@ -161,6 +174,7 @@ def prepare_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     return DocumentAnalyzerPrepareResponse(
@@ -181,6 +195,7 @@ def run_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     if body.edited_document and body.edited_document.full_text.strip():
@@ -193,7 +208,8 @@ def run_document_analyzer(
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
-    raw_result = analyze_document(text, overrides=overrides)
+    analysis_mode = str((overrides or {}).get("analysis_mode") or "deep").lower()
+    raw_result = analyze_document_fast(text, overrides=overrides) if analysis_mode == "fast" else analyze_document(text, overrides=overrides)
     raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
     if isinstance(raw_advanced, dict):
         raw_advanced["rich_content"] = editor_payload.get("rich_content")
@@ -202,8 +218,20 @@ def run_document_analyzer(
         result = DocumentAnalyzerResult.model_validate(raw_result)
     except ValidationError:
         raise_error(500, "LLM_ERROR", "Analysis result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="document-analyzer",
+        fallback_folder_id=doc.folder_id,
+    )
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "document-analyzer", result.model_dump()
+        db,
+        current_user.id,
+        body.document_id,
+        "document-analyzer",
+        result.model_dump(),
+        folder.id,
     )
     log_run(db, current_user.id, "document-analyzer")
     return DocumentAnalyzerRunResponse(analysis_id=analysis_id, tool_slug="document-analyzer", result=result)
@@ -215,6 +243,7 @@ def stream_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     if body.edited_document and body.edited_document.full_text.strip():
@@ -227,6 +256,13 @@ def stream_document_analyzer(
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="document-analyzer",
+        fallback_folder_id=doc.folder_id,
+    )
 
     def event_stream():
         final_result: DocumentAnalyzerResult | None = None
@@ -245,6 +281,7 @@ def stream_document_analyzer(
                         body.document_id,
                         "document-analyzer",
                         final_result.model_dump(),
+                        folder.id,
                     )
                     log_run(db, current_user.id, "document-analyzer")
                     payload = {
@@ -257,7 +294,12 @@ def stream_document_analyzer(
                     continue
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:
-            payload = {"type": "error", "message": str(e)}
+            message = str(e)
+            if isinstance(e, ApiError):
+                message = e.message
+            elif not message:
+                message = "Streaming analysis failed."
+            payload = {"type": "error", "message": message}
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
@@ -277,6 +319,7 @@ def run_contract_checker(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "contract-checker")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     text = extract_text(doc.storage_path, doc.mime_type)
@@ -286,8 +329,20 @@ def run_contract_checker(
         result = ContractCheckerResult.model_validate(raw_result)
     except ValidationError:
         raise_error(500, "LLM_INVALID_RESPONSE", "Contract analysis result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="contract-checker",
+        fallback_folder_id=doc.folder_id,
+    )
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "contract-checker", result.model_dump()
+        db,
+        current_user.id,
+        body.document_id,
+        "contract-checker",
+        result.model_dump(),
+        folder.id,
     )
     log_run(db, current_user.id, "contract-checker")
     return ContractCheckerRunResponse(analysis_id=analysis_id, tool_slug="contract-checker", result=result)
@@ -299,6 +354,7 @@ def run_data_extractor(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "data-extractor")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     text = extract_text(doc.storage_path, doc.mime_type)
@@ -314,8 +370,20 @@ def run_data_extractor(
         result = DataExtractorResult.model_validate(raw_result)
     except ValidationError:
         raise_error(500, "LLM_INVALID_RESPONSE", "Data extraction result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="data-extractor",
+        fallback_folder_id=doc.folder_id,
+    )
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "data-extractor", result.model_dump()
+        db,
+        current_user.id,
+        body.document_id,
+        "data-extractor",
+        result.model_dump(),
+        folder.id,
     )
     log_run(db, current_user.id, "data-extractor")
     return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug="data-extractor", result=result)
@@ -327,10 +395,23 @@ def run_tender_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _get_document_for_user(db, body.document_id, current_user.id)
+    ensure_user_system_folders(db, current_user.id)
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
     stub = _stub_tender_analyzer(analysis_id=0)
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="tender-analyzer",
+        fallback_folder_id=doc.folder_id,
+    )
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "tender-analyzer", stub.result.model_dump()
+        db,
+        current_user.id,
+        body.document_id,
+        "tender-analyzer",
+        stub.result.model_dump(),
+        folder.id,
     )
     return TenderAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
@@ -341,9 +422,22 @@ def run_risk_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _get_document_for_user(db, body.document_id, current_user.id)
+    ensure_user_system_folders(db, current_user.id)
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
     stub = _stub_risk_analyzer(analysis_id=0)
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="risk-analyzer",
+        fallback_folder_id=doc.folder_id,
+    )
     analysis_id = _save_analysis(
-        db, current_user.id, body.document_id, "risk-analyzer", stub.result.model_dump()
+        db,
+        current_user.id,
+        body.document_id,
+        "risk-analyzer",
+        stub.result.model_dump(),
+        folder.id,
     )
     return RiskAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)

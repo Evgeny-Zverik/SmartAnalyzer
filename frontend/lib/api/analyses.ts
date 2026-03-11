@@ -55,3 +55,11 @@ export async function getRecentAnalyses(limit = 20): Promise<AnalysisRecentItem[
     params: { limit: String(limit) },
   });
 }
+
+export async function moveAnalysis(analysisId: number, folderId: number): Promise<void> {
+  return apiFetch(`/api/v1/analyses/${analysisId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ folder_id: folderId }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
