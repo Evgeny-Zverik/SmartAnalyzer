@@ -15,6 +15,12 @@ TOOL_SLUGS = (
     "data-extractor",
     "tender-analyzer",
     "risk-analyzer",
+    "summary",
+    "key_points",
+    "dates_deadlines",
+    "risk_analyzer",
+    "suggested_edits",
+    "speech_transcription",
 )
 
 FREE_DAILY_RUNS_PER_TOOL = 3

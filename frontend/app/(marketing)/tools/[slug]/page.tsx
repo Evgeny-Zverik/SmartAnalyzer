@@ -20,6 +20,7 @@ import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
 import { AdvancedAiEditor } from "@/components/tools/AdvancedAiEditor";
+import { DocumentWorkspace } from "@/components/tools/DocumentWorkspace";
 import {
   LLMSettingsModal,
   getStoredLLMConfig,
@@ -154,6 +155,14 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
   if (!tool) {
     notFound();
+  }
+
+  if (tool.slug === "document-analyzer") {
+    return (
+      <ToolShell tool={tool}>
+        <DocumentWorkspace accepts={tool.mvp.accepts} />
+      </ToolShell>
+    );
   }
 
   const [state, setState] = useState<ToolState>("idle");
