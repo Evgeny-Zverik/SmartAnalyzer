@@ -65,6 +65,8 @@ type AdvancedAiEditorProps = {
     annotations: AdvancedAnnotation[];
   };
   isAnalyzing?: boolean;
+  selectedAnnotationId?: string | null;
+  onSelectedAnnotationChange?: (annotationId: string | null) => void;
   onDocumentChange?: (payload: {
     full_text: string;
     rich_content: Record<string, unknown>;
@@ -257,7 +259,7 @@ function buildDocTextIndex(doc: ProseMirrorNode): { text: string; segments: Text
 
     const separator = getNodeJoinSeparator(node.type.name);
     node.forEach((child, offset, index) => {
-      walk(child, pos + offset + 1);
+      walk(child, pos + offset + (child.isText ? 0 : 1));
       if (index < node.childCount - 1 && separator) {
         text += separator;
       }
@@ -435,7 +437,13 @@ function createAiAnnotationsExtension(config: {
   });
 }
 
-export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }: AdvancedAiEditorProps) {
+export function AdvancedAiEditor({
+  data,
+  isAnalyzing = false,
+  selectedAnnotationId,
+  onSelectedAnnotationChange,
+  onDocumentChange,
+}: AdvancedAiEditorProps) {
   const [editorText, setEditorText] = useState(data.full_text);
   const [annotations, setAnnotations] = useState<AdvancedAnnotation[]>(data.annotations);
   const [filter, setFilter] = useState<AnnotationFilter>("all");
@@ -644,6 +652,16 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
     if (!editor) return;
     editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
   }, [activeId, editor]);
+
+  useEffect(() => {
+    if (selectedAnnotationId === undefined) return;
+    setActiveId(selectedAnnotationId);
+  }, [selectedAnnotationId]);
+
+  useEffect(() => {
+    if (!onSelectedAnnotationChange) return;
+    onSelectedAnnotationChange(activeId);
+  }, [activeId, onSelectedAnnotationChange]);
 
   useEffect(() => {
     return () => {
