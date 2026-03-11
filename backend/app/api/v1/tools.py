@@ -19,6 +19,7 @@ from app.services.llm_client import (
     extract_structured_data,
     stream_document_analysis_events,
 )
+from app.models.user_settings import UserSettings
 from app.utils.errors import raise_error
 from app.utils.errors import ApiError
 from app.schemas.tools import (
@@ -51,6 +52,30 @@ from app.schemas.tools import (
 )
 
 router = APIRouter()
+
+
+def _resolve_llm_overrides(db: Session, user_id: int, llm_config) -> dict | None:
+    """Merge user-saved settings with per-request llm_config (request wins)."""
+    request_overrides = llm_config.model_dump(exclude_none=True) if llm_config else {}
+    try:
+        settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    except Exception:
+        settings = None
+    if not settings:
+        return request_overrides or None
+    saved = {}
+    if settings.llm_base_url:
+        saved["base_url"] = settings.llm_base_url
+    if settings.llm_api_key:
+        saved["api_key"] = settings.llm_api_key
+    if settings.llm_model:
+        saved["model"] = settings.llm_model
+    if settings.compression_level:
+        saved["compression_level"] = settings.compression_level
+    if settings.analysis_mode:
+        saved["analysis_mode"] = settings.analysis_mode
+    merged = {**saved, **request_overrides}
+    return merged or None
 
 
 def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Document:
@@ -206,7 +231,7 @@ def run_document_analyzer(
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = _resolve_llm_overrides(db, current_user.id, body.llm_config)
     raw_result = analyze_document_fast(text, overrides=overrides)
     raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
     if isinstance(raw_advanced, dict):
@@ -253,7 +278,7 @@ def stream_document_analyzer(
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = _resolve_llm_overrides(db, current_user.id, body.llm_config)
     folder = resolve_analysis_folder(
         db,
         current_user.id,
@@ -321,7 +346,7 @@ def run_contract_checker(
     assert_can_run(db, current_user, "contract-checker")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     text = extract_text(doc.storage_path, doc.mime_type)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = _resolve_llm_overrides(db, current_user.id, body.llm_config)
     raw_result = check_contract(text, overrides=overrides)
     try:
         result = ContractCheckerResult.model_validate(raw_result)
@@ -359,7 +384,7 @@ def run_data_extractor(
     xlsx_tables: list[dict] = []
     if doc.mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
         xlsx_tables = extract_tables_from_xlsx(doc.storage_path)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = _resolve_llm_overrides(db, current_user.id, body.llm_config)
     raw_result = extract_structured_data(text, overrides=overrides)
     if xlsx_tables:
         existing = raw_result.get("tables") or []

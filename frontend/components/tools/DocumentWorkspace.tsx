@@ -1,19 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { FileText, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { AdvancedAiEditor, type AdvancedAnnotation } from "@/components/tools/AdvancedAiEditor";
-import {
-  LLMSettingsModal,
-  getLLMConfigForRequest,
-  getStoredLLMConfig,
-  getStoredLLMConfigForMode,
-  type LLMConfig,
-} from "@/components/tools/LLMSettingsModal";
-import { PluginSidebar } from "@/components/plugins/PluginSidebar";
 import { PluginToolbar } from "@/components/plugins/PluginToolbar";
 import { PluginInspector } from "@/components/plugins/PluginInspector";
 import { PluginPanels } from "@/components/plugins/PluginPanels";
@@ -22,12 +14,9 @@ import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/t
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import {
-  listPlugins,
   getDocumentWorkspacePlugins,
-  runDocumentWorkspacePlugin,
   runAllDocumentWorkspacePlugins,
-  toggleDocumentWorkspacePlugin,
-  type PluginAvailabilityItem,
+  runDocumentWorkspacePlugin,
 } from "@/lib/plugins/api";
 import { createInitialPluginStore, pluginStoreReducer } from "@/lib/plugins/store";
 import type { PluginAction, PluginFinding, WorkspacePluginItem } from "@/lib/plugins/types";
@@ -76,51 +65,27 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [state, setState] = useState<"idle" | "preparing" | "ready" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [runningPluginId, setRunningPluginId] = useState<string | null>(null);
-  const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
-  const [llmModalOpen, setLlmModalOpen] = useState(false);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
+  // Cleanup on unmount
   useEffect(() => {
-    setLlmConfig(getStoredLLMConfig());
+    return () => { abortRef.current?.abort(); };
   }, []);
 
-  // Fetch available plugins on mount (before document upload)
-  useEffect(() => {
-    listPlugins()
-      .then((available) => {
-        const staticItems: WorkspacePluginItem[] = available.map((p) => ({
-          manifest: p.manifest,
-          compatible: true,
-          enabled: p.manifest.auto_enable ?? false,
-          visible_overlay: true,
-          state: p.available_for_plan ? "registered" : "locked",
-          latest_execution_id: null,
-          latest_result: null,
-        }));
-        dispatch({ type: "hydrate", items: staticItems });
-      })
-      .catch(() => {});
-  }, []);
-
-  const currentMode = llmConfig?.mode ?? "local";
-  const setLlmMode = useCallback((mode: "local" | "api") => {
-    setLlmConfig(getStoredLLMConfigForMode(mode));
+  const handleAbort = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setRunningPluginId(null);
+    setState((prev) => (prev === "preparing" ? "idle" : prev));
   }, []);
 
   const hydratePlugins = useCallback(async (docId: number) => {
     const items = await getDocumentWorkspacePlugins(docId);
-    // Merge pre-upload toggle choices into workspace items
-    const mergedItems = items.map((item) => {
-      const preUploadEnabled = store.enabled_by_plugin[item.manifest.id];
-      if (preUploadEnabled !== undefined) {
-        return { ...item, enabled: preUploadEnabled };
-      }
-      return item;
-    });
-    dispatch({ type: "hydrate", items: mergedItems });
-    return mergedItems;
-  }, [store.enabled_by_plugin]);
+    dispatch({ type: "hydrate", items });
+    return items;
+  }, []);
 
   const handlePluginRun = useCallback(
     async (pluginId: string) => {
@@ -129,7 +94,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       dispatch({ type: "set_status", pluginId, status: "running" });
       try {
         const response = await runDocumentWorkspacePlugin(documentId, pluginId, {
-          llmConfig: getLLMConfigForRequest(llmConfig),
+          llmConfig: null,
           editedDocument: hasEditorChanges ? editedDocument : null,
         });
         dispatch({
@@ -150,7 +115,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [documentId, llmConfig, hasEditorChanges, editedDocument, router]
+    [documentId, hasEditorChanges, editedDocument, router]
   );
 
   const autoRunEnabledPlugins = useCallback(
@@ -172,7 +137,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
       try {
         const response = await runAllDocumentWorkspacePlugins(docId, {
-          llmConfig: getLLMConfigForRequest(llmConfig),
+          llmConfig: null,
           editedDocument: hasEditorChanges ? editedDocument : null,
           pluginIds,
         });
@@ -198,7 +163,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [llmConfig, hasEditorChanges, editedDocument, router]
+    [hasEditorChanges, editedDocument, router]
   );
 
   const handlePrepareWorkspace = useCallback(async () => {
@@ -229,24 +194,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       }
     }
   }, [file, documentId, editorData, hydratePlugins, autoRunEnabledPlugins, router]);
-
-  const handlePluginToggle = useCallback(
-    async (pluginId: string, enabled: boolean) => {
-      // Before document upload, toggle locally only
-      if (!documentId) {
-        dispatch({ type: "set_enabled", pluginId, enabled });
-        return;
-      }
-      try {
-        await toggleDocumentWorkspacePlugin(documentId, pluginId, enabled);
-        dispatch({ type: "set_enabled", pluginId, enabled });
-      } catch (error) {
-        const parsed = parseApiError(error);
-        setErrorMessage(parsed.message || "Cannot toggle plugin.");
-      }
-    },
-    [documentId]
-  );
 
   const orderedItems = useMemo(
     () =>
@@ -328,47 +275,34 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-            <div
-              className="flex shrink-0 rounded-xl border border-gray-300 bg-gray-100 p-0.5"
-              role="group"
-              aria-label="Режим LLM"
-            >
-              <button
+            {state === "preparing" || runningPluginId !== null ? (
+              <Button
                 type="button"
-                onClick={() => setLlmMode("local")}
-                className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                  currentMode === "local" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                variant="secondary"
+                onClick={handleAbort}
+                className="min-w-[220px]"
+              >
+                Остановить анализ
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant={state === "ready" && !hasEditorChanges ? "secondary" : "primary"}
+                onClick={handlePrepareWorkspace}
+                disabled={!file || (state === "ready" && !hasEditorChanges)}
+                className={`min-w-[220px] ${
+                  state === "ready" && !hasEditorChanges
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : ""
                 }`}
               >
-                Свой сервер
-              </button>
-              <button
-                type="button"
-                onClick={() => setLlmMode("api")}
-                className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                  currentMode === "api" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                API
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLlmModalOpen(true)}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              title="Настройки LLM"
-              aria-label="Настройки LLM"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-            <Button
-              type="button"
-              onClick={handlePrepareWorkspace}
-              disabled={!file || state === "preparing"}
-              className="min-w-[220px]"
-            >
-              {state === "preparing" ? "Подготавливаем workspace..." : hasEditorChanges ? "Пересобрать workspace" : "Открыть workspace"}
-            </Button>
+                {state === "ready" && !hasEditorChanges
+                  ? "Проанализировано"
+                  : hasEditorChanges
+                    ? "Проанализировать ещё раз"
+                    : "Анализировать"}
+              </Button>
+            )}
           </div>
         </div>
         <div className="mt-4">
@@ -377,7 +311,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
             file={file}
             onFileChange={(nextFile) => {
               setFile(nextFile);
-              setState(nextFile ? "ready" : "idle");
+              setState("idle");
               setDocumentId(null);
               setEditorData(null);
               setEditedDocument(null);
@@ -389,76 +323,54 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         </div>
       </section>
 
-      <LLMSettingsModal
-        isOpen={llmModalOpen}
-        onClose={() => setLlmModalOpen(false)}
-        initialConfig={llmConfig}
-        onSave={setLlmConfig}
-      />
-
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
         </div>
       ) : null}
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      {editorData ? (
         <div className="space-y-6">
-          {editorData ? (
-            <>
-              <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
-              <AdvancedAiEditor
-                data={{ ...editorData, annotations }}
-                selectedAnnotationId={store.active_finding_id}
-                onSelectedAnnotationChange={(annotationId) =>
-                  dispatch({
-                    type: "set_active_finding",
-                    findingId: annotationId ?? undefined,
-                    pluginId: selectedPlugin?.manifest.id,
-                  })
-                }
-                isAnalyzing={runningPluginId !== null}
-                onDocumentChange={(payload) => {
-                  setEditedDocument({
-                    full_text: payload.full_text,
-                    rich_content: payload.rich_content,
-                    source_format: payload.source_format,
-                  });
-                  setHasEditorChanges(payload.is_dirty);
-                }}
-              />
-              <PluginPanels
-                panels={selectedResult?.panels ?? []}
-                findings={selectedResult?.findings ?? []}
-                activeFindingId={store.active_finding_id}
-                onSelectFinding={(finding) =>
-                  dispatch({
-                    type: "set_active_finding",
-                    findingId: finding.id,
-                    pluginId: selectedPlugin?.manifest.id,
-                  })
-                }
-              />
-            </>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-sm text-gray-500">
-              Загрузите документ и нажмите «Открыть workspace» — модули анализа запустятся автоматически.
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <PluginSidebar
-            items={orderedItems}
-            selectedPluginId={selectedPlugin?.manifest.id}
-            runningPluginId={runningPluginId}
-            onSelect={(pluginId) => dispatch({ type: "set_active_finding", pluginId })}
-            onToggle={handlePluginToggle}
-            onRun={handlePluginRun}
+          <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
+          <AdvancedAiEditor
+            data={{ ...editorData, annotations }}
+            selectedAnnotationId={store.active_finding_id}
+            onSelectedAnnotationChange={(annotationId) =>
+              dispatch({
+                type: "set_active_finding",
+                findingId: annotationId ?? undefined,
+                pluginId: selectedPlugin?.manifest.id,
+              })
+            }
+            isAnalyzing={runningPluginId !== null}
+            onDocumentChange={(payload) => {
+              setEditedDocument({
+                full_text: payload.full_text,
+                rich_content: payload.rich_content,
+                source_format: payload.source_format,
+              });
+              setHasEditorChanges(payload.is_dirty);
+            }}
+          />
+          <PluginPanels
+            panels={selectedResult?.panels ?? []}
+            findings={selectedResult?.findings ?? []}
+            activeFindingId={store.active_finding_id}
+            onSelectFinding={(finding) =>
+              dispatch({
+                type: "set_active_finding",
+                findingId: finding.id,
+                pluginId: selectedPlugin?.manifest.id,
+              })
+            }
           />
           {selectedFinding && <PluginInspector finding={selectedFinding} />}
         </div>
-      </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-sm text-gray-500">
+          Загрузите документ и нажмите «Анализировать» — модули анализа запустятся автоматически.
+        </div>
+      )}
     </div>
   );
 }

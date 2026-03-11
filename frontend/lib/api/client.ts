@@ -9,25 +9,10 @@ function getBaseURL(): string {
     return configuredBaseURL;
   }
 
-  const currentHost = window.location.hostname;
-  const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
-
-  try {
-    const url = new URL(configuredBaseURL);
-    const apiHost = url.hostname;
-    const apiIsLocalHost = apiHost === "localhost" || apiHost === "127.0.0.1";
-
-    // If the app is opened from another device, "localhost" must point to the machine
-    // serving the frontend, not to the client device itself.
-    if (!isLocalHost && apiIsLocalHost) {
-      url.hostname = currentHost;
-      return url.toString().replace(/\/$/, "");
-    }
-
-    return configuredBaseURL;
-  } catch {
-    return configuredBaseURL;
-  }
+  // Use relative URL so Next.js rewrites proxy to the backend.
+  // This allows the preview browser (and any remote client) to reach the API
+  // without needing direct access to localhost:8000.
+  return "";
 }
 
 export type ApiFetchOptions = RequestInit & {
@@ -40,9 +25,14 @@ export async function apiFetch<T = unknown>(
 ): Promise<T> {
   const { params, ...init } = options;
   const baseURL = getBaseURL();
-  const url = new URL(path.startsWith("http") ? path : `${baseURL}${path}`);
-  if (params) {
+  const fullPath = path.startsWith("http") ? path : `${baseURL}${path}`;
+  let fetchUrl: string;
+  if (params && Object.keys(params).length > 0) {
+    const url = new URL(fullPath, typeof window !== "undefined" ? window.location.origin : undefined);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    fetchUrl = url.toString();
+  } else {
+    fetchUrl = fullPath;
   }
   const token = getToken();
   const headers = new Headers(init.headers);
@@ -53,23 +43,7 @@ export async function apiFetch<T = unknown>(
     headers.set("Content-Type", "application/json");
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), { ...init, headers });
-  } catch (err) {
-    const shouldRetryWithIpv4 =
-      typeof window !== "undefined" &&
-      url.hostname === "localhost" &&
-      (err instanceof TypeError || err instanceof Error);
-
-    if (!shouldRetryWithIpv4) {
-      throw err;
-    }
-
-    const fallbackUrl = new URL(url.toString());
-    fallbackUrl.hostname = "127.0.0.1";
-    res = await fetch(fallbackUrl.toString(), { ...init, headers });
-  }
+  const res = await fetch(fetchUrl, { ...init, headers });
 
   const text = await res.text();
   let data: T;

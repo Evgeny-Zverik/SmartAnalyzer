@@ -40,6 +40,30 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1", tags=["api"])
 
 
+@app.on_event("startup")
+def _seed_test_user() -> None:
+    """Create test user 1/1 if it doesn't exist (dev only)."""
+    from app.db.session import SessionLocal
+    from app.models.user import User
+    from app.core.security import hash_password
+    from app.services.folders import ensure_user_system_folders
+
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == "1@1.com").first():
+            user = User(email="1@1.com", password_hash=hash_password("1"))
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            ensure_user_system_folders(db, user.id)
+            logger.info("Seed test user created: email=1@1.com")
+    except Exception as exc:
+        logger.warning("Could not seed test user: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
 def _check_storage() -> dict[str, object]:
     path = Path(settings.storage_path)
     try:

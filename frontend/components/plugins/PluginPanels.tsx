@@ -19,10 +19,10 @@ export function PluginPanels({
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_340px]">
       <Card>
-        <h3 className="text-sm font-semibold text-gray-900">Findings</h3>
+        <h3 className="text-sm font-semibold text-gray-900">Замечания</h3>
         <div className="mt-4 space-y-3">
           {findings.length === 0 ? (
-            <p className="text-sm text-gray-500">У активного модуля пока нет findings.</p>
+            <p className="text-sm text-gray-500">Замечаний не найдено.</p>
           ) : (
             findings.map((finding) => (
               <button

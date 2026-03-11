@@ -51,6 +51,12 @@ export function Header() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/settings"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Настройки
+              </Link>
               <button
                 onClick={handleLogout}
                 type="button"

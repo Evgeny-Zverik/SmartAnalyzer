@@ -101,34 +101,36 @@ export function UploadDropzone({
 
   return (
     <div className="space-y-3">
-      <label className="block">
-        <span className="sr-only">Выберите файл</span>
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
-            isDragOver
-              ? "border-emerald-500 bg-emerald-50/50"
-              : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2"
-          }`}
-          style={{ minHeight: compact ? 118 : 160 }}
-        >
-          <Upload className={`${compact ? "h-8 w-8" : "h-10 w-10"} text-gray-400`} aria-hidden />
-          <p className={`mt-2 ${compact ? "text-sm" : "text-sm"} text-gray-600`}>
-            Перетащите файл сюда или нажмите для выбора
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {acceptedExtensions.join(", ")}
-          </p>
-          <input
-            type="file"
-            className="sr-only"
-            accept={acceptedExtensions.map((e) => `.${e}`).join(",")}
-            onChange={handleInputChange}
-          />
-        </div>
-      </label>
+      {!file && (
+        <label className="block">
+          <span className="sr-only">Выберите файл</span>
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
+              isDragOver
+                ? "border-emerald-500 bg-emerald-50/50"
+                : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2"
+            }`}
+            style={{ minHeight: compact ? 118 : 160 }}
+          >
+            <Upload className={`${compact ? "h-8 w-8" : "h-10 w-10"} text-gray-400`} aria-hidden />
+            <p className={`mt-2 ${compact ? "text-sm" : "text-sm"} text-gray-600`}>
+              Перетащите файл сюда или нажмите для выбора
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {acceptedExtensions.join(", ")}
+            </p>
+            <input
+              type="file"
+              className="sr-only"
+              accept={acceptedExtensions.map((e) => `.${e}`).join(",")}
+              onChange={handleInputChange}
+            />
+          </div>
+        </label>
+      )}
 
       {showFileCard && file && (
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">

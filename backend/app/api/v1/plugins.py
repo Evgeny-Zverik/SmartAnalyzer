@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.document import Document
 from app.models.plugin_execution import PluginExecution
 from app.models.user import User
+from app.models.user_settings import UserSettings
 from app.models.workspace_enabled_plugin import WorkspaceEnabledPlugin
 from app.plugins.base import PluginRunContext
 from app.plugins.helpers import detect_document_input_type, plan_satisfies
@@ -30,9 +31,31 @@ from app.schemas.plugins import (
 )
 from app.services.folders import ensure_user_system_folders
 from app.services.usage import assert_can_run, log_run
+from app.schemas.tools import LlmConfigOptional
 from app.utils.errors import raise_error
 
 router = APIRouter()
+
+
+def _resolve_llm_config(db: Session, user_id: int, llm_config: LlmConfigOptional | None) -> LlmConfigOptional | None:
+    """Merge user-saved settings with per-request llm_config (request wins)."""
+    request_vals = llm_config.model_dump(exclude_none=True) if llm_config else {}
+    settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not settings:
+        return llm_config
+    saved: dict = {}
+    if settings.llm_base_url:
+        saved["base_url"] = settings.llm_base_url
+    if settings.llm_api_key:
+        saved["api_key"] = settings.llm_api_key
+    if settings.llm_model:
+        saved["model"] = settings.llm_model
+    if settings.compression_level:
+        saved["compression_level"] = settings.compression_level
+    if settings.analysis_mode:
+        saved["analysis_mode"] = settings.analysis_mode
+    merged = {**saved, **request_vals}
+    return LlmConfigOptional(**merged) if merged else None
 
 
 def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Document:
@@ -260,7 +283,7 @@ def run_workspace_plugin(
         user=current_user,
         document=doc,
         input_type=input_type,
-        llm_config=body.llm_config,
+        llm_config=_resolve_llm_config(db, current_user.id, body.llm_config),
         edited_document=body.edited_document,
     )
 
@@ -326,7 +349,7 @@ def run_all_workspace_plugins(
         user=current_user,
         document=doc,
         input_type=input_type,
-        llm_config=body.llm_config,
+        llm_config=_resolve_llm_config(db, current_user.id, body.llm_config),
         edited_document=body.edited_document,
     )
 

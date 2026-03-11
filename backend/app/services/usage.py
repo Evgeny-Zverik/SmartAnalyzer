@@ -20,7 +20,6 @@ TOOL_SLUGS = (
     "dates_deadlines",
     "risk_analyzer",
     "suggested_edits",
-    "speech_transcription",
 )
 
 FREE_DAILY_RUNS_PER_TOOL = 3
