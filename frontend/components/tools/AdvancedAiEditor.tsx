@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   AlignCenter,
   AlignJustify,
@@ -129,7 +130,6 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = ["12", "14", "16", "18", "20", "24", "28", "32"];
-const VIRTUAL_PAGE_HEIGHT = 1120;
 
 const FontSize = Extension.create({
   name: "fontSize",
@@ -245,11 +245,6 @@ function buildDocTextIndex(doc: ProseMirrorNode): { text: string; segments: Text
   let text = "";
   const segments: TextIndexSegment[] = [];
 
-  const appendSeparator = (value: string) => {
-    if (!value) return;
-    text += value;
-  };
-
   const walk = (node: ProseMirrorNode, pos: number) => {
     if (node.isText) {
       const value = node.text ?? "";
@@ -263,8 +258,8 @@ function buildDocTextIndex(doc: ProseMirrorNode): { text: string; segments: Text
     const separator = getNodeJoinSeparator(node.type.name);
     node.forEach((child, offset, index) => {
       walk(child, pos + offset + 1);
-      if (index < node.childCount - 1) {
-        appendSeparator(separator);
+      if (index < node.childCount - 1 && separator) {
+        text += separator;
       }
     });
   };
@@ -299,6 +294,31 @@ function findPositionForOffset(
   return last.from + (last.end - last.start);
 }
 
+function isWordChar(char: string | undefined): boolean {
+  return Boolean(
+    char && (char === "_" || /[0-9]/.test(char) || char.toLowerCase() !== char.toUpperCase())
+  );
+}
+
+function expandOffsetsToWordBoundaries(
+  text: string,
+  startOffset: number,
+  endOffset: number
+): { start: number; end: number } {
+  let start = Math.max(0, startOffset);
+  let end = Math.min(text.length, endOffset);
+
+  while (start > 0 && isWordChar(text[start]) && isWordChar(text[start - 1])) {
+    start -= 1;
+  }
+
+  while (end < text.length && isWordChar(text[end - 1]) && isWordChar(text[end])) {
+    end += 1;
+  }
+
+  return { start, end };
+}
+
 function getOffsetRange(
   doc: ProseMirrorNode,
   startOffset: number,
@@ -312,12 +332,36 @@ function getOffsetRange(
   const candidateText = index.text.slice(startOffset, endOffset);
 
   if (exactQuote && candidateText !== exactQuote) {
-    const anchoredStart = index.text.indexOf(exactQuote);
-    if (anchoredStart !== -1) {
+    const collectMatches = (haystack: string, needle: string): number[] => {
+      const matches: number[] = [];
+      let cursor = 0;
+      while (true) {
+        const found = haystack.indexOf(needle, cursor);
+        if (found === -1) break;
+        matches.push(found);
+        cursor = found + 1;
+      }
+      return matches;
+    };
+
+    const exactMatches = collectMatches(index.text, exactQuote);
+    const matches =
+      exactMatches.length > 0
+        ? exactMatches
+        : collectMatches(index.text.toLocaleLowerCase(), exactQuote.toLocaleLowerCase());
+
+    if (matches.length > 0) {
+      const anchoredStart = matches.sort(
+        (left, right) => Math.abs(left - startOffset) - Math.abs(right - startOffset)
+      )[0];
       resolvedStart = anchoredStart;
       resolvedEnd = anchoredStart + exactQuote.length;
     }
   }
+
+  const expanded = expandOffsetsToWordBoundaries(index.text, resolvedStart, resolvedEnd);
+  resolvedStart = expanded.start;
+  resolvedEnd = expanded.end;
 
   const from = findPositionForOffset(index.segments, resolvedStart, "start");
   const to = findPositionForOffset(index.segments, resolvedEnd, "end");
@@ -328,6 +372,8 @@ function createAiAnnotationsExtension(config: {
   getAnnotations: () => AdvancedAnnotation[];
   getActiveId: () => string | null;
   onSelect: (id: string) => void;
+  onHover: (id: string, element: HTMLElement) => void;
+  onLeave: (relatedTarget: EventTarget | null) => void;
 }) {
   return Extension.create({
     name: "aiAnnotations",
@@ -343,7 +389,8 @@ function createAiAnnotationsExtension(config: {
                   const range = getOffsetRange(
                     state.doc,
                     annotation.start_offset,
-                    annotation.end_offset
+                    annotation.end_offset,
+                    annotation.exact_quote
                   );
                   if (!range) return null;
                   const isActive = config.getActiveId() === annotation.id;
@@ -363,6 +410,23 @@ function createAiAnnotationsExtension(config: {
               if (!id) return false;
               config.onSelect(id);
               return false;
+            },
+            handleDOMEvents: {
+              mouseover: (_view: EditorView, event: Event) => {
+                const target = event.target as HTMLElement | null;
+                const element = target?.closest<HTMLElement>("[data-annotation-id]");
+                const id = element?.dataset.annotationId;
+                if (!id || !element) return false;
+                config.onHover(id, element);
+                return false;
+              },
+              mouseout: (_view: EditorView, event: Event) => {
+                const mouseEvent = event as MouseEvent;
+                const target = mouseEvent.target as HTMLElement | null;
+                if (!target?.closest<HTMLElement>("[data-annotation-id]")) return false;
+                config.onLeave(mouseEvent.relatedTarget);
+                return false;
+              },
             },
           },
         }),
@@ -386,13 +450,15 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
   const [toolbarHeading, setToolbarHeading] = useState<"paragraph" | "heading1">("paragraph");
   const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
   const [toolbarFontSize, setToolbarFontSize] = useState("16");
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [hoverAnchorRect, setHoverAnchorRect] = useState<DOMRect | null>(null);
   const filteredAnnotationsRef = useRef<AdvancedAnnotation[]>(data.annotations);
   const activeIdRef = useRef<string | null>(data.annotations[0]?.id ?? null);
   const suppressManualWarningRef = useRef(false);
   const initialEditorSignatureRef = useRef("");
-  const pageSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const [pageCount, setPageCount] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
+  const hoverHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorScrollRef = useRef<HTMLDivElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -423,6 +489,25 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
         getAnnotations: () => filteredAnnotationsRef.current,
         getActiveId: () => activeIdRef.current,
         onSelect: (id) => setActiveId(id),
+        onHover: (id, element) => {
+          if (hoverHideTimeoutRef.current) {
+            window.clearTimeout(hoverHideTimeoutRef.current);
+            hoverHideTimeoutRef.current = null;
+          }
+          setHoveredAnnotationId(id);
+          setHoverAnchorRect(element.getBoundingClientRect());
+        },
+        onLeave: (relatedTarget) => {
+          const nextTarget = relatedTarget as Node | null;
+          if (nextTarget && popupRef.current?.contains(nextTarget)) {
+            return;
+          }
+          hoverHideTimeoutRef.current = setTimeout(() => {
+            setHoveredAnnotationId(null);
+            setHoverAnchorRect(null);
+            hoverHideTimeoutRef.current = null;
+          }, 120);
+        },
       }),
     ],
     content: (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
@@ -476,6 +561,8 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
     setToolbarFontFamily(FONT_FAMILIES[1]?.value ?? "inherit");
     setToolbarFontSize("16");
     setDownloadMenuOpen(false);
+    setHoveredAnnotationId(null);
+    setHoverAnchorRect(null);
     initialEditorSignatureRef.current = JSON.stringify(
       (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text)
     );
@@ -559,33 +646,12 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
   }, [activeId, editor]);
 
   useEffect(() => {
-    const surface = pageSurfaceRef.current;
-    if (!surface) return;
-
-    const measurePages = () => {
-      const proseMirror = surface.querySelector(".ProseMirror") as HTMLElement | null;
-      const contentHeight = proseMirror?.scrollHeight ?? surface.scrollHeight ?? VIRTUAL_PAGE_HEIGHT;
-      const nextPageCount = Math.max(1, Math.ceil(contentHeight / VIRTUAL_PAGE_HEIGHT));
-      setPageCount(nextPageCount);
-    };
-
-    measurePages();
-    const resizeObserver = new ResizeObserver(() => {
-      measurePages();
-    });
-    resizeObserver.observe(surface);
-    const proseMirror = surface.querySelector(".ProseMirror") as HTMLElement | null;
-    if (proseMirror) {
-      resizeObserver.observe(proseMirror);
-    }
     return () => {
-      resizeObserver.disconnect();
+      if (hoverHideTimeoutRef.current) {
+        clearTimeout(hoverHideTimeoutRef.current);
+      }
     };
-  }, [editor, editorText, formatPreset]);
-
-  useEffect(() => {
-    setCurrentPage((prev) => Math.min(prev, pageCount));
-  }, [pageCount]);
+  }, []);
 
   const handleCopyText = async () => {
     try {
@@ -620,30 +686,77 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
     }
   };
 
-  const handleApplyChange = () => {
-    if (!activeAnnotation || !editor) return;
+  const applyAnnotation = (annotation: AdvancedAnnotation) => {
+    if (!editor) return;
     const range = getOffsetRange(
       editor.state.doc,
-      activeAnnotation.start_offset,
-      activeAnnotation.end_offset,
-      activeAnnotation.exact_quote
+      annotation.start_offset,
+      annotation.end_offset,
+      annotation.exact_quote
     );
     if (!range) return;
     suppressManualWarningRef.current = true;
     editor
       .chain()
       .focus()
-      .insertContentAt(range, activeAnnotation.suggested_rewrite)
+      .insertContentAt(range, annotation.suggested_rewrite)
       .run();
-    setAnnotations((prev) => shiftAnnotations(prev, activeAnnotation, activeAnnotation.suggested_rewrite.length));
+    setAnnotations((prev) => shiftAnnotations(prev, annotation, annotation.suggested_rewrite.length));
     setActiveId(null);
     setManualEditWarning(false);
+  };
+
+  const handleApplyChange = () => {
+    if (!activeAnnotation) return;
+    applyAnnotation(activeAnnotation);
   };
 
   const handleDismiss = () => {
     if (!activeAnnotation) return;
     setAnnotations((prev) => prev.filter((annotation) => annotation.id !== activeAnnotation.id));
     setActiveId(null);
+  };
+
+  const closeHoverCard = () => {
+    if (hoverHideTimeoutRef.current) {
+      clearTimeout(hoverHideTimeoutRef.current);
+      hoverHideTimeoutRef.current = null;
+    }
+    setHoveredAnnotationId(null);
+    setHoverAnchorRect(null);
+  };
+
+  const handleApplyAnnotation = (annotation: AdvancedAnnotation) => {
+    applyAnnotation(annotation);
+    closeHoverCard();
+  };
+
+  const hoveredAnnotation = useMemo(
+    () => filteredAnnotations.find((annotation) => annotation.id === hoveredAnnotationId) ?? null,
+    [filteredAnnotations, hoveredAnnotationId]
+  );
+
+  const hoverPopupPosition = useMemo(() => {
+    if (!hoverAnchorRect || !editorScrollRef.current) return null;
+    const containerRect = editorScrollRef.current.getBoundingClientRect();
+    const scrollTop = editorScrollRef.current.scrollTop;
+    const top = Math.max(16, hoverAnchorRect.top - containerRect.top + scrollTop - 16);
+    return { top };
+  }, [hoverAnchorRect]);
+
+  const handleHoverCardMouseEnter = () => {
+    if (hoverHideTimeoutRef.current) {
+      clearTimeout(hoverHideTimeoutRef.current);
+      hoverHideTimeoutRef.current = null;
+    }
+  };
+
+  const handleHoverCardMouseLeave = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget?.parentElement?.closest("[data-annotation-id]")) {
+      return;
+    }
+    closeHoverCard();
   };
 
   const handleNavigate = (direction: 1 | -1) => {
@@ -668,7 +781,6 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
   const activePreset = FORMAT_PRESETS.find((preset) => preset.value === formatPreset) ?? FORMAT_PRESETS[0];
   const activeAlignment = ALIGNMENT_OPTIONS.find((option) => option.value === alignment) ?? ALIGNMENT_OPTIONS[0];
   const showAiLoadingState = isAnalyzing && annotations.length === 0;
-  const currentPageOffset = Math.max(0, currentPage - 1) * VIRTUAL_PAGE_HEIGHT;
 
   return (
     <div className="space-y-6">
@@ -978,54 +1090,55 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
                 </div>
               </div>
               <div className="mx-auto w-full">
-                <div className="space-y-4">
+                <div ref={editorScrollRef} className="relative max-h-[1120px] overflow-y-auto rounded-[28px]">
                   <div
-                    className="overflow-hidden rounded-[28px]"
-                    style={{ height: `${VIRTUAL_PAGE_HEIGHT}px` }}
+                    className={`rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
                   >
-                    <div
-                      ref={pageSurfaceRef}
-                      className={`relative rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8 transition-transform duration-300 ease-out`}
-                      style={{ transform: `translateY(-${currentPageOffset}px)` }}
-                    >
-                      {pageCount > 1 ? (
-                        <div className="pointer-events-none absolute inset-x-10 top-0 z-0 sm:inset-x-12 lg:inset-x-20">
-                          {Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => index + 1).map((pageNumber) => (
-                            <div
-                              key={pageNumber}
-                              className="absolute inset-x-0 border-t border-dashed border-gray-200"
-                              style={{ top: `${pageNumber * VIRTUAL_PAGE_HEIGHT}px` }}
-                            >
-                              <div className="-mt-3 flex justify-center">
-                                <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm">
-                                  Страница {pageNumber + 1}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="relative z-10">
-                        {editor ? <EditorContent editor={editor} /> : null}
-                      </div>
-                    </div>
+                    {editor ? <EditorContent editor={editor} /> : null}
                   </div>
-                  {pageCount > 1 ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          onClick={() => setCurrentPage(pageNumber)}
-                          className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-medium transition ${
-                            currentPage === pageNumber
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:text-gray-900"
-                          }`}
-                        >
-                          {pageNumber}
-                        </button>
-                      ))}
+                  {hoveredAnnotation && hoverPopupPosition ? (
+                    <div
+                      ref={popupRef}
+                      onMouseEnter={handleHoverCardMouseEnter}
+                      onMouseLeave={handleHoverCardMouseLeave}
+                      className="absolute inset-x-0 z-30 px-8 sm:px-12 lg:px-20"
+                      style={{
+                        top: `${hoverPopupPosition.top}px`,
+                        transform: "translateY(-100%)",
+                      }}
+                    >
+                      <div className="animate-[annotation-popover-in_180ms_ease-out] rounded-[28px] border border-gray-200 bg-white/98 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur sm:p-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                              hoveredAnnotation.type === "risk"
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {hoveredAnnotation.type === "risk" ? "Risk" : "Improvement"}
+                          </span>
+                          <SeverityBadge severity={hoveredAnnotation.severity} />
+                        </div>
+                        <p className="mt-3 text-base font-semibold text-gray-900 sm:text-lg">{hoveredAnnotation.title}</p>
+                        <p className="mt-2 max-w-4xl text-sm leading-6 text-gray-600 sm:text-base">{hoveredAnnotation.reason}</p>
+                        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+                          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
+                            Предлагаемая формулировка
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-900">
+                            {hoveredAnnotation.suggested_rewrite}
+                          </p>
+                        </div>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                          <Button type="button" variant="primary" onClick={() => handleApplyAnnotation(hoveredAnnotation)}>
+                            Применить
+                          </Button>
+                          <Button type="button" variant="secondary" onClick={closeHoverCard}>
+                            Отмена
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -1110,7 +1223,7 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
             )}
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
               <span className="text-xs text-gray-500">
@@ -1118,70 +1231,78 @@ export function AdvancedAiEditor({ data, isAnalyzing = false, onDocumentChange }
               </span>
             </div>
             {showAiLoadingState ? (
-              <div className="mt-4 space-y-3">
-                {[0, 1, 2].map((index) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
-                      <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+              <div className="relative mt-4">
+                <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                  {[0, 1, 2].map((index) => (
+                    <div
+                      key={index}
+                      className="min-h-[256px] rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+                      </div>
+                      <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
+                      <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
+                      <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
                     </div>
-                    <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
-                    <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
-                    <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent" />
               </div>
             ) : filteredAnnotations.length > 0 ? (
-              <div className="mt-4 space-y-3">
-                {filteredAnnotations.map((annotation) => (
-                  <button
-                    key={annotation.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveId(annotation.id);
-                      if (!editor) return;
-                      const range = getOffsetRange(
-                        editor.state.doc,
-                        annotation.start_offset,
-                        annotation.end_offset,
-                        annotation.exact_quote
-                      );
-                      if (!range) return;
-                      editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
-                    }}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      activeAnnotation?.id === annotation.id
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                          activeAnnotation?.id === annotation.id
-                            ? "border-white/20 bg-white/10 text-white"
-                            : annotation.type === "risk"
-                              ? "border-red-200 bg-red-50 text-red-700"
-                              : "border-amber-200 bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {annotation.type === "risk" ? "Risk" : "Improvement"}
-                      </span>
-                      <SeverityBadge severity={annotation.severity} />
-                    </div>
-                    <p className="mt-3 text-sm font-medium">{annotation.title}</p>
-                    <p
-                      className={`mt-2 line-clamp-3 text-sm leading-6 ${
-                        activeAnnotation?.id === annotation.id ? "text-white/80" : "text-gray-600"
+              <div className="relative mt-4">
+                <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                  {filteredAnnotations.map((annotation) => (
+                    <button
+                      key={annotation.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveId(annotation.id);
+                        if (!editor) return;
+                        const range = getOffsetRange(
+                          editor.state.doc,
+                          annotation.start_offset,
+                          annotation.end_offset,
+                          annotation.exact_quote
+                        );
+                        if (!range) return;
+                        editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
+                      }}
+                      className={`w-full min-h-[256px] rounded-2xl border p-4 text-left transition ${
+                        activeAnnotation?.id === annotation.id
+                          ? "border-gray-900 bg-gray-900 text-white"
+                          : "border-gray-200 bg-white hover:border-gray-300"
                       }`}
                     >
-                      {annotation.reason}
-                    </p>
-                  </button>
-                ))}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                            activeAnnotation?.id === annotation.id
+                              ? "border-white/20 bg-white/10 text-white"
+                              : annotation.type === "risk"
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {annotation.type === "risk" ? "Risk" : "Improvement"}
+                        </span>
+                        <SeverityBadge severity={annotation.severity} />
+                      </div>
+                      <p className="mt-3 line-clamp-2 text-sm font-medium">{annotation.title}</p>
+                      <p
+                        className={`mt-2 line-clamp-4 text-sm leading-6 ${
+                          activeAnnotation?.id === annotation.id ? "text-white/80" : "text-gray-600"
+                        }`}
+                      >
+                        {annotation.reason}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+                {filteredAnnotations.length > 3 ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent" />
+                ) : null}
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
