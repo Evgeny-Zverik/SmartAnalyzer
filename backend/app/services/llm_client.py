@@ -7,13 +7,16 @@ import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from openai import OpenAI
+
 from app.core.logging import logger
 from app.core.config import settings as app_settings
 from app.utils.errors import raise_error
 
+_client_cache: dict[tuple[str | None, str | None], OpenAI] = {}
+
 MAX_SOURCE_CONTEXT_CHARS = 50000
 COMPRESSION_LEVELS = {"off", "safe", "aggressive"}
-ANALYSIS_MODES = {"fast", "deep"}
 TASK_KEYWORDS: dict[str, tuple[str, ...]] = {
     "analysis": (
         "risk",
@@ -60,10 +63,6 @@ TASK_KEYWORDS: dict[str, tuple[str, ...]] = {
         "address",
     ),
 }
-
-
-def _estimate_tokens(text: str) -> int:
-    return max(1, round(len(text) / 4)) if text else 0
 
 
 def _is_llm_unavailable_error(e: Exception) -> bool:
@@ -118,12 +117,7 @@ def _summarize_llm_error(e: Exception, opts: dict[str, Any]) -> tuple[str, str]:
     return "LLM_ERROR", "LLM request failed. Check LLM settings and try again."
 
 
-def _build_openai_client(opts: dict[str, Any]) -> tuple:
-    try:
-        from openai import OpenAI
-    except ImportError:
-        raise_error(500, "INTERNAL_ERROR", "OpenAI client not available", {})
-
+def _build_openai_client(opts: dict[str, Any]) -> tuple[OpenAI, str]:
     base_url = (opts.get("base_url") or app_settings.openai_base_url).strip() or None
     api_key = (opts.get("api_key") or app_settings.openai_api_key).strip() or None
     model = (opts.get("model") or app_settings.openai_model).strip() or "gpt-4o-mini"
@@ -139,11 +133,17 @@ def _build_openai_client(opts: dict[str, Any]) -> tuple:
                 {},
             )
 
-    client_kwargs: dict[str, Any] = {"api_key": api_key}
-    if base_url:
-        client_kwargs["base_url"] = _normalize_openai_base_url(base_url)
+    normalized_url = _normalize_openai_base_url(base_url) if base_url else None
+    cache_key = (normalized_url, api_key)
+    client = _client_cache.get(cache_key)
+    if client is None:
+        client_kwargs: dict[str, Any] = {"api_key": api_key}
+        if normalized_url:
+            client_kwargs["base_url"] = normalized_url
+        client = OpenAI(**client_kwargs)
+        _client_cache[cache_key] = client
 
-    return OpenAI(**client_kwargs), model
+    return client, model
 
 
 def _normalize_openai_base_url(base_url: str) -> str:
@@ -220,11 +220,6 @@ def _coerce_json_payload(content: str) -> str:
 def _normalize_compression_level(opts: dict[str, Any]) -> str:
     level = str(opts.get("compression_level") or "safe").strip().lower()
     return level if level in COMPRESSION_LEVELS else "safe"
-
-
-def _normalize_analysis_mode(opts: dict[str, Any]) -> str:
-    mode = str(opts.get("analysis_mode") or "deep").strip().lower()
-    return mode if mode in ANALYSIS_MODES else "deep"
 
 
 def _split_context_blocks(text: str) -> list[str]:
@@ -452,16 +447,6 @@ def _prepare_context_bundle(text: str, task: str, level: str, include_verbatim: 
     }
 
 
-def _request_target(opts: dict[str, Any], model: str) -> dict[str, str]:
-    base_url = (opts.get("base_url") or app_settings.openai_base_url).strip()
-    provider = "openai-compatible api" if base_url else "configured provider"
-    return {
-        "model": model,
-        "base_url": base_url or "(default)",
-        "provider": provider,
-    }
-
-
 def _detect_document_language(text: str) -> str:
     sample = text[:4000]
     if not sample.strip():
@@ -494,83 +479,28 @@ def _language_requirement(text: str) -> str:
     )
 
 
-def build_document_analysis_trace(text: str, overrides: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    opts = overrides or {}
-    level = _normalize_compression_level(opts)
-    analysis_mode = _normalize_analysis_mode(opts)
-    raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-    bundle = _prepare_context_bundle(raw_text, "analysis", level, include_verbatim=True)
-    target = _request_target(opts, (opts.get("model") or app_settings.openai_model).strip() or "gpt-4o-mini")
-    return [
-        {
-            "type": "trace",
-            "step": "extract",
-            "title": "Извлечение текста",
-            "detail": "Документ преобразован в текстовый контекст для дальнейшего анализа.",
-            "metrics": {
-                "chars_raw": len(raw_text),
-                "tokens_estimated": _estimate_tokens(raw_text),
-                "blocks": bundle["block_count"],
-            },
-        },
-        {
-            "type": "trace",
-            "step": "retrieval",
-            "title": "Retrieval и сжатие контекста",
-            "detail": "Контекст отобран локальным BM25-style retrieval и подготовлен для модели.",
-            "metrics": {
-                "compression_level": level,
-                "analysis_mode": analysis_mode,
-                "chars_context": len(bundle["context"]),
-                "tokens_context_estimated": _estimate_tokens(bundle["context"]),
-                "selected_blocks": len(bundle["digest_blocks"]),
-                "evidence_blocks": len(bundle["evidence_blocks"]),
-            },
-            "items": bundle["selected_previews"],
-        },
-        {
-            "type": "trace",
-            "step": "prompt",
-            "title": "Подготовка запроса к модели",
-            "detail": "Собран финальный prompt с compressed context и verbatim evidence.",
-            "metrics": {
-                **target,
-                "timeout_sec": max(1, int(opts.get("timeout") or app_settings.llm_timeout_seconds)),
-                "retries": max(1, int(opts.get("max_retries") or app_settings.llm_max_retries)),
-            },
-            "preview": bundle["context"][:1600],
-        },
-    ]
-
-
 def analyze_document_fast(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     opts = overrides or {}
     client, model = _build_openai_client(opts)
     raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-    compression_level = _normalize_compression_level(opts)
-    bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
+    if len(raw_text) <= 20000:
+        analysis_context = raw_text
+    else:
+        compression_level = _normalize_compression_level(opts)
+        bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
+        analysis_context = bundle["context"]
     language_rule = _language_requirement(raw_text)
-    prompt = f"""Perform a fast risk scan of the document and return JSON with exactly these keys:
-- "summary": string, 2-4 sentences
-- "key_points": array of 3 to 8 strings
-- "risks": array of 5 to 12 strings
-- "important_dates": array of 0 to 8 objects with "date" and "description"
-- "advanced_editor": object with:
-  - "annotations": array of 4 to 12 objects
-  - each annotation must contain "type", "severity", "title", "reason", "suggested_rewrite", "exact_quote"
-
-Focus on finding as many concrete risky clauses as possible.
-Prefer recall over minimal output.
-Return 8+ risks/annotations when the document is obviously risky.
-
+    prompt = f"""Analyze the document. Return JSON only, no markdown.
 {language_rule}
-IMPORTANT: Follow the language requirement strictly for all generated text fields.
-IMPORTANT: "exact_quote" must be copied character-for-character from VERBATIM EVIDENCE only.
-IMPORTANT: Return only valid JSON, no markdown or explanation.
 
-Document context:
+Keys: "summary" (2-4 sentences), "key_points" (3-8 strings), "risks" (5-12 strings), "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description").
+"advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
+
+"exact_quote" must be copied verbatim from the document. Find as many risky clauses as possible.
+
+Document:
 ---
-{bundle["context"]}
+{analysis_context}
 ---"""
     content = _create_completion(client, model, prompt, opts, "fast analysis")
     try:
@@ -608,7 +538,7 @@ def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any
             request_kwargs: dict[str, Any] = {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
+                "temperature": 0,
                 "timeout": timeout,
             }
             response = client.chat.completions.create(**request_kwargs)
@@ -636,372 +566,87 @@ def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any
     raise_error(status_code, error_code, hint, {"detail": str(last_error), "operation": operation})
 
 
-def analyze_document(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def stream_document_analysis_events(text: str, overrides: dict[str, Any] | None = None):
     opts = overrides or {}
     client, model = _build_openai_client(opts)
     raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-    compression_level = _normalize_compression_level(opts)
-    bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
-    analysis_context = bundle["context"]
+
+    if len(raw_text) <= 20000:
+        analysis_context = raw_text
+    else:
+        compression_level = _normalize_compression_level(opts)
+        bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
+        analysis_context = bundle["context"]
+
     language_rule = _language_requirement(raw_text)
-    prompt = f"""Analyze the document and return JSON with exactly these keys:
-- "summary": string, brief summary of the document (2-5 sentences)
-- "key_points": array of 3 to 10 strings, main points
-- "risks": array of 0 to 10 strings, identified risks
-- "important_dates": array of 0 to 10 objects, each with "date" (YYYY-MM-DD) and "description" (string). If no dates found, use []
-- "advanced_editor": object with:
-  - "annotations": array of 0 to 20 objects
-  - each annotation object must contain:
-    - "type": exactly one of "risk" or "improvement"
-    - "severity": exactly one of "low", "medium", "high"
-    - "title": short label
-    - "reason": short explanation of why this fragment is risky or can be improved
-    - "suggested_rewrite": a concise replacement wording in the same language as the document
-    - "exact_quote": exact substring copied verbatim from the document text. It must match the document text exactly so the client can anchor the annotation.
-
+    prompt = f"""Analyze the document. Return JSON only, no markdown.
 {language_rule}
-IMPORTANT: Follow the language requirement strictly for summary, key_points, risks, important_dates, titles, reasons and suggested_rewrite.
-IMPORTANT: "exact_quote" must be copied character-for-character from VERBATIM EVIDENCE only.
-IMPORTANT: Do not invent quotes and do not include fragments that are not present verbatim.
 
-Return only valid JSON, no markdown or explanation.
+Keys: "summary" (2-4 sentences), "key_points" (3-8 strings), "risks" (5-12 strings), "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description").
+"advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
 
-Document context:
+"exact_quote" must be copied verbatim from the document. Find as many risky clauses as possible.
+
+Document:
 ---
 {analysis_context}
 ---"""
 
-    content = _create_completion(client, model, prompt, opts, "analysis")
+    yield {
+        "type": "progress",
+        "stage": "analyze",
+        "message": "Анализируем документ.",
+        "current": 1,
+        "total": 1,
+    }
+
+    timeout = max(1, int(opts.get("timeout") or app_settings.llm_timeout_seconds))
+    collected = []
+    try:
+        stream = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            timeout=timeout,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta if chunk.choices else None
+            if delta and delta.content:
+                collected.append(delta.content)
+    except Exception as e:
+        error_code, hint = _summarize_llm_error(e, opts)
+        status_code = 503 if error_code == "LLM_UNAVAILABLE" else 500
+        raise_error(status_code, error_code, hint, {"detail": str(e), "operation": "fast analysis"})
+
+    content = "".join(collected)
+    if not content:
+        raise_error(500, "LLM_ERROR", "Empty response from analysis service.", {})
 
     try:
         data = json.loads(_coerce_json_payload(content))
     except json.JSONDecodeError as e:
         raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
-
     if not isinstance(data, dict):
         raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
 
-    summary = data.get("summary")
-    if summary is None:
-        data["summary"] = ""
-    elif not isinstance(summary, str):
-        data["summary"] = str(summary)
-
+    data["summary"] = str(data.get("summary") or "").strip()
     key_points = data.get("key_points")
-    if not isinstance(key_points, list):
-        data["key_points"] = []
-    else:
-        data["key_points"] = [str(x) for x in key_points[:10]]
-
+    data["key_points"] = [str(x) for x in key_points[:12]] if isinstance(key_points, list) else []
     risks = data.get("risks")
-    if not isinstance(risks, list):
-        data["risks"] = []
-    else:
-        data["risks"] = [str(x) for x in risks[:10]]
-
+    data["risks"] = [str(x) for x in risks[:12]] if isinstance(risks, list) else []
     important_dates = data.get("important_dates")
     if not isinstance(important_dates, list):
         data["important_dates"] = []
     else:
-        out_dates = []
-        for item in important_dates[:10]:
-            if isinstance(item, dict) and "date" in item and "description" in item:
-                out_dates.append({"date": str(item["date"])[:10], "description": str(item["description"])})
-        data["important_dates"] = out_dates
-
+        data["important_dates"] = [
+            {"date": str(item.get("date", ""))[:10], "description": str(item.get("description", ""))}
+            for item in important_dates[:8]
+            if isinstance(item, dict) and ("date" in item or "description" in item)
+        ]
     data["advanced_editor"] = _normalize_advanced_editor(data.get("advanced_editor"), raw_text)
 
-    return data
-
-
-def stream_document_analysis_events(text: str, overrides: dict[str, Any] | None = None):
-    opts = overrides or {}
-    client, model = _build_openai_client(opts)
-    analysis_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-    analysis_mode = _normalize_analysis_mode(opts)
-    chunks = _split_document_for_streaming(analysis_text)
-    aggregated_annotations: list[dict[str, Any]] = []
-    aggregated_key_points: list[str] = []
-    aggregated_risks: list[str] = []
-    aggregated_dates: list[dict[str, str]] = []
-    used_ranges: list[tuple[int, int]] = []
-
-    for trace_event in build_document_analysis_trace(analysis_text, overrides=opts):
-        yield trace_event
-
-    if analysis_mode == "fast":
-        yield {
-            "type": "progress",
-            "stage": "analyze",
-            "message": "Запускаем быстрый однопроходный анализ документа.",
-            "current": 1,
-            "total": 1,
-        }
-        yield {
-            "type": "trace",
-            "step": "llm",
-            "title": "Быстрый проход модели",
-            "detail": "Один запрос к модели без второго финального прохода.",
-            "metrics": {
-                "model": model,
-                "analysis_mode": analysis_mode,
-                "chunks_processed": 1,
-            },
-        }
-        final_result = analyze_document_fast(analysis_text, overrides=opts)
-        yield {
-            "type": "trace",
-            "step": "validate",
-            "title": "Нормализация результата",
-            "detail": "Ответ модели приведен к схеме приложения и готов к сохранению.",
-            "metrics": {
-                "key_points": len(final_result.get("key_points", [])),
-                "risks": len(final_result.get("risks", [])),
-                "important_dates": len(final_result.get("important_dates", [])),
-                "annotations": len(((final_result.get("advanced_editor") or {}).get("annotations") or [])),
-            },
-        }
-        yield {"type": "final", "result": final_result}
-        return
-
-    yield {
-        "type": "progress",
-        "stage": "analyze",
-        "message": "Запускаем поэтапный AI-анализ документа.",
-        "current": 0,
-        "total": len(chunks),
-    }
-
-    for index, chunk in enumerate(chunks, start=1):
-        yield {
-            "type": "progress",
-            "stage": "analyze",
-            "message": f"Анализируем часть {index} из {len(chunks)}.",
-            "current": index,
-            "total": len(chunks),
-        }
-        chunk_payload = _analyze_document_chunk(client, model, chunk, opts, index, len(chunks), analysis_text)
-        batch_annotations = _normalize_advanced_editor_for_stream(
-            chunk_payload.get("annotations"),
-            analysis_text,
-            len(aggregated_annotations) + 1,
-            used_ranges,
-        )
-        if batch_annotations:
-            aggregated_annotations.extend(batch_annotations)
-            used_ranges.extend((item["start_offset"], item["end_offset"]) for item in batch_annotations)
-            for batch_start in range(0, len(batch_annotations), 2):
-                yield {
-                    "type": "annotations_batch",
-                    "annotations": batch_annotations[batch_start:batch_start + 2],
-                    "current": index,
-                    "total": len(chunks),
-                }
-
-        aggregated_key_points = _merge_unique_strings(
-            aggregated_key_points,
-            [str(item) for item in chunk_payload.get("key_points", []) if str(item).strip()],
-            10,
-        )
-        aggregated_risks = _merge_unique_strings(
-            aggregated_risks,
-            [str(item) for item in chunk_payload.get("risks", []) if str(item).strip()],
-            10,
-        )
-        aggregated_dates = _merge_unique_dates(
-            aggregated_dates,
-            chunk_payload.get("important_dates", []),
-            10,
-        )
-
-    yield {
-        "type": "progress",
-        "stage": "review",
-        "message": "Делаем финальный полный проход по документу.",
-        "current": len(chunks),
-        "total": len(chunks),
-    }
-
-    yield {
-        "type": "trace",
-        "step": "llm",
-        "title": "Финальный проход модели",
-        "detail": "Модель получает сжатый контекст и формирует итоговый JSON-ответ.",
-        "metrics": {
-            "model": model,
-            "chunks_processed": len(chunks),
-            "annotations_streamed": len(aggregated_annotations),
-        },
-    }
-
-    final_result = analyze_document(analysis_text, overrides=opts)
-    yield {
-        "type": "trace",
-        "step": "validate",
-        "title": "Нормализация результата",
-        "detail": "Ответ модели приведен к схеме приложения и готов к сохранению.",
-        "metrics": {
-            "key_points": len(final_result.get("key_points", [])),
-            "risks": len(final_result.get("risks", [])),
-            "important_dates": len(final_result.get("important_dates", [])),
-            "annotations": len(((final_result.get("advanced_editor") or {}).get("annotations") or [])),
-        },
-    }
-    yield {"type": "final", "result": final_result}
-
-
-def _split_document_for_streaming(text: str, chunk_size: int = 4000, overlap: int = 250) -> list[str]:
-    source = text.strip()
-    if not source:
-        return [""]
-
-    chunks: list[str] = []
-    cursor = 0
-    text_len = len(source)
-
-    while cursor < text_len:
-        target_end = min(text_len, cursor + chunk_size)
-        end = target_end
-        if end < text_len:
-            for separator in ("\n\n", "\n", ". ", "; ", ", "):
-                found = source.rfind(separator, cursor + max(1000, chunk_size // 2), target_end)
-                if found != -1:
-                    end = found + len(separator)
-                    break
-        if end <= cursor:
-            end = min(text_len, cursor + chunk_size)
-
-        chunk = source[cursor:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        if end >= text_len:
-            break
-        cursor = max(end - overlap, cursor + 1)
-
-    return chunks or [source[:chunk_size]]
-
-
-def _analyze_document_chunk(
-    client: Any,
-    model: str,
-    chunk_text: str,
-    opts: dict[str, Any],
-    index: int,
-    total: int,
-    full_text: str,
-) -> dict[str, Any]:
-    chunk_level = _normalize_compression_level(opts)
-    chunk_bundle = _prepare_context_bundle(
-        chunk_text,
-        "analysis",
-        "safe" if chunk_level == "aggressive" else chunk_level,
-        include_verbatim=True,
-    )
-    chunk_context = chunk_bundle["context"]
-    language_rule = _language_requirement(chunk_text)
-    prompt = f"""Analyze part {index} of {total} of the document and return a JSON object with exactly these keys:
-- "key_points": array of 0 to 5 strings
-- "risks": array of 0 to 5 strings
-- "important_dates": array of 0 to 5 objects, each with "date" (YYYY-MM-DD) and "description" (string)
-- "annotations": array of 0 to 6 objects
-
-Each annotation object must contain:
-- "type": exactly one of "risk" or "improvement"
-- "severity": exactly one of "low", "medium", "high"
-- "title": short label
-- "reason": short explanation
-- "suggested_rewrite": concise replacement wording in the same language as the document
-- "exact_quote": exact substring copied verbatim from this chunk
-
-{language_rule}
-IMPORTANT: Follow the language requirement strictly for key_points, risks, important_dates, titles, reasons and suggested_rewrite.
-IMPORTANT: "exact_quote" must be copied character-for-character from VERBATIM EVIDENCE.
-IMPORTANT: Use only findings that are grounded in the provided chunk text.
-
-Chunk text:
----
-{chunk_context}
----"""
-    content = _create_completion(client, model, prompt, opts, f"analysis chunk {index}/{total}")
-    try:
-        data = json.loads(_coerce_json_payload(content))
-    except json.JSONDecodeError as e:
-        raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
-    if not isinstance(data, dict):
-        raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
-    key_points = data.get("key_points")
-    risks = data.get("risks")
-    dates = data.get("important_dates")
-    annotations = data.get("annotations")
-    return {
-        "key_points": [str(item) for item in key_points[:5]] if isinstance(key_points, list) else [],
-        "risks": [str(item) for item in risks[:5]] if isinstance(risks, list) else [],
-        "important_dates": [
-            {"date": str(item.get("date", ""))[:10], "description": str(item.get("description", ""))}
-            for item in dates[:5]
-            if isinstance(item, dict)
-        ] if isinstance(dates, list) else [],
-        "annotations": annotations if isinstance(annotations, list) else [],
-    }
-
-
-def _normalize_advanced_editor_for_stream(
-    annotations_raw: Any,
-    full_text: str,
-    start_idx: int,
-    used_ranges: list[tuple[int, int]],
-) -> list[dict[str, Any]]:
-    if not isinstance(annotations_raw, list):
-        return []
-    annotations: list[dict[str, Any]] = []
-    next_idx = start_idx
-    local_used_ranges = list(used_ranges)
-    for item in annotations_raw:
-        normalized = _normalize_document_annotation(item, full_text, next_idx, local_used_ranges)
-        if normalized is None:
-            continue
-        annotations.append(normalized)
-        local_used_ranges.append((normalized["start_offset"], normalized["end_offset"]))
-        next_idx += 1
-        if len(annotations) >= 6:
-            break
-    return annotations
-
-
-def _merge_unique_strings(existing: list[str], incoming: list[str], limit: int) -> list[str]:
-    out = list(existing)
-    normalized = {item.strip().lower() for item in out if item.strip()}
-    for item in incoming:
-        key = item.strip().lower()
-        if not key or key in normalized:
-            continue
-        out.append(item)
-        normalized.add(key)
-        if len(out) >= limit:
-            break
-    return out[:limit]
-
-
-def _merge_unique_dates(
-    existing: list[dict[str, str]],
-    incoming: list[dict[str, str]],
-    limit: int,
-) -> list[dict[str, str]]:
-    out = list(existing)
-    seen = {(item.get("date", ""), item.get("description", "").strip().lower()) for item in out}
-    for item in incoming:
-        if not isinstance(item, dict):
-            continue
-        date = str(item.get("date") or "")[:10]
-        description = str(item.get("description") or "").strip()
-        key = (date, description.lower())
-        if (not date and not description) or key in seen:
-            continue
-        out.append({"date": date, "description": description})
-        seen.add(key)
-        if len(out) >= limit:
-            break
-    return out[:limit]
+    yield {"type": "final", "result": data}
 
 
 def _normalize_advanced_editor(raw: Any, full_text: str) -> dict[str, Any]:

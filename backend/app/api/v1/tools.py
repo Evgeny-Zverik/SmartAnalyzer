@@ -14,7 +14,6 @@ from app.services.folders import ensure_user_system_folders, resolve_analysis_fo
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
-    analyze_document,
     analyze_document_fast,
     check_contract,
     extract_structured_data,
@@ -208,8 +207,7 @@ def run_document_analyzer(
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = editor_payload["full_text"]
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
-    analysis_mode = str((overrides or {}).get("analysis_mode") or "deep").lower()
-    raw_result = analyze_document_fast(text, overrides=overrides) if analysis_mode == "fast" else analyze_document(text, overrides=overrides)
+    raw_result = analyze_document_fast(text, overrides=overrides)
     raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
     if isinstance(raw_advanced, dict):
         raw_advanced["rich_content"] = editor_payload.get("rich_content")
