@@ -257,7 +257,7 @@ function buildDocTextIndex(doc: ProseMirrorNode): { text: string; segments: Text
 
     const separator = getNodeJoinSeparator(node.type.name);
     node.forEach((child, offset, index) => {
-      walk(child, pos + offset + 1);
+      walk(child, pos + offset + (child.isText ? 0 : 1));
       if (index < node.childCount - 1 && separator) {
         text += separator;
       }
