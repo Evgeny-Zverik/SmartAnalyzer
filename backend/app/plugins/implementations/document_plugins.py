@@ -24,6 +24,20 @@ def _anchor_from_annotation(annotation) -> ContentAnchor:
     )
 
 
+def _get_bundle(context: PluginRunContext):
+    """Get or compute the document bundle, caching in context for reuse."""
+    bundle, editor_payload = build_document_bundle(
+        context.document.storage_path,
+        context.document.mime_type,
+        overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
+        edited_document=context.edited_document.model_dump() if context.edited_document else None,
+        cached_bundle=context.shared_bundle,
+    )
+    if context.shared_bundle is None:
+        context.shared_bundle = (bundle, editor_payload)
+    return bundle, editor_payload
+
+
 class SummaryPlugin:
     manifest = PluginManifest(
         id="summary",
@@ -44,12 +58,7 @@ class SummaryPlugin:
 
     async def run(self, context: PluginRunContext) -> PluginExecutionResult:
         started_at = datetime.now(timezone.utc)
-        bundle, _ = build_document_bundle(
-            context.document.storage_path,
-            context.document.mime_type,
-            overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
-            edited_document=context.edited_document.model_dump() if context.edited_document else None,
-        )
+        bundle, _ = _get_bundle(context)
         finished_at = datetime.now(timezone.utc)
         return PluginExecutionResult(
             plugin_id=self.manifest.id,
@@ -106,12 +115,7 @@ class KeyPointsPlugin:
 
     async def run(self, context: PluginRunContext) -> PluginExecutionResult:
         started_at = datetime.now(timezone.utc)
-        bundle, _ = build_document_bundle(
-            context.document.storage_path,
-            context.document.mime_type,
-            overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
-            edited_document=context.edited_document.model_dump() if context.edited_document else None,
-        )
+        bundle, _ = _get_bundle(context)
         finished_at = datetime.now(timezone.utc)
         findings = [
             PluginFinding(
@@ -168,12 +172,7 @@ class DatesDeadlinesPlugin:
 
     async def run(self, context: PluginRunContext) -> PluginExecutionResult:
         started_at = datetime.now(timezone.utc)
-        bundle, _ = build_document_bundle(
-            context.document.storage_path,
-            context.document.mime_type,
-            overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
-            edited_document=context.edited_document.model_dump() if context.edited_document else None,
-        )
+        bundle, _ = _get_bundle(context)
         finished_at = datetime.now(timezone.utc)
         findings = [
             PluginFinding(
@@ -230,12 +229,7 @@ class RiskAnalyzerPlugin:
 
     async def run(self, context: PluginRunContext) -> PluginExecutionResult:
         started_at = datetime.now(timezone.utc)
-        bundle, _ = build_document_bundle(
-            context.document.storage_path,
-            context.document.mime_type,
-            overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
-            edited_document=context.edited_document.model_dump() if context.edited_document else None,
-        )
+        bundle, _ = _get_bundle(context)
         risk_annotations = [item for item in bundle.advanced_editor.annotations if item.type == "risk"]
         findings = [
             PluginFinding(
@@ -338,12 +332,7 @@ class SuggestedEditsPlugin:
 
     async def run(self, context: PluginRunContext) -> PluginExecutionResult:
         started_at = datetime.now(timezone.utc)
-        bundle, _ = build_document_bundle(
-            context.document.storage_path,
-            context.document.mime_type,
-            overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
-            edited_document=context.edited_document.model_dump() if context.edited_document else None,
-        )
+        bundle, _ = _get_bundle(context)
         improvement_annotations = [item for item in bundle.advanced_editor.annotations if item.type == "improvement"]
         findings = [
             PluginFinding(

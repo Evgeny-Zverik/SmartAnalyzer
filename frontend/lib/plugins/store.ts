@@ -63,12 +63,14 @@ export function pluginStoreReducer(
   }
 
   if (action.type === "set_enabled") {
+    const currentStatus = state.status_by_plugin[action.pluginId];
     return {
       ...state,
       enabled_by_plugin: { ...state.enabled_by_plugin, [action.pluginId]: action.enabled },
       status_by_plugin: {
         ...state.status_by_plugin,
-        [action.pluginId]: action.enabled ? "enabled" : "disabled",
+        [action.pluginId]:
+          currentStatus === "locked" ? "locked" : action.enabled ? "enabled" : "disabled",
       },
     };
   }

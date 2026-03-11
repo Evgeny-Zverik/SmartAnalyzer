@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ class PluginRunContext:
     input_type: InputType
     llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
+    shared_bundle: Any | None = None
 
 
 class SmartAnalyzerPlugin(Protocol):

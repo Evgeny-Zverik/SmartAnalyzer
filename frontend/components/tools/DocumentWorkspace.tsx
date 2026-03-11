@@ -22,9 +22,12 @@ import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/t
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import {
+  listPlugins,
   getDocumentWorkspacePlugins,
   runDocumentWorkspacePlugin,
+  runAllDocumentWorkspacePlugins,
   toggleDocumentWorkspacePlugin,
+  type PluginAvailabilityItem,
 } from "@/lib/plugins/api";
 import { createInitialPluginStore, pluginStoreReducer } from "@/lib/plugins/store";
 import type { PluginAction, PluginFinding, WorkspacePluginItem } from "@/lib/plugins/types";
@@ -82,6 +85,24 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     setLlmConfig(getStoredLLMConfig());
   }, []);
 
+  // Fetch available plugins on mount (before document upload)
+  useEffect(() => {
+    listPlugins()
+      .then((available) => {
+        const staticItems: WorkspacePluginItem[] = available.map((p) => ({
+          manifest: p.manifest,
+          compatible: true,
+          enabled: p.manifest.auto_enable ?? false,
+          visible_overlay: true,
+          state: p.available_for_plan ? "registered" : "locked",
+          latest_execution_id: null,
+          latest_result: null,
+        }));
+        dispatch({ type: "hydrate", items: staticItems });
+      })
+      .catch(() => {});
+  }, []);
+
   const currentMode = llmConfig?.mode ?? "local";
   const setLlmMode = useCallback((mode: "local" | "api") => {
     setLlmConfig(getStoredLLMConfigForMode(mode));
@@ -89,9 +110,17 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   const hydratePlugins = useCallback(async (docId: number) => {
     const items = await getDocumentWorkspacePlugins(docId);
-    dispatch({ type: "hydrate", items });
-    return items;
-  }, []);
+    // Merge pre-upload toggle choices into workspace items
+    const mergedItems = items.map((item) => {
+      const preUploadEnabled = store.enabled_by_plugin[item.manifest.id];
+      if (preUploadEnabled !== undefined) {
+        return { ...item, enabled: preUploadEnabled };
+      }
+      return item;
+    });
+    dispatch({ type: "hydrate", items: mergedItems });
+    return mergedItems;
+  }, [store.enabled_by_plugin]);
 
   const handlePluginRun = useCallback(
     async (pluginId: string) => {
@@ -125,7 +154,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   );
 
   const autoRunEnabledPlugins = useCallback(
-    async (items: WorkspacePluginItem[]) => {
+    async (items: WorkspacePluginItem[], docId: number) => {
       const runnable = items.filter(
         (item) =>
           item.enabled &&
@@ -133,13 +162,43 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
           item.state !== "completed" &&
           item.state !== "running"
       );
-      for (const item of runnable) {
-        // Sequential startup keeps UI states deterministic in the current MVP.
-        // eslint-disable-next-line no-await-in-loop
-        await handlePluginRun(item.manifest.id);
+      if (runnable.length === 0) return;
+
+      const pluginIds = runnable.map((item) => item.manifest.id);
+      for (const id of pluginIds) {
+        dispatch({ type: "set_status", pluginId: id, status: "running" });
+      }
+      setRunningPluginId(pluginIds[0]);
+
+      try {
+        const response = await runAllDocumentWorkspacePlugins(docId, {
+          llmConfig: getLLMConfigForRequest(llmConfig),
+          editedDocument: hasEditorChanges ? editedDocument : null,
+          pluginIds,
+        });
+        for (const item of response.items) {
+          dispatch({
+            type: "set_result",
+            pluginId: item.plugin_id,
+            result: item.result ?? null,
+            status: (item.state as WorkspacePluginItem["state"]),
+          });
+        }
+      } catch (error) {
+        const parsed = parseApiError(error);
+        for (const id of pluginIds) {
+          dispatch({ type: "set_status", pluginId: id, status: "failed" });
+        }
+        setErrorMessage(parsed.message || "Plugin batch run failed.");
+        if (isUnauthorized(error)) {
+          logout();
+          router.replace("/login");
+        }
+      } finally {
+        setRunningPluginId(null);
       }
     },
-    [handlePluginRun]
+    [llmConfig, hasEditorChanges, editedDocument, router]
   );
 
   const handlePrepareWorkspace = useCallback(async () => {
@@ -150,7 +209,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       if (documentId && editorData) {
         const items = await hydratePlugins(documentId);
         setState("ready");
-        await autoRunEnabledPlugins(items);
+        await autoRunEnabledPlugins(items, documentId);
         return;
       }
       const uploadRes = await uploadDocument(file);
@@ -159,7 +218,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       setEditorData(prepared.advanced_editor);
       const items = await hydratePlugins(uploadRes.document_id);
       setState("ready");
-      await autoRunEnabledPlugins(items);
+      await autoRunEnabledPlugins(items, uploadRes.document_id);
     } catch (error) {
       const parsed = parseApiError(error);
       setErrorMessage(parsed.message || "Cannot prepare workspace.");
@@ -173,7 +232,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   const handlePluginToggle = useCallback(
     async (pluginId: string, enabled: boolean) => {
-      if (!documentId) return;
+      // Before document upload, toggle locally only
+      if (!documentId) {
+        dispatch({ type: "set_enabled", pluginId, enabled });
+        return;
+      }
       try {
         await toggleDocumentWorkspacePlugin(documentId, pluginId, enabled);
         dispatch({ type: "set_enabled", pluginId, enabled });
@@ -319,7 +382,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               setEditorData(null);
               setEditedDocument(null);
               setHasEditorChanges(false);
-              dispatch({ type: "hydrate", items: [] });
             }}
             compact
             showFileCard={false}
@@ -340,61 +402,63 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         </div>
       ) : null}
 
-      {editorData ? (
-        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
-            <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
-            <AdvancedAiEditor
-              data={{ ...editorData, annotations }}
-              selectedAnnotationId={store.active_finding_id}
-              onSelectedAnnotationChange={(annotationId) =>
-                dispatch({
-                  type: "set_active_finding",
-                  findingId: annotationId ?? undefined,
-                  pluginId: selectedPlugin?.manifest.id,
-                })
-              }
-              isAnalyzing={runningPluginId !== null}
-              onDocumentChange={(payload) => {
-                setEditedDocument({
-                  full_text: payload.full_text,
-                  rich_content: payload.rich_content,
-                  source_format: payload.source_format,
-                });
-                setHasEditorChanges(payload.is_dirty);
-              }}
-            />
-            <PluginPanels
-              panels={selectedResult?.panels ?? []}
-              findings={selectedResult?.findings ?? []}
-              activeFindingId={store.active_finding_id}
-              onSelectFinding={(finding) =>
-                dispatch({
-                  type: "set_active_finding",
-                  findingId: finding.id,
-                  pluginId: selectedPlugin?.manifest.id,
-                })
-              }
-            />
-          </div>
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-6">
+          {editorData ? (
+            <>
+              <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
+              <AdvancedAiEditor
+                data={{ ...editorData, annotations }}
+                selectedAnnotationId={store.active_finding_id}
+                onSelectedAnnotationChange={(annotationId) =>
+                  dispatch({
+                    type: "set_active_finding",
+                    findingId: annotationId ?? undefined,
+                    pluginId: selectedPlugin?.manifest.id,
+                  })
+                }
+                isAnalyzing={runningPluginId !== null}
+                onDocumentChange={(payload) => {
+                  setEditedDocument({
+                    full_text: payload.full_text,
+                    rich_content: payload.rich_content,
+                    source_format: payload.source_format,
+                  });
+                  setHasEditorChanges(payload.is_dirty);
+                }}
+              />
+              <PluginPanels
+                panels={selectedResult?.panels ?? []}
+                findings={selectedResult?.findings ?? []}
+                activeFindingId={store.active_finding_id}
+                onSelectFinding={(finding) =>
+                  dispatch({
+                    type: "set_active_finding",
+                    findingId: finding.id,
+                    pluginId: selectedPlugin?.manifest.id,
+                  })
+                }
+              />
+            </>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-sm text-gray-500">
+              Загрузите документ и нажмите «Открыть workspace» — модули анализа запустятся автоматически.
+            </div>
+          )}
+        </div>
 
-          <div className="space-y-6">
-            <PluginSidebar
-              items={orderedItems}
-              selectedPluginId={selectedPlugin?.manifest.id}
-              runningPluginId={runningPluginId}
-              onSelect={(pluginId) => dispatch({ type: "set_active_finding", pluginId })}
-              onToggle={handlePluginToggle}
-              onRun={handlePluginRun}
-            />
-            <PluginInspector finding={selectedFinding} />
-          </div>
+        <div className="space-y-6">
+          <PluginSidebar
+            items={orderedItems}
+            selectedPluginId={selectedPlugin?.manifest.id}
+            runningPluginId={runningPluginId}
+            onSelect={(pluginId) => dispatch({ type: "set_active_finding", pluginId })}
+            onToggle={handlePluginToggle}
+            onRun={handlePluginRun}
+          />
+          {selectedFinding && <PluginInspector finding={selectedFinding} />}
         </div>
-      ) : (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-sm text-gray-500">
-          После загрузки документа workspace соберет совместимые плагины, включит базовые модули и начнет их независимый запуск.
-        </div>
-      )}
+      </div>
     </div>
   );
 }

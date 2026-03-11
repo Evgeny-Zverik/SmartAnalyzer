@@ -16,6 +16,9 @@ from app.plugins.base import PluginRunContext
 from app.plugins.helpers import detect_document_input_type, plan_satisfies
 from app.plugins.registry import get_registered_plugin, list_registered_plugins
 from app.schemas.plugins import (
+    BatchRunPluginRequest,
+    BatchRunPluginResponse,
+    BatchRunPluginResponseItem,
     PluginAvailabilityItem,
     PluginExecutionResponse,
     RunPluginRequest,
@@ -287,3 +290,98 @@ def run_workspace_plugin(
         execution.error_json = {"code": "PLUGIN_RUN_FAILED", "message": str(exc)}
         db.commit()
         raise
+
+
+@router.post("/workspaces/documents/{document_id}/plugins/run-all", response_model=BatchRunPluginResponse)
+def run_all_workspace_plugins(
+    document_id: int,
+    body: BatchRunPluginRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ensure_user_system_folders(db, current_user.id)
+    doc = _get_document_for_user(db, document_id, current_user.id)
+    input_type = detect_document_input_type(doc)
+    enabled_rows, execution_rows = _load_workspace_state(db, current_user.id, doc.id)
+
+    plugins_to_run = []
+    for plugin in list_registered_plugins():
+        if input_type not in plugin.manifest.supported_inputs:
+            continue
+        if not plan_satisfies(current_user.plan, plugin.manifest.required_plan):
+            continue
+        if body.plugin_ids:
+            if plugin.manifest.id not in body.plugin_ids:
+                continue
+        else:
+            enabled = enabled_rows.get(plugin.manifest.id)
+            if enabled and not enabled.is_enabled:
+                continue
+            if not enabled and not plugin.manifest.auto_enable:
+                continue
+        plugins_to_run.append(plugin)
+
+    shared_context = PluginRunContext(
+        db=db,
+        user=current_user,
+        document=doc,
+        input_type=input_type,
+        llm_config=body.llm_config,
+        edited_document=body.edited_document,
+    )
+
+    items: list[BatchRunPluginResponseItem] = []
+    for plugin in plugins_to_run:
+        execution = PluginExecution(
+            user_id=current_user.id,
+            document_id=document_id,
+            plugin_id=plugin.manifest.id,
+            plugin_version=plugin.manifest.version,
+            status="running",
+        )
+        db.add(execution)
+        db.commit()
+        db.refresh(execution)
+
+        started_at = datetime.now(timezone.utc)
+        execution.started_at = started_at
+        db.commit()
+
+        try:
+            if not asyncio.run(plugin.can_handle(shared_context)):
+                execution.status = "failed"
+                execution.finished_at = datetime.now(timezone.utc)
+                execution.error_json = {"code": "PLUGIN_INCOMPATIBLE", "message": "Plugin rejected input."}
+                db.commit()
+                items.append(BatchRunPluginResponseItem(
+                    execution_id=execution.id, plugin_id=plugin.manifest.id,
+                    state="failed", error=execution.error_json,
+                ))
+                continue
+
+            result = asyncio.run(plugin.run(shared_context))
+            finished_at = result.finished_at or datetime.now(timezone.utc)
+            execution.status = result.status
+            execution.finished_at = finished_at
+            execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+            execution.result_json = result.model_dump(mode="json")
+            execution.error_json = None
+            db.commit()
+            log_run(db, current_user.id, plugin.manifest.id)
+            items.append(BatchRunPluginResponseItem(
+                execution_id=execution.id, plugin_id=plugin.manifest.id,
+                state=execution.status, result=execution.result_json,
+            ))
+        except Exception as exc:
+            finished_at = datetime.now(timezone.utc)
+            execution.status = "failed"
+            execution.finished_at = finished_at
+            execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+            execution.error_json = {"code": "PLUGIN_RUN_FAILED", "message": str(exc)}
+            db.commit()
+            items.append(BatchRunPluginResponseItem(
+                execution_id=execution.id, plugin_id=plugin.manifest.id,
+                state="failed", error=execution.error_json,
+            ))
+
+    return BatchRunPluginResponse(items=items)

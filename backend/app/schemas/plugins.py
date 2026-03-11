@@ -60,3 +60,21 @@ class PluginExecutionResponse(BaseModel):
 class WorkspacePluginResultsResponse(BaseModel):
     document_id: int
     items: list[WorkspacePluginItem] = Field(default_factory=list)
+
+
+class BatchRunPluginRequest(BaseModel):
+    llm_config: LlmConfigOptional | None = None
+    edited_document: EditedDocumentPayload | None = None
+    plugin_ids: list[str] | None = None
+
+
+class BatchRunPluginResponseItem(BaseModel):
+    execution_id: int
+    plugin_id: str
+    state: PluginLifecycleState
+    result: PluginExecutionResult | None = None
+    error: dict[str, Any] | None = None
+
+
+class BatchRunPluginResponse(BaseModel):
+    items: list[BatchRunPluginResponseItem] = Field(default_factory=list)
