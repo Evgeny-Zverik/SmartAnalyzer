@@ -369,21 +369,35 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               )}
             </div>
             {state === "ready" ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setFile(null);
-                  setState("idle");
-                  setDocumentId(null);
-                  setEditorData(null);
-                  setEditedDocument(null);
-                  setHasEditorChanges(false);
-                }}
-                variant="secondary"
-                className="min-w-[220px]"
-              >
-                Новый документ
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Запустить анализ заново? Текущие результаты будут заменены.")) {
+                      handleRunAnalysis();
+                    }
+                  }}
+                  className="min-w-[220px]"
+                >
+                  Анализировать ещё раз
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Открыть новый документ? Текущий анализ будет потерян.")) {
+                      setFile(null);
+                      setState("idle");
+                      setDocumentId(null);
+                      setEditorData(null);
+                      setEditedDocument(null);
+                      setHasEditorChanges(false);
+                    }
+                  }}
+                  variant="secondary"
+                >
+                  Новый документ
+                </Button>
+              </>
             ) : state === "preparing" ? (
               <Button
                 type="button"
@@ -430,18 +444,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               setHasEditorChanges(payload.is_dirty);
             }}
           />
-          <PluginPanels
-            panels={selectedResult?.panels ?? []}
-            findings={selectedResult?.findings ?? []}
-            activeFindingId={store.active_finding_id}
-            onSelectFinding={(finding) =>
-              dispatch({
-                type: "set_active_finding",
-                findingId: finding.id,
-                pluginId: selectedPlugin?.manifest.id,
-              })
-            }
-          />
+          {/* PluginPanels removed */}
         </div>
       ) : (
         <UploadDropzone
