@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { FileText, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import {
+  downloadDocumentFile,
+} from "@/lib/utils/downloadDocumentFile";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { AdvancedAiEditor, type AdvancedAnnotation } from "@/components/tools/AdvancedAiEditor";
 import {
@@ -13,9 +16,7 @@ import {
   getStoredLLMConfigForMode,
   type LLMConfig,
 } from "@/components/tools/LLMSettingsModal";
-import { PluginSidebar } from "@/components/plugins/PluginSidebar";
 import { PluginToolbar } from "@/components/plugins/PluginToolbar";
-import { PluginInspector } from "@/components/plugins/PluginInspector";
 import { PluginPanels } from "@/components/plugins/PluginPanels";
 import { uploadDocument } from "@/lib/api/documents";
 import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
@@ -35,12 +36,6 @@ import type { PluginAction, PluginFinding, WorkspacePluginItem } from "@/lib/plu
 type DocumentWorkspaceProps = {
   accepts: string[];
 };
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function findingToAnnotation(finding: PluginFinding, pluginId: string): AdvancedAnnotation | null {
   const range = finding.anchor?.text_range;
@@ -80,6 +75,8 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [llmModalOpen, setLlmModalOpen] = useState(false);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const analysisAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -154,7 +151,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   );
 
   const autoRunEnabledPlugins = useCallback(
-    async (items: WorkspacePluginItem[], docId: number) => {
+    async (items: WorkspacePluginItem[], docId: number, signal?: AbortSignal) => {
       const runnable = items.filter(
         (item) =>
           item.enabled &&
@@ -175,6 +172,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
           llmConfig: getLLMConfigForRequest(llmConfig),
           editedDocument: hasEditorChanges ? editedDocument : null,
           pluginIds,
+          signal,
         });
         for (const item of response.items) {
           dispatch({
@@ -185,6 +183,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
           });
         }
       } catch (error) {
+        if (signal?.aborted) return;
         const parsed = parseApiError(error);
         for (const id of pluginIds) {
           dispatch({ type: "set_status", pluginId: id, status: "failed" });
@@ -201,34 +200,51 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     [llmConfig, hasEditorChanges, editedDocument, router]
   );
 
-  const handlePrepareWorkspace = useCallback(async () => {
-    if (!file) return;
+  const handleUploadDocument = useCallback(async (fileToUpload: File) => {
     setState("preparing");
     setErrorMessage(null);
     try {
-      if (documentId && editorData) {
-        const items = await hydratePlugins(documentId);
-        setState("ready");
-        await autoRunEnabledPlugins(items, documentId);
-        return;
-      }
-      const uploadRes = await uploadDocument(file);
+      const uploadRes = await uploadDocument(fileToUpload);
       setDocumentId(uploadRes.document_id);
       const prepared = await prepareDocumentAnalyzer(uploadRes.document_id);
       setEditorData(prepared.advanced_editor);
-      const items = await hydratePlugins(uploadRes.document_id);
-      setState("ready");
-      await autoRunEnabledPlugins(items, uploadRes.document_id);
+      await hydratePlugins(uploadRes.document_id);
+      setState("idle");
     } catch (error) {
       const parsed = parseApiError(error);
-      setErrorMessage(parsed.message || "Cannot prepare workspace.");
+      setErrorMessage(parsed.message || "Cannot upload document.");
       setState("error");
       if (isUnauthorized(error)) {
         logout();
         router.replace("/login");
       }
     }
-  }, [file, documentId, editorData, hydratePlugins, autoRunEnabledPlugins, router]);
+  }, [hydratePlugins, router]);
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (!documentId) return;
+    analysisAbortRef.current?.abort();
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
+    setState("preparing");
+    setErrorMessage(null);
+    try {
+      const items = await hydratePlugins(documentId);
+      if (controller.signal.aborted) return;
+      await autoRunEnabledPlugins(items, documentId, controller.signal);
+      if (controller.signal.aborted) return;
+      setState("ready");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const parsed = parseApiError(error);
+      setErrorMessage(parsed.message || "Cannot run analysis.");
+      setState("error");
+      if (isUnauthorized(error)) {
+        logout();
+        router.replace("/login");
+      }
+    }
+  }, [documentId, hydratePlugins, autoRunEnabledPlugins, router]);
 
   const handlePluginToggle = useCallback(
     async (pluginId: string, enabled: boolean) => {
@@ -308,87 +324,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {file ? "Workspace input" : "Upload document"}
-              </p>
-              <p className="truncate text-sm font-medium text-gray-900">
-                {file ? file.name : "Выберите документ для modular workspace"}
-              </p>
-              <p className="text-xs text-gray-500">
-                {file ? `${formatSize(file.size)} · ${accepts.join(", ")}` : `Поддерживаются: ${accepts.join(", ")}`}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-            <div
-              className="flex shrink-0 rounded-xl border border-gray-300 bg-gray-100 p-0.5"
-              role="group"
-              aria-label="Режим LLM"
-            >
-              <button
-                type="button"
-                onClick={() => setLlmMode("local")}
-                className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                  currentMode === "local" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Свой сервер
-              </button>
-              <button
-                type="button"
-                onClick={() => setLlmMode("api")}
-                className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                  currentMode === "api" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                API
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLlmModalOpen(true)}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              title="Настройки LLM"
-              aria-label="Настройки LLM"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-            <Button
-              type="button"
-              onClick={handlePrepareWorkspace}
-              disabled={!file || state === "preparing"}
-              className="min-w-[220px]"
-            >
-              {state === "preparing" ? "Подготавливаем workspace..." : hasEditorChanges ? "Пересобрать workspace" : "Открыть workspace"}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-4">
-          <UploadDropzone
-            acceptedExtensions={accepts}
-            file={file}
-            onFileChange={(nextFile) => {
-              setFile(nextFile);
-              setState(nextFile ? "ready" : "idle");
-              setDocumentId(null);
-              setEditorData(null);
-              setEditedDocument(null);
-              setHasEditorChanges(false);
-            }}
-            compact
-            showFileCard={false}
-          />
-        </div>
-      </section>
-
       <LLMSettingsModal
         isOpen={llmModalOpen}
         onClose={() => setLlmModalOpen(false)}
@@ -402,63 +337,132 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      {editorData ? (
         <div className="space-y-6">
-          {editorData ? (
-            <>
-              <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
-              <AdvancedAiEditor
-                data={{ ...editorData, annotations }}
-                selectedAnnotationId={store.active_finding_id}
-                onSelectedAnnotationChange={(annotationId) =>
-                  dispatch({
-                    type: "set_active_finding",
-                    findingId: annotationId ?? undefined,
-                    pluginId: selectedPlugin?.manifest.id,
-                  })
-                }
-                isAnalyzing={runningPluginId !== null}
-                onDocumentChange={(payload) => {
-                  setEditedDocument({
-                    full_text: payload.full_text,
-                    rich_content: payload.rich_content,
-                    source_format: payload.source_format,
-                  });
-                  setHasEditorChanges(payload.is_dirty);
-                }}
-              />
-              <PluginPanels
-                panels={selectedResult?.panels ?? []}
-                findings={selectedResult?.findings ?? []}
-                activeFindingId={store.active_finding_id}
-                onSelectFinding={(finding) =>
-                  dispatch({
-                    type: "set_active_finding",
-                    findingId: finding.id,
-                    pluginId: selectedPlugin?.manifest.id,
-                  })
-                }
-              />
-            </>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-8 text-sm text-gray-500">
-              Загрузите документ и нажмите «Открыть workspace» — модули анализа запустятся автоматически.
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDownloadMenuOpen((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              >
+                Скачать
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+              {downloadMenuOpen && (
+                <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 min-w-[180px] rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                  {(["txt", "pdf", "docx"] as const).map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => {
+                        setDownloadMenuOpen(false);
+                        const text = editedDocument?.full_text ?? editorData.full_text;
+                        void downloadDocumentFile(text, fmt, "document-analyzer");
+                      }}
+                      className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+                    >
+                      Скачать как {fmt.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <PluginSidebar
-            items={orderedItems}
-            selectedPluginId={selectedPlugin?.manifest.id}
-            runningPluginId={runningPluginId}
-            onSelect={(pluginId) => dispatch({ type: "set_active_finding", pluginId })}
-            onToggle={handlePluginToggle}
-            onRun={handlePluginRun}
+            {state === "ready" ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setFile(null);
+                  setState("idle");
+                  setDocumentId(null);
+                  setEditorData(null);
+                  setEditedDocument(null);
+                  setHasEditorChanges(false);
+                }}
+                variant="secondary"
+                className="min-w-[220px]"
+              >
+                Новый документ
+              </Button>
+            ) : state === "preparing" ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  analysisAbortRef.current?.abort();
+                  analysisAbortRef.current = null;
+                  setState("idle");
+                  setRunningPluginId(null);
+                  setErrorMessage(null);
+                }}
+                variant="secondary"
+                className="min-w-[220px]"
+              >
+                Остановить анализ
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleRunAnalysis}
+                className="min-w-[220px]"
+              >
+                Анализировать документ
+              </Button>
+            )}
+          </div>
+          <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
+          <AdvancedAiEditor
+            data={{ ...editorData, annotations }}
+            selectedAnnotationId={store.active_finding_id}
+            onSelectedAnnotationChange={(annotationId) =>
+              dispatch({
+                type: "set_active_finding",
+                findingId: annotationId ?? undefined,
+                pluginId: selectedPlugin?.manifest.id,
+              })
+            }
+            isAnalyzing={runningPluginId !== null}
+            onDocumentChange={(payload) => {
+              setEditedDocument({
+                full_text: payload.full_text,
+                rich_content: payload.rich_content,
+                source_format: payload.source_format,
+              });
+              setHasEditorChanges(payload.is_dirty);
+            }}
           />
-          {selectedFinding && <PluginInspector finding={selectedFinding} />}
+          <PluginPanels
+            panels={selectedResult?.panels ?? []}
+            findings={selectedResult?.findings ?? []}
+            activeFindingId={store.active_finding_id}
+            onSelectFinding={(finding) =>
+              dispatch({
+                type: "set_active_finding",
+                findingId: finding.id,
+                pluginId: selectedPlugin?.manifest.id,
+              })
+            }
+          />
         </div>
-      </div>
+      ) : (
+        <UploadDropzone
+          acceptedExtensions={accepts}
+          file={file}
+          onFileChange={(nextFile) => {
+            setFile(nextFile);
+            setDocumentId(null);
+            setEditorData(null);
+            setEditedDocument(null);
+            setHasEditorChanges(false);
+            if (nextFile) {
+              void handleUploadDocument(nextFile);
+            } else {
+              setState("idle");
+            }
+          }}
+          compact
+          showFileCard={false}
+        />
+      )}
     </div>
   );
 }
