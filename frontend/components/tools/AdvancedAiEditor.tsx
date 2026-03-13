@@ -804,21 +804,6 @@ export function AdvancedAiEditor({
     <div className="space-y-6">
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
-          <div className="px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Advanced AI Editor</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="ghost" onClick={() => handleNavigate(-1)} disabled={filteredAnnotations.length === 0}>
-                  Назад
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => handleNavigate(1)} disabled={filteredAnnotations.length === 0}>
-                  Вперед
-                </Button>
-              </div>
-            </div>
-          </div>
           <div className="space-y-4">
             {manualEditWarning && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
