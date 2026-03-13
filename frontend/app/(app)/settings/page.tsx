@@ -7,9 +7,15 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { getToken } from "@/lib/auth/token";
-import { getSettings, updateSettings } from "@/lib/api/settings";
+import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
+import {
+  getFeatureModules,
+  getSettings,
+  updateFeatureModule,
+  updateSettings,
+  type FeatureModuleState,
+} from "@/lib/api/settings";
 import { isUnauthorized } from "@/lib/api/errors";
-import { listPlugins, type PluginAvailabilityItem } from "@/lib/plugins/api";
 
 const COMPRESSION_OPTIONS = [
   { value: "", label: "По умолчанию (сервер)" },
@@ -19,6 +25,14 @@ const COMPRESSION_OPTIONS = [
 ];
 
 type Tab = "plugins" | "settings";
+
+function ExampleSnippet({ value }: { value: string }) {
+  return (
+    <pre className="mt-2 overflow-x-auto rounded-xl bg-gray-950 px-3 py-2 text-[11px] leading-5 text-emerald-100 shadow-sm">
+      <code>{value}</code>
+    </pre>
+  );
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -35,8 +49,9 @@ export default function SettingsPage() {
   const [analysisMode, setAnalysisMode] = useState<"fast" | "deep">("fast");
 
   // Plugins state
-  const [plugins, setPlugins] = useState<PluginAvailabilityItem[]>([]);
-  const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
+  const [featureModules, setFeatureModules] = useState<FeatureModuleState[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -51,7 +66,7 @@ export default function SettingsPage() {
         setCompression(s.compression_level ?? "");
         setAnalysisMode(s.analysis_mode === "deep" ? "deep" : "fast");
       }),
-      listPlugins().then(setPlugins).catch(() => {}),
+      getFeatureModules().then(setFeatureModules),
     ])
       .catch((err) => {
         if (isUnauthorized(err)) {
@@ -86,6 +101,23 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleFeatureToggle(featureKey: string, enabled: boolean) {
+    setTogglingKey(featureKey);
+    try {
+      const updated = await updateFeatureModule(featureKey, enabled);
+      setFeatureModules(updated);
+      clearDocumentAnalyzerEncryptionCache();
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        router.replace("/login");
+        return;
+      }
+      toast.error("Не удалось обновить модуль");
+    } finally {
+      setTogglingKey(null);
+    }
+  }
+
   if (loading) {
     return (
       <>
@@ -101,6 +133,7 @@ export default function SettingsPage() {
     { key: "plugins", label: "Плагины Анализатора документов" },
     { key: "settings", label: "Настройки анализа" },
   ];
+  const parentFeatures = featureModules.filter((item) => item.kind === "feature");
 
   return (
     <>
@@ -134,68 +167,66 @@ export default function SettingsPage() {
               </span>
             </div>
 
-            {plugins.length === 0 && (
+            {parentFeatures.length === 0 && (
               <p className="text-sm text-gray-500">Плагины не найдены.</p>
             )}
 
             <div className="space-y-3">
-              {plugins.map((p) => {
-                const isOpen = expandedPlugins.has(p.manifest.id);
-                const isPro = !p.available_for_plan;
-                const toggle = () =>
-                  setExpandedPlugins((prev) => {
+              {parentFeatures.map((feature) => {
+                const children = featureModules.filter((item) => item.parent_key === feature.key);
+                const isOpen = expandedKeys.has(feature.key);
+                const isLocked = !feature.available_for_plan;
+                const isPending = togglingKey === feature.key;
+                const toggleExpand = () =>
+                  setExpandedKeys((prev) => {
                     const next = new Set(prev);
-                    if (next.has(p.manifest.id)) next.delete(p.manifest.id);
-                    else next.add(p.manifest.id);
+                    if (next.has(feature.key)) next.delete(feature.key);
+                    else next.add(feature.key);
                     return next;
                   });
 
                 return (
                   <div
-                    key={p.manifest.id}
+                    key={feature.key}
                     className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
                       isOpen ? "border-gray-300 ring-1 ring-gray-200" : "border-gray-200"
                     }`}
                   >
-                    {/* Header row */}
                     <div className="flex items-center gap-3 px-5 py-4">
-                      {isPro && (
-                        <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-900">
-                            {p.manifest.name}
-                          </span>
-                          {isPro && (
-                            <span className="text-xs font-medium text-gray-400">
-                              Pro
-                            </span>
+                          <span className="text-sm font-semibold text-gray-900">{feature.name}</span>
+                          {isLocked && (
+                            <span className="text-xs font-medium text-gray-400">Pro</span>
                           )}
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">{feature.description}</p>
+                        <ExampleSnippet value={feature.example} />
                       </div>
-                      {/* Switch */}
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={!isPro}
-                        className={`relative inline-flex h-6 w-10 flex-shrink-0 cursor-pointer rounded-full transition-colors ${
-                          !isPro ? "bg-emerald-500" : "bg-gray-300"
+                        aria-checked={feature.effective_enabled}
+                        aria-label={`Toggle ${feature.name}`}
+                        disabled={isLocked || isPending}
+                        onClick={() => void handleFeatureToggle(feature.key, !feature.user_enabled)}
+                        className={`relative inline-flex h-6 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
+                          isLocked || isPending
+                            ? "cursor-not-allowed bg-gray-300"
+                            : feature.effective_enabled
+                              ? "bg-emerald-500"
+                              : "bg-gray-300"
                         }`}
-                        onClick={(e) => e.stopPropagation()}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
-                            !isPro ? "translate-x-[18px]" : "translate-x-0.5"
+                          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                            feature.effective_enabled ? "translate-x-[18px]" : "translate-x-0.5"
                           }`}
                         />
                       </button>
-                      {/* Chevron */}
                       <button
                         type="button"
-                        onClick={toggle}
+                        onClick={toggleExpand}
                         className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
                       >
                         <svg
@@ -210,58 +241,80 @@ export default function SettingsPage() {
                       </button>
                     </div>
 
-                    {/* Expanded details */}
                     {isOpen && (
                       <div className="border-t border-gray-100 bg-gray-50/50 px-5 py-5">
-                        <p className="text-sm text-gray-600">{p.manifest.description}</p>
-
-                        <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                          <div>
-                            <span className="font-medium text-gray-400">Категория</span>
-                            <p className="mt-0.5 font-medium text-gray-900">{p.manifest.category}</p>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-400">Версия</span>
-                            <p className="mt-0.5 font-medium text-gray-900">{p.manifest.version}</p>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-400">Тариф</span>
-                            <p className="mt-0.5 font-medium text-gray-900">{p.manifest.required_plan}</p>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-400">UI слоты</span>
-                            <p className="mt-0.5 font-medium text-gray-900">
-                              {p.manifest.ui_slots.join(", ") || "—"}
-                            </p>
-                          </div>
+                        <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Дочерние модули
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Родительский toggle управляет полным подключением workspace и всех модулей внутри.
+                          </p>
                         </div>
 
-                        <div className="mt-4">
-                          <span className="text-xs font-medium text-gray-400">Поддерживаемые форматы</span>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {p.manifest.supported_inputs.map((input) => (
-                              <span
-                                key={input}
-                                className="inline-flex rounded-full bg-gray-200/70 px-2.5 py-0.5 text-xs font-medium text-gray-700"
-                              >
-                                {input}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                        <div className="space-y-3">
+                          {children.map((module) => {
+                            const moduleLocked = !module.available_for_plan;
+                            const modulePending = togglingKey === module.key;
+                            const inheritedOff = module.blocked_reason === "parent_disabled";
 
-                        <div className="mt-3">
-                          <span className="text-xs font-medium text-gray-400">Возможности</span>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {p.manifest.capabilities.map((cap) => (
-                              <span
-                                key={cap}
-                                className="inline-flex rounded-full bg-emerald-100/70 px-2.5 py-0.5 text-xs font-medium text-emerald-700"
+                            return (
+                              <div
+                                key={module.key}
+                                className={`rounded-2xl border px-4 py-4 shadow-sm ${
+                                  inheritedOff
+                                    ? "border-gray-200 bg-gray-50 text-gray-500"
+                                    : "border-gray-200 bg-white"
+                                }`}
                               >
-                                {cap}
-                              </span>
-                            ))}
-                          </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-semibold text-gray-900">
+                                        {module.name}
+                                      </span>
+                                      {moduleLocked && (
+                                        <span className="text-xs font-medium text-gray-400">Pro</span>
+                                      )}
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-500">{module.description}</p>
+                                    <ExampleSnippet value={module.example} />
+                                    {inheritedOff && (
+                                      <p className="mt-2 text-xs text-amber-600">
+                                        Выключен родительским модулем.
+                                      </p>
+                                    )}
+                                    {moduleLocked && (
+                                      <p className="mt-2 text-xs text-gray-400">
+                                        Недоступно на текущем тарифе.
+                                      </p>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={module.effective_enabled}
+                                    aria-label={`Toggle ${module.name}`}
+                                    disabled={moduleLocked || inheritedOff || modulePending}
+                                    onClick={() => void handleFeatureToggle(module.key, !module.user_enabled)}
+                                    className={`relative inline-flex h-6 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
+                                      moduleLocked || inheritedOff || modulePending
+                                        ? "cursor-not-allowed bg-gray-300"
+                                        : module.effective_enabled
+                                          ? "bg-emerald-500"
+                                          : "bg-gray-300"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                        module.effective_enabled ? "translate-x-[18px]" : "translate-x-0.5"
+                                      }`}
+                                    />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

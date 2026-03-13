@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { encryptBytes, hasTransportKey } from "@/lib/crypto";
+import { isDocumentAnalyzerEncryptionEnabled } from "@/lib/features/documentAnalyzerEncryption";
 
 export type DocumentUploadResponse = {
   document_id: number;
@@ -49,7 +50,9 @@ export async function uploadDocument(
   const { folderId, signal } = options ?? {};
   const form = new FormData();
 
-  if (hasTransportKey()) {
+  const encryptionEnabled = await isDocumentAnalyzerEncryptionEnabled();
+
+  if (encryptionEnabled && hasTransportKey()) {
     // Encrypt file content before uploading
     const buf = await file.arrayBuffer();
     const encrypted = await encryptBytes(buf);

@@ -4,7 +4,12 @@ import type { WorkspacePluginItem, PluginManifest, PluginExecutionResult } from 
 
 export type PluginAvailabilityItem = {
   manifest: PluginManifest;
+  feature_key: string;
+  parent_feature_key: string | null;
   available_for_plan: boolean;
+  user_enabled: boolean;
+  effective_enabled: boolean;
+  blocked_reason: string | null;
 };
 
 export async function listPlugins(): Promise<PluginAvailabilityItem[]> {

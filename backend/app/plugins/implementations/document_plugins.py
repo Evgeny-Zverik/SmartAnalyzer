@@ -38,64 +38,6 @@ def _get_bundle(context: PluginRunContext):
         context.shared_bundle = (bundle, editor_payload)
     return bundle, editor_payload
 
-
-class SummaryPlugin:
-    manifest = PluginManifest(
-        id="summary",
-        version="1.0.0",
-        name="Summary",
-        description="Краткое резюме документа в отдельном модуле workspace.",
-        category="analysis",
-        supported_inputs=["pdf", "docx", "text"],
-        required_plan="free",
-        ui_slots=["right_sidebar", "bottom_panel"],
-        capabilities=["summarize", "panel"],
-        output_schema_version="1.0",
-        auto_enable=True,
-    )
-
-    async def can_handle(self, context: PluginRunContext) -> bool:
-        return context.input_type in self.manifest.supported_inputs
-
-    async def run(self, context: PluginRunContext) -> PluginExecutionResult:
-        started_at = datetime.now(timezone.utc)
-        bundle, _ = _get_bundle(context)
-        finished_at = datetime.now(timezone.utc)
-        return PluginExecutionResult(
-            plugin_id=self.manifest.id,
-            plugin_version=self.manifest.version,
-            status="completed",
-            started_at=started_at,
-            finished_at=finished_at,
-            summary=PluginSummary(
-                title="Summary",
-                short_text=bundle.summary,
-                counters=[
-                    PluginSummaryCounter(key="key_points", label="Key points", value=len(bundle.key_points)),
-                    PluginSummaryCounter(key="dates", label="Dates", value=len(bundle.important_dates)),
-                ],
-            ),
-            findings=[
-                PluginFinding(
-                    id=f"{self.manifest.id}-main",
-                    type="summary",
-                    title="Общее резюме",
-                    description=bundle.summary,
-                )
-            ],
-            panels=[
-                PluginPanel(
-                    id="summary-panel",
-                    title="Summary",
-                    slot="bottom_panel",
-                    panel_type="details",
-                    data={"summary": bundle.summary},
-                )
-            ],
-            raw={"summary": bundle.summary},
-        )
-
-
 class KeyPointsPlugin:
     manifest = PluginManifest(
         id="key_points",
@@ -371,40 +313,4 @@ class SuggestedEditsPlugin:
                 )
             ],
             raw={"annotations": [item.model_dump() for item in improvement_annotations]},
-        )
-
-
-class SpeechTranscriptionPlugin:
-    manifest = PluginManifest(
-        id="speech_transcription",
-        version="1.0.0",
-        name="Speech Transcription",
-        description="Демо-плагин для расшифровки аудио и видео, подготовленный для будущих workspace.",
-        category="composite",
-        supported_inputs=["audio", "video"],
-        required_plan="pro",
-        ui_slots=["right_sidebar", "bottom_panel", "document_toolbar", "inspector_panel"],
-        capabilities=["transcribe", "summarize", "timeline", "panel"],
-        output_schema_version="1.0",
-        is_experimental=True,
-    )
-
-    async def can_handle(self, context: PluginRunContext) -> bool:
-        return context.input_type in self.manifest.supported_inputs
-
-    async def run(self, context: PluginRunContext) -> PluginExecutionResult:
-        started_at = datetime.now(timezone.utc)
-        finished_at = datetime.now(timezone.utc)
-        return PluginExecutionResult(
-            plugin_id=self.manifest.id,
-            plugin_version=self.manifest.version,
-            status="completed",
-            started_at=started_at,
-            finished_at=finished_at,
-            summary=PluginSummary(
-                title="Speech Transcription",
-                short_text="Демо-плагин подготовлен, но текущий workspace работает только с документами.",
-            ),
-            findings=[],
-            panels=[],
         )

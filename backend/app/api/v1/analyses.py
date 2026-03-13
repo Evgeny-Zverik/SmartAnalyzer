@@ -29,6 +29,12 @@ def _decrypt_result(result_json: dict | None) -> dict | None:
     """Unwrap an encrypted analysis result envelope."""
     if not isinstance(result_json, dict):
         return result_json
+    raw = result_json.get("raw")
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return result_json
     enc = result_json.get("encrypted")
     if not isinstance(enc, str):
         return result_json  # not encrypted

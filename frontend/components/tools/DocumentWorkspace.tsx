@@ -90,7 +90,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         const staticItems: WorkspacePluginItem[] = available.map((p) => ({
           manifest: p.manifest,
           compatible: true,
-          enabled: p.manifest.auto_enable ?? false,
+          enabled: p.effective_enabled,
           visible_overlay: true,
           state: p.available_for_plan ? "registered" : "locked",
           latest_execution_id: null,

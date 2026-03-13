@@ -4,19 +4,15 @@ from app.plugins.implementations.document_plugins import (
     DatesDeadlinesPlugin,
     KeyPointsPlugin,
     RiskAnalyzerPlugin,
-    SpeechTranscriptionPlugin,
     SuggestedEditsPlugin,
-    SummaryPlugin,
 )
 
 
 PLUGIN_REGISTRY = {
-    "summary": SummaryPlugin(),
     "key_points": KeyPointsPlugin(),
     "dates_deadlines": DatesDeadlinesPlugin(),
     "risk_analyzer": RiskAnalyzerPlugin(),
     "suggested_edits": SuggestedEditsPlugin(),
-    "speech_transcription": SpeechTranscriptionPlugin(),
 }
 
 

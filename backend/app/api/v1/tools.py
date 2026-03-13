@@ -5,9 +5,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.encryption import encrypt_str
 from app.core.security import get_current_user
 from app.db.session import get_db
+from app.features.document_analyzer_encryption import encode_document_analysis_result
+from app.features.service import get_resolved_feature_state
 from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
@@ -54,6 +55,12 @@ from app.schemas.tools import (
 router = APIRouter()
 
 
+def _assert_feature_enabled(db: Session, user: User, feature_key: str) -> None:
+    state = get_resolved_feature_state(db, user, feature_key)
+    if state is None or not state.effective_enabled:
+        raise_error(403, "FEATURE_DISABLED", "Feature is disabled in settings.", {"feature_key": feature_key})
+
+
 def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Document:
     doc = db.query(Document).filter(Document.id == document_id, Document.user_id == user_id).first()
     if not doc:
@@ -61,14 +68,15 @@ def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Docum
     return doc
 
 
-def _encrypt_result(result: dict) -> dict:
-    """Wrap analysis result in an encrypted envelope."""
+def _encrypt_result(result: dict, db: Session, user: User) -> dict:
+    """Wrap analysis result in the encryption envelope managed by the feature module."""
     raw = json.dumps(result, ensure_ascii=False)
-    return {"encrypted": encrypt_str(raw)}
+    return encode_document_analysis_result(db=db, user=user, raw_json=raw)
 
 
 def _save_analysis(
     db: Session,
+    user: User,
     user_id: int,
     document_id: int,
     tool_slug: str,
@@ -82,7 +90,7 @@ def _save_analysis(
         folder_id=folder_id,
         tool_slug=tool_slug,
         status=status,
-        result_json=_encrypt_result(result),
+        result_json=_encrypt_result(result, db, user),
     )
     db.add(row)
     db.commit()
@@ -180,6 +188,7 @@ def prepare_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "document_analyzer")
     ensure_user_system_folders(db, current_user.id)
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
@@ -201,6 +210,7 @@ def run_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "document_analyzer")
     ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
@@ -232,6 +242,7 @@ def run_document_analyzer(
     )
     analysis_id = _save_analysis(
         db,
+        current_user,
         current_user.id,
         body.document_id,
         "document-analyzer",
@@ -248,6 +259,7 @@ def stream_document_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "document_analyzer")
     ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "document-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
@@ -282,6 +294,7 @@ def stream_document_analyzer(
                     final_result = DocumentAnalyzerResult.model_validate(raw_result)
                     analysis_id = _save_analysis(
                         db,
+                        current_user,
                         current_user.id,
                         body.document_id,
                         "document-analyzer",
@@ -343,6 +356,7 @@ def run_contract_checker(
     )
     analysis_id = _save_analysis(
         db,
+        current_user,
         current_user.id,
         body.document_id,
         "contract-checker",
@@ -384,6 +398,7 @@ def run_data_extractor(
     )
     analysis_id = _save_analysis(
         db,
+        current_user,
         current_user.id,
         body.document_id,
         "data-extractor",
@@ -412,6 +427,7 @@ def run_tender_analyzer(
     )
     analysis_id = _save_analysis(
         db,
+        current_user,
         current_user.id,
         body.document_id,
         "tender-analyzer",
@@ -439,6 +455,7 @@ def run_risk_analyzer(
     )
     analysis_id = _save_analysis(
         db,
+        current_user,
         current_user.id,
         body.document_id,
         "risk-analyzer",

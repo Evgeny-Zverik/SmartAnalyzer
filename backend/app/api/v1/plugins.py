@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.core.security import get_current_user
 from app.db.session import get_db
+from app.features.service import get_resolved_feature_state_for_plugin, get_resolved_plugin_feature_states
 from app.models.document import Document
 from app.models.plugin_execution import PluginExecution
 from app.models.user import User
@@ -105,15 +106,29 @@ def _load_workspace_state(db: Session, user_id: int, document_id: int) -> tuple[
 
 @router.get("", response_model=list[PluginAvailabilityItem])
 def list_plugins(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return [
-        PluginAvailabilityItem(
-            manifest=plugin.manifest,
-            available_for_plan=plan_satisfies(current_user.plan, plugin.manifest.required_plan),
+    feature_states = get_resolved_plugin_feature_states(db, current_user)
+    items: list[PluginAvailabilityItem] = []
+    for plugin in list_registered_plugins():
+        feature_state = feature_states.get(plugin.manifest.id)
+        if feature_state is None:
+            continue
+        if not feature_state.user_enabled or not feature_state.parent_enabled:
+            continue
+        items.append(
+            PluginAvailabilityItem(
+                manifest=plugin.manifest,
+                feature_key=feature_state.key,
+                parent_feature_key=feature_state.parent_key,
+                available_for_plan=feature_state.available_for_plan,
+                user_enabled=feature_state.user_enabled,
+                effective_enabled=feature_state.effective_enabled,
+                blocked_reason=feature_state.blocked_reason,
+            )
         )
-        for plugin in list_registered_plugins()
-    ]
+    return items
 
 
 @router.get("/executions/{execution_id}", response_model=PluginExecutionResponse)
@@ -147,9 +162,12 @@ def get_workspace_plugins(
     ensure_user_system_folders(db, current_user.id)
     doc = _get_document_for_user(db, document_id, current_user.id)
     enabled_rows, execution_rows = _load_workspace_state(db, current_user.id, doc.id)
+    feature_states = get_resolved_plugin_feature_states(db, current_user)
     return [
         _build_workspace_item(plugin, current_user, doc, enabled_rows, execution_rows)
         for plugin in list_registered_plugins()
+        if feature_states.get(plugin.manifest.id) is not None
+        if feature_states[plugin.manifest.id].user_enabled and feature_states[plugin.manifest.id].parent_enabled
         if detect_document_input_type(doc) in plugin.manifest.supported_inputs
     ]
 
@@ -163,9 +181,12 @@ def get_workspace_plugin_results(
     ensure_user_system_folders(db, current_user.id)
     doc = _get_document_for_user(db, document_id, current_user.id)
     enabled_rows, execution_rows = _load_workspace_state(db, current_user.id, doc.id)
+    feature_states = get_resolved_plugin_feature_states(db, current_user)
     items = [
         _build_workspace_item(plugin, current_user, doc, enabled_rows, execution_rows)
         for plugin in list_registered_plugins()
+        if feature_states.get(plugin.manifest.id) is not None
+        if feature_states[plugin.manifest.id].user_enabled and feature_states[plugin.manifest.id].parent_enabled
         if detect_document_input_type(doc) in plugin.manifest.supported_inputs
     ]
     return WorkspacePluginResultsResponse(document_id=doc.id, items=items)
@@ -187,6 +208,9 @@ def toggle_workspace_plugin(
     input_type = detect_document_input_type(doc)
     if input_type not in plugin.manifest.supported_inputs:
         raise_error(400, "PLUGIN_INCOMPATIBLE", "Plugin is not compatible with this document.", {"plugin_id": plugin_id})
+    feature_state = get_resolved_feature_state_for_plugin(db, current_user, plugin_id)
+    if feature_state is None or not feature_state.user_enabled or not feature_state.parent_enabled:
+        raise_error(403, "FEATURE_DISABLED", "Plugin is disabled in settings.", {"plugin_id": plugin_id})
     locked = not plan_satisfies(current_user.plan, plugin.manifest.required_plan)
     if locked and body.enabled:
         raise_error(403, "PLUGIN_LOCKED", "Plugin requires a higher plan.", {"plugin_id": plugin_id})
@@ -236,6 +260,9 @@ def run_workspace_plugin(
     input_type = detect_document_input_type(doc)
     if input_type not in plugin.manifest.supported_inputs:
         raise_error(400, "PLUGIN_INCOMPATIBLE", "Plugin is not compatible with this document.", {"plugin_id": plugin_id})
+    feature_state = get_resolved_feature_state_for_plugin(db, current_user, plugin_id)
+    if feature_state is None or not feature_state.user_enabled or not feature_state.parent_enabled:
+        raise_error(403, "FEATURE_DISABLED", "Plugin is disabled in settings.", {"plugin_id": plugin_id})
     if not plan_satisfies(current_user.plan, plugin.manifest.required_plan):
         raise_error(403, "PLUGIN_LOCKED", "Plugin requires a higher plan.", {"plugin_id": plugin_id})
 
@@ -306,9 +333,15 @@ async def run_all_workspace_plugins(
     doc = _get_document_for_user(db, document_id, current_user.id)
     input_type = detect_document_input_type(doc)
     enabled_rows, execution_rows = _load_workspace_state(db, current_user.id, doc.id)
+    feature_states = get_resolved_plugin_feature_states(db, current_user)
 
     plugins_to_run = []
     for plugin in list_registered_plugins():
+        feature_state = feature_states.get(plugin.manifest.id)
+        if feature_state is None:
+            continue
+        if not feature_state.user_enabled or not feature_state.parent_enabled:
+            continue
         if input_type not in plugin.manifest.supported_inputs:
             continue
         if not plan_satisfies(current_user.plan, plugin.manifest.required_plan):

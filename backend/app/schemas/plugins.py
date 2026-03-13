@@ -14,7 +14,12 @@ from app.schemas.tools import EditedDocumentPayload, LlmConfigOptional
 
 class PluginAvailabilityItem(BaseModel):
     manifest: PluginManifest
+    feature_key: str
+    parent_feature_key: str | None = None
     available_for_plan: bool
+    user_enabled: bool
+    effective_enabled: bool
+    blocked_reason: str | None = None
 
 
 class WorkspacePluginItem(BaseModel):
