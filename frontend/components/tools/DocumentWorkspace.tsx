@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
@@ -22,6 +22,7 @@ import { uploadDocument } from "@/lib/api/documents";
 import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
+import { isDocumentAnalyzerEncryptionEnabled } from "@/lib/features/documentAnalyzerEncryption";
 import {
   listPlugins,
   getDocumentWorkspacePlugins,
@@ -36,6 +37,9 @@ import type { PluginAction, PluginFinding, WorkspacePluginItem } from "@/lib/plu
 type DocumentWorkspaceProps = {
   accepts: string[];
 };
+
+const ENCRYPTION_TOOLTIP =
+  "Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.";
 
 function findingToAnnotation(finding: PluginFinding, pluginId: string): AdvancedAnnotation | null {
   const range = finding.anchor?.text_range;
@@ -77,10 +81,21 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const analysisAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    isDocumentAnalyzerEncryptionEnabled().then((enabled) => {
+      if (active) setEncryptionEnabled(enabled);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Fetch available plugins on mount (before document upload)
@@ -453,14 +468,20 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 Анализировать документ
               </Button>
             )}
-            <div className="relative inline-flex items-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 cursor-default">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
+            {encryptionEnabled ? (
+              <div className="group relative inline-flex items-center">
+                <button
+                  type="button"
+                  aria-label={ENCRYPTION_TOOLTIP}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm transition hover:bg-emerald-100"
+                >
+                  <Shield className="h-[18px] w-[18px]" />
+                </button>
+                <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] left-1/2 z-20 invisible w-80 -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100">
+                  {ENCRYPTION_TOOLTIP}
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
           <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
           <AdvancedAiEditor

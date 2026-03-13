@@ -9,6 +9,7 @@ from app.features.registry import (
     FeatureModuleDefinition,
     get_feature_definition,
     get_feature_definition_for_plugin,
+    get_feature_key_for_plugin,
     list_feature_definitions,
 )
 from app.models.user import User
@@ -111,11 +112,20 @@ def get_resolved_feature_state(db: Session, user: User, feature_key: str) -> Res
 
 def get_resolved_plugin_feature_states(db: Session, user: User) -> dict[str, ResolvedFeatureState]:
     states = get_resolved_feature_states(db, user)
-    return {
+    states_by_key = {state.key: state for state in states}
+    plugin_states: dict[str, ResolvedFeatureState] = {
         state.plugin_id: state
         for state in states
         if state.plugin_id is not None
     }
+    for plugin_id in ("risk_analyzer", "suggested_edits"):
+        feature_key = get_feature_key_for_plugin(plugin_id)
+        if feature_key is None:
+            continue
+        state = states_by_key.get(feature_key)
+        if state is not None:
+            plugin_states[plugin_id] = state
+    return plugin_states
 
 
 def set_user_feature_flag(db: Session, user: User, feature_key: str, enabled: bool) -> list[ResolvedFeatureState]:

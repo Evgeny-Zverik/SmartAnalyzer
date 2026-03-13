@@ -56,6 +56,19 @@ result.json -> protected''',
         sort_order=115,
     ),
     FeatureModuleDefinition(
+        key="document_analyzer.ai_inspector",
+        name="AI Inspector",
+        description="Объединенный модуль замечаний: риски, улучшения и правая панель инспектора.",
+        example='''[RISK] Неограниченная ответственность
+-> Показать фрагмент, объяснение и правку
+
+Очередь: 4 замечания
+Rewrite: "в течение 3 дней..."''',
+        kind="module",
+        parent_key="document_analyzer",
+        sort_order=117,
+    ),
+    FeatureModuleDefinition(
         key="document_analyzer.dates_deadlines",
         name="Dates & Deadlines",
         description="Извлечение дат, сроков и дедлайнов.",
@@ -67,28 +80,6 @@ result.json -> protected''',
         plugin_id="dates_deadlines",
         sort_order=120,
     ),
-    FeatureModuleDefinition(
-        key="document_analyzer.risk_analyzer",
-        name="Risk Analyzer",
-        description="Поиск рискованных формулировок и рекомендаций.",
-        example='''[HIGH] "Исполнитель несет ответственность за любые убытки"
--> Ограничить ответственность размером оплаты по договору''',
-        kind="module",
-        parent_key="document_analyzer",
-        plugin_id="risk_analyzer",
-        sort_order=130,
-    ),
-    FeatureModuleDefinition(
-        key="document_analyzer.suggested_edits",
-        name="Suggested Edits",
-        description="Предложения по переписыванию и улучшению текста.",
-        example='''Было: "Стороны обязуются незамедлительно..."
-Стало: "Каждая сторона обязуется в течение 3 дней..."''',
-        kind="module",
-        parent_key="document_analyzer",
-        plugin_id="suggested_edits",
-        sort_order=140,
-    ),
 ]
 
 FEATURES_BY_KEY = {definition.key: definition for definition in FEATURE_DEFINITIONS}
@@ -96,6 +87,10 @@ FEATURES_BY_PLUGIN_ID = {
     definition.plugin_id: definition
     for definition in FEATURE_DEFINITIONS
     if definition.plugin_id is not None
+}
+FEATURE_KEY_BY_PLUGIN_ID = {
+    "risk_analyzer": "document_analyzer.ai_inspector",
+    "suggested_edits": "document_analyzer.ai_inspector",
 }
 
 
@@ -108,4 +103,14 @@ def get_feature_definition(feature_key: str) -> FeatureModuleDefinition | None:
 
 
 def get_feature_definition_for_plugin(plugin_id: str) -> FeatureModuleDefinition | None:
+    aliased_key = FEATURE_KEY_BY_PLUGIN_ID.get(plugin_id)
+    if aliased_key is not None:
+        return FEATURES_BY_KEY.get(aliased_key)
     return FEATURES_BY_PLUGIN_ID.get(plugin_id)
+
+
+def get_feature_key_for_plugin(plugin_id: str) -> str | None:
+    if plugin_id in FEATURE_KEY_BY_PLUGIN_ID:
+        return FEATURE_KEY_BY_PLUGIN_ID[plugin_id]
+    definition = FEATURES_BY_PLUGIN_ID.get(plugin_id)
+    return definition.key if definition is not None else None

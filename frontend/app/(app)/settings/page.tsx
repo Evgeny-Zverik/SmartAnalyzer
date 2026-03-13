@@ -1,9 +1,7 @@
 "use client";
-
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { getToken } from "@/lib/auth/token";
@@ -33,6 +31,9 @@ function ExampleSnippet({ value }: { value: string }) {
     </pre>
   );
 }
+
+const ENCRYPTION_TOOLTIP =
+  "Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -120,12 +121,9 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <p className="text-gray-500">Загрузка...</p>
-        </div>
-      </>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-gray-500">Загрузка...</p>
+      </div>
     );
   }
 
@@ -136,9 +134,7 @@ export default function SettingsPage() {
   const parentFeatures = featureModules.filter((item) => item.kind === "feature");
 
   return (
-    <>
-      <Header />
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Tabs */}
         <div className="mb-8 flex border-b border-gray-200">
           {TABS.map((tab) => (
@@ -425,6 +421,5 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </>
   );
 }

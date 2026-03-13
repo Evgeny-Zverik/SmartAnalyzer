@@ -1,24 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { getToken, clearToken, onAuthChange } from "@/lib/auth/token";
+import { logout as authLogout } from "@/lib/api/auth";
+import { getToken, onAuthChange } from "@/lib/auth/token";
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [loggedIn, setLoggedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     setLoggedIn(!!getToken());
+    setAuthReady(true);
     return onAuthChange(() => setLoggedIn(!!getToken()));
   }, []);
 
   function handleLogout() {
-    clearToken();
+    authLogout();
     setLoggedIn(false);
     router.push("/");
+  }
+
+  function navClass(href: string): string {
+    const isActive = href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
+    return `text-sm font-medium transition ${
+      isActive ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+    }`;
   }
 
   return (
@@ -33,27 +46,32 @@ export function Header() {
         <nav className="flex items-center gap-6">
           <Link
             href="/tools"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            className={navClass("/tools")}
           >
             Инструменты
           </Link>
           <Link
             href="/pricing"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            className={navClass("/pricing")}
           >
             Тарифы
           </Link>
-          {loggedIn ? (
+          {!authReady ? (
+            <div
+              aria-hidden="true"
+              className="h-10 w-[360px] rounded-xl bg-gray-100/80"
+            />
+          ) : loggedIn ? (
             <>
               <Link
                 href="/dashboard"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className={navClass("/dashboard")}
               >
                 Dashboard
               </Link>
               <Link
                 href="/settings"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className={navClass("/settings")}
               >
                 Настройки
               </Link>

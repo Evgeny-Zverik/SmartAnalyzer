@@ -35,6 +35,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
+import { isDocumentAnalyzerAiInspectorEnabled } from "@/lib/features/documentAnalyzerAiInspector";
 import {
   downloadDocumentFile,
   type DownloadFormatPreset,
@@ -70,6 +71,7 @@ type AdvancedAiEditorProps = {
     source_format: string;
     is_dirty: boolean;
   }) => void;
+  showInspectorPanel?: boolean;
 };
 
 type AnnotationFilter = "all" | "risk" | "improvement";
@@ -360,6 +362,7 @@ export function AdvancedAiEditor({
   selectedAnnotationId,
   onSelectedAnnotationChange,
   onDocumentChange,
+  showInspectorPanel,
 }: AdvancedAiEditorProps) {
   const [editorText, setEditorText] = useState(data.full_text);
   const [annotations, setAnnotations] = useState<AdvancedAnnotation[]>(data.annotations);
@@ -375,9 +378,27 @@ export function AdvancedAiEditor({
   const [toolbarHeading, setToolbarHeading] = useState<"paragraph" | "heading1">("paragraph");
   const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
   const [toolbarFontSize, setToolbarFontSize] = useState("16");
+  const [inspectorEnabled, setInspectorEnabled] = useState(showInspectorPanel ?? false);
   const suppressManualWarningRef = useRef(false);
   const initialEditorSignatureRef = useRef("");
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof showInspectorPanel === "boolean") {
+      setInspectorEnabled(showInspectorPanel);
+      return;
+    }
+
+    let active = true;
+    isDocumentAnalyzerAiInspectorEnabled().then((enabled) => {
+      if (active) {
+        setInspectorEnabled(enabled);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [showInspectorPanel]);
 
   // Memoize initial content so TipTap doesn't reset on every re-render.
   // Content updates are handled via the contentSignature useEffect below.
@@ -689,7 +710,7 @@ export function AdvancedAiEditor({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className={`grid gap-6 ${inspectorEnabled ? "2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
         <div>
           <div className="space-y-4">
             {manualEditWarning && (
@@ -907,137 +928,138 @@ export function AdvancedAiEditor({
           </div>
         </div>
 
-        <div className="space-y-6 2xl:pt-[2px]">
-          <Card>
-            <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
-            {showAiLoadingState ? (
-              <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-10 rounded-2xl bg-amber-100">
-                    <div className="absolute inset-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">AI размечает документ</p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Подготавливаем риски, улучшения и предлагаемые формулировки.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <div className="h-3 w-24 animate-pulse rounded-full bg-amber-100" />
-                  <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
-                  <div className="h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
-                  <div className="h-20 w-full animate-pulse rounded-2xl bg-white/80" />
-                </div>
-              </div>
-            ) : activeAnnotation ? (
-              <div className="mt-4 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-                      activeAnnotation.type === "risk"
-                        ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-amber-200 bg-amber-50 text-amber-700"
-                    }`}
-                  >
-                    {activeAnnotation.type === "risk" ? "Risk" : "Improvement"}
-                  </span>
-                  <SeverityBadge severity={activeAnnotation.severity} />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">{activeAnnotation.title}</h4>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">{activeAnnotation.reason}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Исходный фрагмент</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-800">
-                    {activeExcerpt || "Фрагмент недоступен"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Предлагаемая формулировка</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-900">
-                    {activeAnnotation.suggested_rewrite}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="primary" onClick={handleApplyChange}>
-                    Применить
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={handleDismiss}>
-                    Скрыть
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={handleCopyRewrite}>
-                    {rewriteCopyState === "done"
-                      ? "Скопировано"
-                      : rewriteCopyState === "error"
-                        ? "Ошибка копирования"
-                        : "Копировать"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                Выберите подсвеченный фрагмент или замечание из списка.
-                <br />
-                Красный помечает риски, желтый показывает места для улучшения.
-              </div>
-            )}
-          </Card>
-
-          <Card className="flex flex-col">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
-              <span className="text-xs text-gray-500">
-                {showAiLoadingState ? "Идет анализ..." : `${filteredAnnotations.length} шт.`}
-              </span>
-            </div>
-            {showAiLoadingState ? (
-              <div className="relative mt-4">
-                <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
-                  {[0, 1, 2].map((index) => (
-                    <div
-                      key={index}
-                      className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
-                        <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
-                      </div>
-                      <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
-                      <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
-                      <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+        {inspectorEnabled ? (
+          <div className="space-y-6 2xl:pt-[2px]">
+            <Card>
+              <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
+              {showAiLoadingState ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-10 w-10 rounded-2xl bg-amber-100">
+                      <div className="absolute inset-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">AI размечает документ</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Подготавливаем риски, улучшения и предлагаемые формулировки.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-amber-100" />
+                    <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
+                    <div className="h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+                    <div className="h-20 w-full animate-pulse rounded-2xl bg-white/80" />
+                  </div>
                 </div>
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent" />
-              </div>
-            ) : filteredAnnotations.length > 0 ? (
-              <div className="relative mt-4">
-                <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
-                  {filteredAnnotations.map((annotation) => (
-                    <button
-                      key={annotation.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveId(annotation.id);
-                        if (!editor) return;
-                        const range = getOffsetRange(
-                          editor.state.doc,
-                          annotation.start_offset,
-                          annotation.end_offset,
-                          annotation.exact_quote
-                        );
-                        if (!range) return;
-                        editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
-                      }}
-                      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                        activeAnnotation?.id === annotation.id
-                          ? "border-gray-900 bg-gray-900 text-white"
-                          : "border-gray-200 bg-white"
+              ) : activeAnnotation ? (
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                        activeAnnotation.type === "risk"
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-amber-200 bg-amber-50 text-amber-700"
                       }`}
                     >
-                      <div className="flex flex-wrap items-center gap-2">
+                      {activeAnnotation.type === "risk" ? "Risk" : "Improvement"}
+                    </span>
+                    <SeverityBadge severity={activeAnnotation.severity} />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-semibold text-gray-900">{activeAnnotation.title}</h4>
+                    <p className="mt-2 text-sm leading-6 text-gray-600">{activeAnnotation.reason}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Исходный фрагмент</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-800">
+                      {activeExcerpt || "Фрагмент недоступен"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Предлагаемая формулировка</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-900">
+                      {activeAnnotation.suggested_rewrite}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="primary" onClick={handleApplyChange}>
+                      Применить
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={handleDismiss}>
+                      Скрыть
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={handleCopyRewrite}>
+                      {rewriteCopyState === "done"
+                        ? "Скопировано"
+                        : rewriteCopyState === "error"
+                          ? "Ошибка копирования"
+                          : "Копировать"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                  Выберите подсвеченный фрагмент или замечание из списка.
+                  <br />
+                  Красный помечает риски, желтый показывает места для улучшения.
+                </div>
+              )}
+            </Card>
+
+            <Card className="flex flex-col">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
+                <span className="text-xs text-gray-500">
+                  {showAiLoadingState ? "Идет анализ..." : `${filteredAnnotations.length} шт.`}
+                </span>
+              </div>
+              {showAiLoadingState ? (
+                <div className="relative mt-4">
+                  <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                    {[0, 1, 2].map((index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
+                          <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+                        </div>
+                        <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
+                        <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
+                        <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent" />
+                </div>
+              ) : filteredAnnotations.length > 0 ? (
+                <div className="relative mt-4">
+                  <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                    {filteredAnnotations.map((annotation) => (
+                      <button
+                        key={annotation.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveId(annotation.id);
+                          if (!editor) return;
+                          const range = getOffsetRange(
+                            editor.state.doc,
+                            annotation.start_offset,
+                            annotation.end_offset,
+                            annotation.exact_quote
+                          );
+                          if (!range) return;
+                          editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
+                        }}
+                        className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                          activeAnnotation?.id === annotation.id
+                            ? "border-gray-900 bg-gray-900 text-white"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                             activeAnnotation?.id === annotation.id
@@ -1071,8 +1093,9 @@ export function AdvancedAiEditor({
                 Явных замечаний не найдено. Можно работать с чистым извлеченным текстом.
               </div>
             )}
-          </Card>
-        </div>
+            </Card>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/Button";
 import { FoldersSidebar } from "@/components/dashboard/FoldersSidebar";
 import { FolderContentTable } from "@/components/dashboard/FolderContentTable";
 import { CreateFolderDialog } from "@/components/dashboard/CreateFolderDialog";
@@ -171,12 +169,6 @@ export default function DashboardPage() {
       .finally(() => setUploading(false));
   }
 
-  function handleLogout() {
-    authLogout();
-    router.push("/");
-    router.refresh();
-  }
-
   if (checking) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 p-8">
@@ -188,7 +180,7 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <main className="flex min-h-screen bg-gray-50">
+    <main className="flex min-h-[calc(100vh-73px)] bg-gray-50">
       <FoldersSidebar
         folders={folders}
         selectedFolderId={selectedFolderId}
@@ -205,14 +197,6 @@ export default function DashboardPage() {
         onDropOnFolder={handleDropOnFolder}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-          <Link href="/" className="text-xl font-semibold text-gray-900 hover:text-gray-700">
-            SmartAnalyzer
-          </Link>
-          <Button variant="secondary" type="button" onClick={handleLogout}>
-            Выйти
-          </Button>
-        </header>
         <div className="flex-1 overflow-auto p-4">
           <h1 className="mb-2 text-2xl font-bold text-gray-900">
             {folders.find((f) => f.id === selectedFolderId)?.name ?? "Папки"}
