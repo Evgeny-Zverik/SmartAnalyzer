@@ -369,7 +369,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   }, [handlePluginRun]);
 
   return (
-    <div className="space-y-6">
+    <div className="relative z-0 space-y-6">
       <LLMSettingsModal
         isOpen={llmModalOpen}
         onClose={() => setLlmModalOpen(false)}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -34,28 +33,48 @@ export function Header() {
     }`;
   }
 
+  function handleHardNavigate(href: string) {
+    if (pathname === href) return;
+    window.location.href = href;
+  }
+
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-[1000] isolate pointer-events-auto border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link
+        <a
           href="/"
+          onMouseDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            handleHardNavigate("/");
+          }}
           className="text-xl font-semibold text-gray-900 hover:text-gray-700"
         >
           SmartAnalyzer
-        </Link>
+        </a>
         <nav className="flex items-center gap-6">
-          <Link
+          <a
             href="/tools"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              handleHardNavigate("/tools");
+            }}
             className={navClass("/tools")}
           >
             Инструменты
-          </Link>
-          <Link
+          </a>
+          <a
             href="/pricing"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              handleHardNavigate("/pricing");
+            }}
             className={navClass("/pricing")}
           >
             Тарифы
-          </Link>
+          </a>
           {!authReady ? (
             <div
               aria-hidden="true"
@@ -63,18 +82,28 @@ export function Header() {
             />
           ) : loggedIn ? (
             <>
-              <Link
+              <a
                 href="/dashboard"
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  handleHardNavigate("/dashboard");
+                }}
                 className={navClass("/dashboard")}
               >
                 Dashboard
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/settings"
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  handleHardNavigate("/settings");
+                }}
                 className={navClass("/settings")}
               >
                 Настройки
-              </Link>
+              </a>
               <button
                 onClick={handleLogout}
                 type="button"
@@ -85,12 +114,17 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link
+              <a
                 href="/login"
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  handleHardNavigate("/login");
+                }}
                 className="text-sm font-medium text-gray-600 hover:text-gray-900"
               >
                 Войти
-              </Link>
+              </a>
               <Button href="/register" variant="primary">
                 Попробовать бесплатно
               </Button>

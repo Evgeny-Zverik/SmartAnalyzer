@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { Tool } from "@/lib/config/tools";
 
@@ -9,6 +8,10 @@ type ToolShellProps = {
 };
 
 export function ToolShell({ tool, children }: ToolShellProps) {
+  function handleHardNavigate(href: string) {
+    window.location.href = href;
+  }
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-[1540px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -16,19 +19,29 @@ export function ToolShell({ tool, children }: ToolShellProps) {
           className="mb-4 flex items-center gap-1 text-sm text-gray-500"
           aria-label="Breadcrumb"
         >
-          <Link
+          <a
             href="/"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              handleHardNavigate("/");
+            }}
             className="hover:text-gray-700 focus:text-gray-700 focus:outline-none"
           >
             Главная
-          </Link>
+          </a>
           <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
-          <Link
+          <a
             href="/tools"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              handleHardNavigate("/tools");
+            }}
             className="hover:text-gray-700 focus:text-gray-700 focus:outline-none"
           >
             Инструменты
-          </Link>
+          </a>
           <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-medium text-gray-900">{tool.title}</span>
         </nav>
