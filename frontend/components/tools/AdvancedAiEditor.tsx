@@ -31,9 +31,6 @@ import { Table } from "@tiptap/extension-table";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableRow } from "@tiptap/extension-table-row";
-import type { EditorView } from "@tiptap/pm/view";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -78,8 +75,6 @@ type AdvancedAiEditorProps = {
 type AnnotationFilter = "all" | "risk" | "improvement";
 type EditorFormatPreset = DownloadFormatPreset;
 type EditorAlignment = DownloadTextAlignment;
-
-const AI_ANNOTATIONS_PLUGIN_KEY = new PluginKey("ai-annotations");
 
 const FORMAT_PRESETS: Array<{
   value: EditorFormatPreset;
@@ -162,36 +157,15 @@ function annotationChipClass(filter: AnnotationFilter, active: boolean): string 
     if (filter === "improvement") return "border-amber-200 bg-amber-50 text-amber-700";
     return "border-gray-900 bg-gray-900 text-white";
   }
-  return "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900";
+  return "border-gray-200 bg-white text-gray-600";
 }
 
 function toolbarButtonClass(active = false): string {
   return `inline-flex h-10 w-10 items-center justify-center rounded-xl border text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 ${
     active
       ? "border-gray-900 bg-gray-900 text-white"
-      : "border-gray-300 bg-white hover:bg-gray-50"
+      : "border-gray-300 bg-white"
   }`;
-}
-
-function annotationSpanClass(annotation: AdvancedAnnotation, active: boolean): string {
-  if (annotation.type === "risk") {
-    return active
-      ? "rounded bg-red-200/90 px-0.5 ring-2 ring-red-300"
-      : "rounded bg-red-100/90 px-0.5 hover:bg-red-200";
-  }
-  return active
-    ? "rounded bg-amber-200/90 px-0.5 ring-2 ring-amber-300"
-    : "rounded bg-amber-100/90 px-0.5 hover:bg-amber-200";
-}
-
-function getAnnotationElement(target: EventTarget | null): HTMLElement | null {
-  if (target instanceof Element) {
-    return target.closest<HTMLElement>("[data-annotation-id]");
-  }
-  if (target instanceof Node) {
-    return target.parentElement?.closest<HTMLElement>("[data-annotation-id]") ?? null;
-  }
-  return null;
 }
 
 function getAnnotationExcerpt(text: string, annotation: AdvancedAnnotation): string {
@@ -380,66 +354,6 @@ function getOffsetRange(
   return from !== null && to !== null && from < to ? { from, to } : null;
 }
 
-function createAiAnnotationsExtension(config: {
-  getAnnotations: () => AdvancedAnnotation[];
-  getActiveId: () => string | null;
-  onSelect: (id: string, element: HTMLElement) => void;
-}) {
-  return Extension.create({
-    name: "aiAnnotations",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: AI_ANNOTATIONS_PLUGIN_KEY,
-          props: {
-            decorations: (state: { doc: ProseMirrorNode }) => {
-              const decorations = config
-                .getAnnotations()
-                .map((annotation) => {
-                  const range = getOffsetRange(
-                    state.doc,
-                    annotation.start_offset,
-                    annotation.end_offset,
-                    annotation.exact_quote
-                  );
-                  if (!range) return null;
-                  const isActive = config.getActiveId() === annotation.id;
-                  const className = annotationSpanClass(annotation, isActive);
-                  return Decoration.inline(range.from, range.to, {
-                    class: `${className} ai-annotation-fragment`,
-                    "data-annotation-id": annotation.id,
-                  });
-                })
-                .filter((decoration): decoration is Decoration => decoration !== null);
-
-              return DecorationSet.create(state.doc, decorations);
-            },
-            handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
-              const element = getAnnotationElement(event.target);
-              const id = element?.dataset.annotationId;
-              if (!id || !element) return false;
-              event.preventDefault();
-              config.onSelect(id, element);
-              return true;
-            },
-            handleDOMEvents: {
-              mousedown: (_view: EditorView, event: Event) => {
-                const mouseEvent = event as MouseEvent;
-                const element = getAnnotationElement(mouseEvent.target);
-                const id = element?.dataset.annotationId;
-                if (!id || !element) return false;
-                mouseEvent.preventDefault();
-                config.onSelect(id, element);
-                return true;
-              },
-            },
-          },
-        }),
-      ];
-    },
-  });
-}
-
 export function AdvancedAiEditor({
   data,
   isAnalyzing = false,
@@ -461,15 +375,21 @@ export function AdvancedAiEditor({
   const [toolbarHeading, setToolbarHeading] = useState<"paragraph" | "heading1">("paragraph");
   const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
   const [toolbarFontSize, setToolbarFontSize] = useState("16");
-  const filteredAnnotationsRef = useRef<AdvancedAnnotation[]>(data.annotations);
-  const activeIdRef = useRef<string | null>(data.annotations[0]?.id ?? null);
   const suppressManualWarningRef = useRef(false);
   const initialEditorSignatureRef = useRef("");
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
+  // Memoize initial content so TipTap doesn't reset on every re-render.
+  // Content updates are handled via the contentSignature useEffect below.
+  const initialContent = useMemo(
+    () => (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // Memoize extensions to keep a stable reference.
+  const extensions = useMemo(
+    () => [
       StarterKit.configure({
         blockquote: false,
         codeBlock: false,
@@ -492,30 +412,55 @@ export function AdvancedAiEditor({
       TextAlign.configure({
         types: ["paragraph", "heading"],
       }),
-      createAiAnnotationsExtension({
-        getAnnotations: () => filteredAnnotationsRef.current,
-        getActiveId: () => activeIdRef.current,
-        onSelect: (id, element) => {
-          setActiveId(id);
-          void element;
-        },
-      }),
     ],
-    content: (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
-    onUpdate: ({ editor: currentEditor }) => {
-      setEditorText(buildDocTextIndex(currentEditor.state.doc).text);
-      if (suppressManualWarningRef.current) {
-        suppressManualWarningRef.current = false;
-        return;
-      }
-      setManualEditWarning(true);
-    },
-    editorProps: {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // Use refs for onUpdate callbacks to avoid re-creating the editor on state changes.
+  const onUpdateRef = useRef<(text: string) => void>(() => {});
+  onUpdateRef.current = (text: string) => {
+    setEditorText(text);
+    if (suppressManualWarningRef.current) {
+      suppressManualWarningRef.current = false;
+      return;
+    }
+    setManualEditWarning(true);
+  };
+
+  // Memoize editorProps to keep a stable reference across renders.
+  const editorProps = useMemo(
+    () => ({
       attributes: {
         class: "min-h-[960px] outline-none",
       },
+    }),
+    []
+  );
+
+  // IMPORTANT: Do NOT pass `content` here. TipTap v3 useEditor internally calls
+  // editor.setOptions() on every React re-render and compares options by reference.
+  // Since parsed content becomes a ProseMirror Doc (different reference), the comparison
+  // always fails, causing setOptions to reset the editor content on every render.
+  // Instead, we set content via useEffect below (contentSignature effect).
+  // Pass a stable deps array to useEditor's second argument.
+  // With deps.length > 0, TipTap skips the compareOptions/setOptions path
+  // (which causes infinite re-renders) and instead uses refreshEditorInstance
+  // which only recreates the editor when deps actually change.
+  const stableEditorDep = useMemo(() => "stable", []);
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      editable: true,
+      shouldRerenderOnTransaction: false,
+      extensions,
+      onUpdate: ({ editor: currentEditor }) => {
+        onUpdateRef.current(buildDocTextIndex(currentEditor.state.doc).text);
+      },
+      editorProps,
     },
-  });
+    [stableEditorDep]
+  );
 
   const syncToolbarState = useMemo(
     () => () => {
@@ -537,9 +482,27 @@ export function AdvancedAiEditor({
     [editor]
   );
 
+  // Stable content signature so we only reset the editor when the
+  // underlying document actually changes (not on every re-render).
+  const contentSignature = useMemo(
+    () => JSON.stringify((data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text)),
+    [data.full_text, data.rich_content]
+  );
+
+  // Sync annotations from parent without resetting the editor content.
+  // Use JSON signature to avoid re-running on every render (data.annotations is a new array each time).
+  const annotationsSignature = useMemo(
+    () => JSON.stringify(data.annotations.map((a) => a.id).sort()),
+    [data.annotations]
+  );
+  useEffect(() => {
+    setAnnotations(data.annotations);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotationsSignature]);
+
+  // Reset editor only when the actual document content changes (new document loaded).
   useEffect(() => {
     setEditorText(data.full_text);
-    setAnnotations(data.annotations);
     setFilter("all");
     setActiveId(data.annotations[0]?.id ?? null);
     setManualEditWarning(false);
@@ -552,15 +515,14 @@ export function AdvancedAiEditor({
     setToolbarFontFamily(FONT_FAMILIES[1]?.value ?? "inherit");
     setToolbarFontSize("16");
     setDownloadMenuOpen(false);
-    initialEditorSignatureRef.current = JSON.stringify(
-      (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text)
-    );
+    initialEditorSignatureRef.current = contentSignature;
     suppressManualWarningRef.current = true;
     editor?.commands.setContent(
       (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text),
       { emitUpdate: false }
     );
-  }, [data, editor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentSignature, editor]);
 
   useEffect(() => {
     if (!editor || !onDocumentChange) return;
@@ -607,11 +569,6 @@ export function AdvancedAiEditor({
     return annotations.filter((annotation) => annotation.type === filter);
   }, [annotations, filter]);
 
-  useEffect(() => {
-    filteredAnnotationsRef.current = filteredAnnotations;
-    if (!editor) return;
-    editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
-  }, [filteredAnnotations, editor]);
 
   const activeAnnotation = useMemo(() => {
     const found = filteredAnnotations.find((annotation) => annotation.id === activeId);
@@ -627,10 +584,6 @@ export function AdvancedAiEditor({
       setActiveId(activeAnnotation.id);
     }
   }, [activeAnnotation, activeId]);
-
-  useEffect(() => {
-    activeIdRef.current = activeId;
-  }, [activeId]);
 
   useEffect(() => {
     if (selectedAnnotationId === undefined) return;
@@ -690,6 +643,7 @@ export function AdvancedAiEditor({
       .focus()
       .insertContentAt(range, annotation.suggested_rewrite)
       .run();
+
     setAnnotations((prev) => shiftAnnotations(prev, annotation, annotation.suggested_rewrite.length));
     setActiveId(null);
     setManualEditWarning(false);
@@ -1080,7 +1034,7 @@ export function AdvancedAiEditor({
                       className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                         activeAnnotation?.id === annotation.id
                           ? "border-gray-900 bg-gray-900 text-white"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          : "border-gray-200 bg-white"
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-2">
