@@ -22,6 +22,7 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "openai",
+    "cryptography",
 ]
 
 [project.optional-dependencies]

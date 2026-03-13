@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { clearToken, setToken } from "@/lib/auth/token";
+import { clearTransportKey, setTransportKey } from "@/lib/crypto";
 
 export type User = {
   id: number;
@@ -8,10 +9,13 @@ export type User = {
   plan: string;
 };
 
-export type LoginResponse = {
+type LoginResponse = {
   access_token: string;
   token_type: string;
+  transport_key?: string;
 };
+
+type MeResponse = User & { transport_key?: string };
 
 export async function register(email: string, password: string): Promise<User> {
   const user = await apiFetch<User>("/api/v1/auth/register", {
@@ -23,6 +27,7 @@ export async function register(email: string, password: string): Promise<User> {
     body: JSON.stringify({ email, password }),
   });
   setToken(loginRes.access_token);
+  if (loginRes.transport_key) setTransportKey(loginRes.transport_key);
   return user;
 }
 
@@ -32,13 +37,17 @@ export async function login(email: string, password: string): Promise<User> {
     body: JSON.stringify({ email, password }),
   });
   setToken(res.access_token);
+  if (res.transport_key) setTransportKey(res.transport_key);
   return me();
 }
 
 export async function me(): Promise<User> {
-  return apiFetch<User>("/api/v1/auth/me");
+  const res = await apiFetch<MeResponse>("/api/v1/auth/me");
+  if (res.transport_key) setTransportKey(res.transport_key);
+  return res;
 }
 
 export function logout(): void {
   clearToken();
+  clearTransportKey();
 }

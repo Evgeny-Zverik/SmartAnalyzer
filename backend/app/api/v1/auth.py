@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.encryption import derive_transport_key
 from app.core.security import (
     create_access_token,
     get_current_user,
@@ -48,14 +49,17 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password",
         )
     token = create_access_token(subject=str(user.id))
-    return {"access_token": token, "token_type": "bearer"}
+    tk = derive_transport_key(user.id)
+    return {"access_token": token, "token_type": "bearer", "transport_key": tk}
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
-    return UserRead(
-        id=current_user.id,
-        email=current_user.email,
-        created_at=current_user.created_at,
-        plan=current_user.plan,
-    )
+    tk = derive_transport_key(current_user.id)
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "created_at": str(current_user.created_at),
+        "plan": current_user.plan,
+        "transport_key": tk,
+    }

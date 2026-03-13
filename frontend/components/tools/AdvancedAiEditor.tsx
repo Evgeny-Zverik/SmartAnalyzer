@@ -737,31 +737,13 @@ export function AdvancedAiEditor({
     <div className="space-y-6">
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
-          <div className="px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Advanced AI Editor</h3>
-                <p className="mt-1 text-xs text-gray-500">
-                  Красный помечает риски, желтый показывает места для улучшения.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="ghost" onClick={() => handleNavigate(-1)} disabled={filteredAnnotations.length === 0}>
-                  Назад
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => handleNavigate(1)} disabled={filteredAnnotations.length === 0}>
-                  Вперед
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-4 p-4 sm:p-6 lg:p-8">
+          <div className="space-y-4">
             {manualEditWarning && (
               <div className="mx-auto max-w-[980px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 После ручных правок подсветка может немного сместиться. AI-аннотации не пересчитываются в реальном времени.
               </div>
             )}
-            <div className="mx-auto w-full max-w-[1180px]">
+            <div className="w-full">
               <div className="mb-4 rounded-[24px] border border-gray-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -955,10 +937,10 @@ export function AdvancedAiEditor({
                   </button>
                 </div>
               </div>
-              <div className="mx-auto w-full">
+              <div className="mx-auto w-full bg-gray-100 p-2 sm:p-3">
                 <div
                   ref={editorScrollRef}
-                  className="relative max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white"
+                  className="relative max-h-[80vh] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
                 >
                   <div
                     className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
@@ -1043,6 +1025,8 @@ export function AdvancedAiEditor({
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                 Выберите подсвеченный фрагмент или замечание из списка.
+                <br />
+                Красный помечает риски, желтый показывает места для улучшения.
               </div>
             )}
           </Card>
