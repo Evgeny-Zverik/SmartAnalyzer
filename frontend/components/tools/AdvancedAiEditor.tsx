@@ -373,7 +373,7 @@ function getOffsetRange(
 function createAiAnnotationsExtension(config: {
   getAnnotations: () => AdvancedAnnotation[];
   getActiveId: () => string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, element: HTMLElement) => void;
   onHover: (id: string, element: HTMLElement) => void;
   onLeave: (relatedTarget: EventTarget | null) => void;
 }) {
@@ -408,9 +408,10 @@ function createAiAnnotationsExtension(config: {
             },
             handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
               const target = event.target as HTMLElement | null;
-              const id = target?.closest<HTMLElement>("[data-annotation-id]")?.dataset.annotationId;
-              if (!id) return false;
-              config.onSelect(id);
+              const element = target?.closest<HTMLElement>("[data-annotation-id]");
+              const id = element?.dataset.annotationId;
+              if (!id || !element) return false;
+              config.onSelect(id, element);
               return false;
             },
             handleDOMEvents: {
@@ -425,7 +426,12 @@ function createAiAnnotationsExtension(config: {
               mouseout: (_view: EditorView, event: Event) => {
                 const mouseEvent = event as MouseEvent;
                 const target = mouseEvent.target as HTMLElement | null;
-                if (!target?.closest<HTMLElement>("[data-annotation-id]")) return false;
+                const sourceEl = target?.closest<HTMLElement>("[data-annotation-id]");
+                if (!sourceEl) return false;
+                // Don't leave if moving to another span of the same annotation
+                const related = mouseEvent.relatedTarget as HTMLElement | null;
+                const relatedEl = related?.closest<HTMLElement>("[data-annotation-id]");
+                if (relatedEl?.dataset.annotationId === sourceEl.dataset.annotationId) return false;
                 config.onLeave(mouseEvent.relatedTarget);
                 return false;
               },
@@ -496,7 +502,15 @@ export function AdvancedAiEditor({
       createAiAnnotationsExtension({
         getAnnotations: () => filteredAnnotationsRef.current,
         getActiveId: () => activeIdRef.current,
-        onSelect: (id) => setActiveId(id),
+        onSelect: (id, element) => {
+          setActiveId(id);
+          if (hoverHideTimeoutRef.current) {
+            window.clearTimeout(hoverHideTimeoutRef.current);
+            hoverHideTimeoutRef.current = null;
+          }
+          setHoveredAnnotationId(id);
+          setHoverAnchorRect(element.getBoundingClientRect());
+        },
         onHover: (id, element) => {
           if (hoverHideTimeoutRef.current) {
             window.clearTimeout(hoverHideTimeoutRef.current);
@@ -649,9 +663,7 @@ export function AdvancedAiEditor({
 
   useEffect(() => {
     activeIdRef.current = activeId;
-    if (!editor) return;
-    editor.view.dispatch(editor.state.tr.setMeta(AI_ANNOTATIONS_PLUGIN_KEY, Date.now()));
-  }, [activeId, editor]);
+  }, [activeId]);
 
   useEffect(() => {
     if (selectedAnnotationId === undefined) return;
@@ -1169,7 +1181,7 @@ export function AdvancedAiEditor({
                   {[0, 1, 2].map((index) => (
                     <div
                       key={index}
-                      className="min-h-[256px] rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+                      className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
                     >
                       <div className="flex items-center gap-2">
                         <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
@@ -1202,7 +1214,7 @@ export function AdvancedAiEditor({
                         if (!range) return;
                         editor.chain().focus().setTextSelection(range.from).scrollIntoView().run();
                       }}
-                      className={`w-full min-h-[256px] rounded-2xl border p-4 text-left transition ${
+                      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                         activeAnnotation?.id === annotation.id
                           ? "border-gray-900 bg-gray-900 text-white"
                           : "border-gray-200 bg-white hover:border-gray-300"
