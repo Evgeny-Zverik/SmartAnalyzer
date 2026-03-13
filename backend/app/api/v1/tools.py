@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
 from app.db.session import get_db
+from app.features.document_analyzer_anonymization import anonymize_text_for_llm
 from app.features.document_analyzer_encryption import encode_document_analysis_result
 from app.features.service import get_resolved_feature_state
 from app.models.document import Document
@@ -222,7 +223,7 @@ def run_document_analyzer(
         }
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
-    text = editor_payload["full_text"]
+    text = anonymize_text_for_llm(db=db, user=current_user, text=editor_payload["full_text"])
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
     raw_result = analyze_document_fast(text, overrides=overrides)
     raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
@@ -271,7 +272,7 @@ def stream_document_analyzer(
         }
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
-    text = editor_payload["full_text"]
+    text = anonymize_text_for_llm(db=db, user=current_user, text=editor_payload["full_text"])
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
     folder = resolve_analysis_folder(
         db,

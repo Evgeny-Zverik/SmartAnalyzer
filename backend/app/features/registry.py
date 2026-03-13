@@ -56,6 +56,17 @@ result.json -> protected''',
         sort_order=115,
     ),
     FeatureModuleDefinition(
+        key="document_analyzer.anonymization",
+        name="Anonymization",
+        description="Обезличивание персональных данных перед отправкой текста в LLM.",
+        example='''ivan.petrov@corp.ru -> xxxx.xxxxxx@xxxx.xx
++7 999 123-45-67 -> +0 000 000-00-00
+www.company.ru -> www.xxxxxxx.xx''',
+        kind="module",
+        parent_key="document_analyzer",
+        sort_order=116,
+    ),
+    FeatureModuleDefinition(
         key="document_analyzer.ai_inspector",
         name="AI Inspector",
         description="Объединенный модуль замечаний: риски, улучшения и правая панель инспектора.",

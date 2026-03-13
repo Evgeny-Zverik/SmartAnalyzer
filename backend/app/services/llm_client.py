@@ -489,10 +489,10 @@ def analyze_document_fast(
     opts = overrides or {}
     client, model = _build_openai_client(opts)
     raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-    if len(raw_text) <= 20000:
+    compression_level = _normalize_compression_level(opts)
+    if len(raw_text) <= 6000 and compression_level == "off":
         analysis_context = raw_text
     else:
-        compression_level = _normalize_compression_level(opts)
         bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
         analysis_context = bundle["context"]
     language_rule = _language_requirement(raw_text)
@@ -593,11 +593,10 @@ def stream_document_analysis_events(text: str, overrides: dict[str, Any] | None 
     opts = overrides or {}
     client, model = _build_openai_client(opts)
     raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
-
-    if len(raw_text) <= 20000:
+    compression_level = _normalize_compression_level(opts)
+    if len(raw_text) <= 6000 and compression_level == "off":
         analysis_context = raw_text
     else:
-        compression_level = _normalize_compression_level(opts)
         bundle = _prepare_context_bundle(raw_text, "analysis", compression_level, include_verbatim=True)
         analysis_context = bundle["context"]
 
