@@ -710,226 +710,224 @@ export function AdvancedAiEditor({
 
   return (
     <div className="space-y-6">
-      <div className={`grid gap-6 ${inspectorEnabled ? "2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
-        <div>
-          <div className="space-y-4">
-            {manualEditWarning && (
-              <div className="mx-auto max-w-[980px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                После ручных правок подсветка может немного сместиться. AI-аннотации не пересчитываются в реальном времени.
-              </div>
-            )}
-            <div className="w-full">
-              <div className="mb-4 rounded-[24px] border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className={toolbarButtonClass()}
-                    onClick={() => editor?.chain().focus().undo().run()}
-                    disabled={!editor?.can().chain().focus().undo().run()}
-                    aria-label="Undo"
-                  >
-                    <Undo2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass()}
-                    onClick={() => editor?.chain().focus().redo().run()}
-                    disabled={!editor?.can().chain().focus().redo().run()}
-                    aria-label="Redo"
-                  >
-                    <Redo2 className="h-4 w-4" />
-                  </button>
-                  <div className="mx-1 h-8 w-px bg-gray-200" />
-                  <select
-                    value={toolbarHeading}
-                    onChange={(event) => {
-                      const value = event.target.value as "paragraph" | "heading1";
-                      setToolbarHeading(value);
-                      if (!editor) return;
-                      if (value === "heading1") {
-                        editor.chain().focus().toggleHeading({ level: 1 }).run();
-                        return;
-                      }
-                      editor.chain().focus().setParagraph().run();
-                    }}
-                    className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  >
-                    <option value="paragraph">Обычный текст</option>
-                    <option value="heading1">Заголовок 1</option>
-                  </select>
-                  <select
-                    value={toolbarFontFamily}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setToolbarFontFamily(value);
-                      editor?.chain().focus().setFontFamily(value).run();
-                    }}
-                    className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  >
-                    {FONT_FAMILIES.map((family) => (
-                      <option key={family.value} value={family.value}>
-                        {family.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={toolbarFontSize}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setToolbarFontSize(value);
-                      editor?.chain().focus().setMark("textStyle", { fontSize: `${value}px` }).run();
-                    }}
-                    className="h-10 w-[84px] rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  >
-                    {FONT_SIZES.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mx-1 h-8 w-px bg-gray-200" />
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("bold"))}
-                    onClick={() => editor?.chain().focus().toggleBold().run()}
-                    aria-label="Bold"
-                  >
-                    <Bold className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("italic"))}
-                    onClick={() => editor?.chain().focus().toggleItalic().run()}
-                    aria-label="Italic"
-                  >
-                    <Italic className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("underline"))}
-                    onClick={() => editor?.chain().focus().toggleUnderline().run()}
-                    aria-label="Underline"
-                  >
-                    <UnderlineIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("strike"))}
-                    onClick={() => editor?.chain().focus().toggleStrike().run()}
-                    aria-label="Strike"
-                  >
-                    <Strikethrough className="h-4 w-4" />
-                  </button>
-                  <div className="mx-1 h-8 w-px bg-gray-200" />
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(toolbarHeading === "heading1")}
-                    onClick={() => {
-                      setToolbarHeading("heading1");
-                      editor?.chain().focus().toggleHeading({ level: 1 }).run();
-                    }}
-                    aria-label="Heading 1"
-                  >
-                    <Heading1 className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(alignment === "left")}
-                    onClick={() => {
-                      setAlignment("left");
-                      editor?.chain().focus().setTextAlign("left").run();
-                    }}
-                    aria-label="Align left"
-                  >
-                    <AlignLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(alignment === "center")}
-                    onClick={() => {
-                      setAlignment("center");
-                      editor?.chain().focus().setTextAlign("center").run();
-                    }}
-                    aria-label="Align center"
-                  >
-                    <AlignCenter className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(alignment === "right")}
-                    onClick={() => {
-                      setAlignment("right");
-                      editor?.chain().focus().setTextAlign("right").run();
-                    }}
-                    aria-label="Align right"
-                  >
-                    <AlignRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(alignment === "justify")}
-                    onClick={() => {
-                      setAlignment("justify");
-                      editor?.chain().focus().setTextAlign("justify").run();
-                    }}
-                    aria-label="Align justify"
-                  >
-                    <AlignJustify className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("bulletList"))}
-                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                    aria-label="Bullet list"
-                  >
-                    <List className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("orderedList"))}
-                    onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                    aria-label="Ordered list"
-                  >
-                    <ListOrdered className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={toolbarButtonClass(editor?.isActive("link"))}
-                    onClick={() => {
-                      if (!editor) return;
-                      const previousUrl = editor.getAttributes("link").href as string | undefined;
-                      const url = window.prompt("Введите ссылку", previousUrl || "");
-                      if (url === null) return;
-                      if (url.trim() === "") {
-                        editor.chain().focus().unsetLink().run();
-                        return;
-                      }
-                      editor.chain().focus().setLink({ href: url.trim() }).run();
-                    }}
-                    aria-label="Link"
-                  >
-                    <Link2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="mx-auto w-full bg-gray-100 p-2 sm:p-3">
-                <div
-                  ref={editorScrollRef}
-                  className="relative max-h-[80vh] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
-                >
-                  <div
-                    className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
-                  >
-                    {editor ? <EditorContent editor={editor} /> : null}
-                  </div>
-                </div>
+      {manualEditWarning && (
+        <div className="mx-auto max-w-[980px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          После ручных правок подсветка может немного сместиться. AI-аннотации не пересчитываются в реальном времени.
+        </div>
+      )}
+
+      <div className="rounded-[24px] border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={toolbarButtonClass()}
+            onClick={() => editor?.chain().focus().undo().run()}
+            disabled={!editor?.can().chain().focus().undo().run()}
+            aria-label="Undo"
+          >
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass()}
+            onClick={() => editor?.chain().focus().redo().run()}
+            disabled={!editor?.can().chain().focus().redo().run()}
+            aria-label="Redo"
+          >
+            <Redo2 className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-8 w-px bg-gray-200" />
+          <select
+            value={toolbarHeading}
+            onChange={(event) => {
+              const value = event.target.value as "paragraph" | "heading1";
+              setToolbarHeading(value);
+              if (!editor) return;
+              if (value === "heading1") {
+                editor.chain().focus().toggleHeading({ level: 1 }).run();
+                return;
+              }
+              editor.chain().focus().setParagraph().run();
+            }}
+            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            <option value="paragraph">Обычный текст</option>
+            <option value="heading1">Заголовок 1</option>
+          </select>
+          <select
+            value={toolbarFontFamily}
+            onChange={(event) => {
+              const value = event.target.value;
+              setToolbarFontFamily(value);
+              editor?.chain().focus().setFontFamily(value).run();
+            }}
+            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            {FONT_FAMILIES.map((family) => (
+              <option key={family.value} value={family.value}>
+                {family.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={toolbarFontSize}
+            onChange={(event) => {
+              const value = event.target.value;
+              setToolbarFontSize(value);
+              editor?.chain().focus().setMark("textStyle", { fontSize: `${value}px` }).run();
+            }}
+            className="h-10 w-[84px] rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            {FONT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <div className="mx-1 h-8 w-px bg-gray-200" />
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("bold"))}
+            onClick={() => editor?.chain().focus().toggleBold().run()}
+            aria-label="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("italic"))}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}
+            aria-label="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("underline"))}
+            onClick={() => editor?.chain().focus().toggleUnderline().run()}
+            aria-label="Underline"
+          >
+            <UnderlineIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("strike"))}
+            onClick={() => editor?.chain().focus().toggleStrike().run()}
+            aria-label="Strike"
+          >
+            <Strikethrough className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-8 w-px bg-gray-200" />
+          <button
+            type="button"
+            className={toolbarButtonClass(toolbarHeading === "heading1")}
+            onClick={() => {
+              setToolbarHeading("heading1");
+              editor?.chain().focus().toggleHeading({ level: 1 }).run();
+            }}
+            aria-label="Heading 1"
+          >
+            <Heading1 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(alignment === "left")}
+            onClick={() => {
+              setAlignment("left");
+              editor?.chain().focus().setTextAlign("left").run();
+            }}
+            aria-label="Align left"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(alignment === "center")}
+            onClick={() => {
+              setAlignment("center");
+              editor?.chain().focus().setTextAlign("center").run();
+            }}
+            aria-label="Align center"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(alignment === "right")}
+            onClick={() => {
+              setAlignment("right");
+              editor?.chain().focus().setTextAlign("right").run();
+            }}
+            aria-label="Align right"
+          >
+            <AlignRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(alignment === "justify")}
+            onClick={() => {
+              setAlignment("justify");
+              editor?.chain().focus().setTextAlign("justify").run();
+            }}
+            aria-label="Align justify"
+          >
+            <AlignJustify className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("bulletList"))}
+            onClick={() => editor?.chain().focus().toggleBulletList().run()}
+            aria-label="Bullet list"
+          >
+            <List className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("orderedList"))}
+            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+            aria-label="Ordered list"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolbarButtonClass(editor?.isActive("link"))}
+            onClick={() => {
+              if (!editor) return;
+              const previousUrl = editor.getAttributes("link").href as string | undefined;
+              const url = window.prompt("Введите ссылку", previousUrl || "");
+              if (url === null) return;
+              if (url.trim() === "") {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              editor.chain().focus().setLink({ href: url.trim() }).run();
+            }}
+            aria-label="Link"
+          >
+            <Link2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className={`grid items-start gap-6 ${inspectorEnabled ? "2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+        <div className="w-full">
+          <div className="mx-auto w-full bg-gray-100 p-2 sm:p-3">
+            <div
+              ref={editorScrollRef}
+              className="relative min-h-[1080px] max-h-[1080px] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
+            >
+              <div
+                className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
+              >
+                {editor ? <EditorContent editor={editor} /> : null}
               </div>
             </div>
           </div>
         </div>
 
         {inspectorEnabled ? (
-          <div className="space-y-6 2xl:pt-[2px]">
+          <div className="space-y-6">
             <Card>
               <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
               {showAiLoadingState ? (
@@ -1016,7 +1014,7 @@ export function AdvancedAiEditor({
               </div>
               {showAiLoadingState ? (
                 <div className="relative mt-4">
-                  <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                  <div className="h-[396px] space-y-3 overflow-y-auto pr-2">
                     {[0, 1, 2].map((index) => (
                       <div
                         key={index}
@@ -1036,7 +1034,7 @@ export function AdvancedAiEditor({
                 </div>
               ) : filteredAnnotations.length > 0 ? (
                 <div className="relative mt-4">
-                  <div className="h-[792px] space-y-3 overflow-y-auto pr-2">
+                  <div className="h-[396px] space-y-3 overflow-y-auto pr-2">
                     {filteredAnnotations.map((annotation) => (
                       <button
                         key={annotation.id}

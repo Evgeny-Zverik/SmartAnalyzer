@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown, Shield } from "lucide-react";
+import { ChevronDown, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
@@ -475,7 +475,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   aria-label={ENCRYPTION_TOOLTIP}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm transition hover:bg-emerald-100"
                 >
-                  <Shield className="h-[18px] w-[18px]" />
+                  <ShieldCheck className="h-[18px] w-[18px]" />
                 </button>
                 <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] left-1/2 z-20 invisible w-80 -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100">
                   {ENCRYPTION_TOOLTIP}
