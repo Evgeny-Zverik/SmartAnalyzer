@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.encryption import decrypt_str, encrypt_str
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.user import User
@@ -67,7 +68,7 @@ def update_settings(
     if data.llm_base_url is not None:
         row.llm_base_url = data.llm_base_url
     if data.llm_api_key is not None:
-        row.llm_api_key = data.llm_api_key
+        row.llm_api_key = encrypt_str(data.llm_api_key) if data.llm_api_key else ""
     if data.llm_model is not None:
         row.llm_model = data.llm_model
     if data.compression_level is not None:

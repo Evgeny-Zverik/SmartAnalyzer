@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from typing import Any
 
+from app.core.encryption import decrypt
 from app.utils.errors import raise_error
 
 MAX_TEXT_LENGTH = 60_000
@@ -14,16 +16,21 @@ PDF_MIME = "application/pdf"
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
+def _read_decrypted(path: str) -> bytes:
+    p = Path(path)
+    if not p.exists():
+        raise_error(400, "BAD_REQUEST", "File not found", {"path": path})
+    return decrypt(p.read_bytes())
+
+
 def extract_text_from_pdf(path: str) -> str:
     try:
         from pypdf import PdfReader
     except ImportError:
         raise_error(500, "INTERNAL_ERROR", "PDF support not available", {})
-    p = Path(path)
-    if not p.exists():
-        raise_error(400, "BAD_REQUEST", "File not found", {"path": path})
+    data = _read_decrypted(path)
     try:
-        reader = PdfReader(str(p))
+        reader = PdfReader(io.BytesIO(data))
         parts = []
         total = 0
         for page in reader.pages:
@@ -290,12 +297,10 @@ def extract_docx_rich_payload(path: str) -> dict[str, Any]:
     except ImportError:
         raise_error(500, "INTERNAL_ERROR", "DOCX support not available", {})
 
-    p = Path(path)
-    if not p.exists():
-        raise_error(400, "BAD_REQUEST", "File not found", {"path": path})
+    data = _read_decrypted(path)
 
     try:
-        doc = DocxDocument(str(p))
+        doc = DocxDocument(io.BytesIO(data))
         content: list[dict[str, Any]] = []
         pending_list_type: str | None = None
         pending_list_items: list[dict[str, Any]] = []
@@ -350,11 +355,9 @@ def extract_text_from_xlsx(path: str) -> str:
         from openpyxl import load_workbook
     except ImportError:
         raise_error(500, "INTERNAL_ERROR", "XLSX support not available", {})
-    p = Path(path)
-    if not p.exists():
-        raise_error(400, "BAD_REQUEST", "File not found", {"path": path})
+    data = _read_decrypted(path)
     try:
-        wb = load_workbook(str(p), read_only=True, data_only=True)
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         parts: list[str] = []
         total = 0
         for idx, sheet in enumerate(wb.worksheets):
@@ -388,7 +391,8 @@ def extract_tables_from_xlsx(path: str) -> list[dict[str, Any]]:
     if not p.exists():
         return []
     try:
-        wb = load_workbook(str(p), read_only=True, data_only=True)
+        data = decrypt(p.read_bytes())
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         out: list[dict[str, Any]] = []
         for idx, sheet in enumerate(wb.worksheets):
             if idx >= 1:

@@ -1005,7 +1005,10 @@ export function AdvancedAiEditor({
                 </div>
               </div>
               <div className="mx-auto w-full bg-gray-100 p-2 sm:p-3">
-                <div ref={editorScrollRef} className="relative max-h-[80vh] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]">
+                <div
+                  ref={editorScrollRef}
+                  className="relative max-h-[80vh] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
+                >
                   <div
                     className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
                   >

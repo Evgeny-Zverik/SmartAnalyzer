@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.core.encryption import encrypt_str
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.document import Document
@@ -60,6 +61,12 @@ def _get_document_for_user(db: Session, document_id: int, user_id: int) -> Docum
     return doc
 
 
+def _encrypt_result(result: dict) -> dict:
+    """Wrap analysis result in an encrypted envelope."""
+    raw = json.dumps(result, ensure_ascii=False)
+    return {"encrypted": encrypt_str(raw)}
+
+
 def _save_analysis(
     db: Session,
     user_id: int,
@@ -75,7 +82,7 @@ def _save_analysis(
         folder_id=folder_id,
         tool_slug=tool_slug,
         status=status,
-        result_json=result,
+        result_json=_encrypt_result(result),
     )
     db.add(row)
     db.commit()

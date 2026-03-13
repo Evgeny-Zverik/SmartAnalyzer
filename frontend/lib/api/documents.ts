@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
+import { encryptBytes, hasTransportKey } from "@/lib/crypto";
 
 export type DocumentUploadResponse = {
   document_id: number;
@@ -47,7 +48,18 @@ export async function uploadDocument(
 ): Promise<DocumentUploadResponse> {
   const { folderId, signal } = options ?? {};
   const form = new FormData();
-  form.append("file", file);
+
+  if (hasTransportKey()) {
+    // Encrypt file content before uploading
+    const buf = await file.arrayBuffer();
+    const encrypted = await encryptBytes(buf);
+    const encryptedBlob = new Blob([encrypted], { type: file.type });
+    form.append("file", encryptedBlob, file.name);
+    form.append("encrypted", "1");
+  } else {
+    form.append("file", file);
+  }
+
   if (folderId != null) form.append("folder_id", String(folderId));
   return apiFetch<DocumentUploadResponse>("/api/v1/documents/upload", {
     method: "POST",

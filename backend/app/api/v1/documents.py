@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.encryption import decrypt_transport_bytes, encrypt
 from app.core.security import get_current_user
 from app.utils.errors import raise_error
 from app.db.session import get_db
@@ -25,6 +26,7 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
 def upload(
     file: UploadFile = File(...),
     folder_id: int | None = Form(None),
+    encrypted: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -38,6 +40,8 @@ def upload(
         content = file.file.read()
     except Exception as e:
         raise_error(400, "BAD_REQUEST", "Cannot read uploaded file.", {"detail": str(e)})
+    if encrypted == "1":
+        content = decrypt_transport_bytes(content, current_user.id)
     size_bytes = len(content)
     if size_bytes == 0:
         raise_error(400, "BAD_REQUEST", "Uploaded file is empty.", {})
@@ -48,7 +52,7 @@ def upload(
     Path(settings.storage_path).mkdir(parents=True, exist_ok=True)
     try:
         with open(storage_path, "wb") as f:
-            f.write(content)
+            f.write(encrypt(content))
     except OSError as e:
         raise_error(500, "STORAGE_ERROR", "Cannot save uploaded file.", {"detail": str(e)})
     folder = resolve_document_folder(db, current_user.id, folder_id)

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.encryption import decrypt_str
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.document import Document
@@ -20,6 +23,19 @@ from app.services.folders import ensure_user_system_folders, get_folder_for_user
 from app.utils.errors import raise_error
 
 router = APIRouter()
+
+
+def _decrypt_result(result_json: dict | None) -> dict | None:
+    """Unwrap an encrypted analysis result envelope."""
+    if not isinstance(result_json, dict):
+        return result_json
+    enc = result_json.get("encrypted")
+    if not isinstance(enc, str):
+        return result_json  # not encrypted
+    try:
+        return json.loads(decrypt_str(enc))
+    except Exception:
+        return result_json
 
 
 @router.get("/recent", response_model=list[AnalysisRecentItem])
@@ -107,7 +123,7 @@ def get_analysis(
         status=da.status,
         document=DocumentRef(document_id=doc.id, filename=doc.filename),
         created_at=da.created_at,
-        result=da.result_json,
+        result=_decrypt_result(da.result_json),
     )
 
 
