@@ -307,6 +307,31 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     [annotations]
   );
 
+  const handleSelectedAnnotationChange = useCallback(
+    (annotationId: string | null) => {
+      dispatch({
+        type: "set_active_finding",
+        findingId: annotationId ?? undefined,
+        pluginId: annotationId ? annotationPluginById[annotationId] : undefined,
+      });
+    },
+    [annotationPluginById]
+  );
+
+  const handleEditorDocumentChange = useCallback((payload: {
+    full_text: string;
+    rich_content: Record<string, unknown>;
+    source_format: string;
+    is_dirty: boolean;
+  }) => {
+    setEditedDocument({
+      full_text: payload.full_text,
+      rich_content: payload.rich_content,
+      source_format: payload.source_format,
+    });
+    setHasEditorChanges(payload.is_dirty);
+  }, []);
+
   useEffect(() => {
     if (!editorData) return;
     setEditorData((prev) => (prev ? { ...prev, annotations } : prev));
@@ -350,7 +375,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               <button
                 type="button"
                 onClick={() => setDownloadMenuOpen((prev) => !prev)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
               >
                 Скачать
                 <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
@@ -366,7 +391,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                         const text = editedDocument?.full_text ?? editorData.full_text;
                         void downloadDocumentFile(text, fmt, "document-analyzer");
                       }}
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+                      className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition"
                     >
                       Скачать как {fmt.toUpperCase()}
                     </button>
@@ -428,44 +453,22 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 Анализировать документ
               </Button>
             )}
-            <div className="group relative inline-flex items-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 cursor-default">
+            <div className="relative inline-flex items-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 cursor-default">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               </div>
-              <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-72 -translate-x-1/2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs leading-relaxed text-gray-600 shadow-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-                  </svg>
-                  Шифрование данных
-                </div>
-                Все ваши документы полностью зашифрованы и&nbsp;недоступны даже для нас. Мы используем алгоритм шифрования AES‑GCM для максимальной защиты данных.
-              </div>
             </div>
           </div>
           <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
           <AdvancedAiEditor
-            data={{ ...editorData, annotations }}
+            data={editorData}
             selectedAnnotationId={store.active_finding_id}
-            onSelectedAnnotationChange={(annotationId) =>
-              dispatch({
-                type: "set_active_finding",
-                findingId: annotationId ?? undefined,
-                pluginId: annotationId ? annotationPluginById[annotationId] : undefined,
-              })
-            }
+            onSelectedAnnotationChange={handleSelectedAnnotationChange}
             isAnalyzing={runningPluginId !== null}
-            onDocumentChange={(payload) => {
-              setEditedDocument({
-                full_text: payload.full_text,
-                rich_content: payload.rich_content,
-                source_format: payload.source_format,
-              });
-              setHasEditorChanges(payload.is_dirty);
-            }}
+            onDocumentChange={handleEditorDocumentChange}
           />
           {/* PluginPanels removed */}
         </div>

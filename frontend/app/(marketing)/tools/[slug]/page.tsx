@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { notFound } from "next/navigation";
 import { FileText, Settings, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
@@ -178,6 +178,26 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [documentId, setDocumentId] = useState<number | null>(null);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
+  const advancedEditorData = useMemo(
+    () =>
+      ((result?.advanced_editor as {
+        full_text: string;
+        rich_content?: Record<string, unknown> | null;
+        source_format?: string | null;
+        annotations: Array<{
+          id: string;
+          type: "risk" | "improvement";
+          severity: "low" | "medium" | "high";
+          start_offset: number;
+          end_offset: number;
+          exact_quote: string;
+          title: string;
+          reason: string;
+          suggested_rewrite: string;
+        }>;
+      }) ?? { full_text: "", annotations: [] }),
+    [result?.advanced_editor]
+  );
   const isIntroCollapsed = !!file && (state === "loading" || state === "success" || state === "error");
   const analysisAbortRef = useRef<AbortController | null>(null);
   const actionHint = file
@@ -208,6 +228,20 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setDocumentId(null);
     setEditedDocument(null);
     setHasEditorChanges(false);
+  }, []);
+
+  const handleAdvancedEditorDocumentChange = useCallback((payload: {
+    full_text: string;
+    rich_content: Record<string, unknown>;
+    source_format: string;
+    is_dirty: boolean;
+  }) => {
+    setEditedDocument({
+      full_text: payload.full_text,
+      rich_content: payload.rich_content,
+      source_format: payload.source_format,
+    });
+    setHasEditorChanges(payload.is_dirty);
   }, []);
 
   useEffect(() => {
@@ -579,33 +613,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 />
               ) : (
                 <AdvancedAiEditor
-                  data={
-                    (result.advanced_editor as {
-                      full_text: string;
-                      rich_content?: Record<string, unknown> | null;
-                      source_format?: string | null;
-                      annotations: Array<{
-                        id: string;
-                        type: "risk" | "improvement";
-                        severity: "low" | "medium" | "high";
-                        start_offset: number;
-                        end_offset: number;
-                        exact_quote: string;
-                        title: string;
-                        reason: string;
-                        suggested_rewrite: string;
-                      }>;
-                    }) ?? { full_text: "", annotations: [] }
-                  }
+                  data={advancedEditorData}
                   isAnalyzing={state === "loading"}
-                  onDocumentChange={(payload) => {
-                    setEditedDocument({
-                      full_text: payload.full_text,
-                      rich_content: payload.rich_content,
-                      source_format: payload.source_format,
-                    });
-                    setHasEditorChanges(payload.is_dirty);
-                  }}
+                  onDocumentChange={handleAdvancedEditorDocumentChange}
                 />
               )}
             </div>
