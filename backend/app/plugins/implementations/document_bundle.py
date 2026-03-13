@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 from app.schemas.tools import DocumentAnalyzerResult
 from app.services.llm_client import analyze_document_fast
 from app.services.text_extraction import extract_advanced_editor_payload
@@ -13,6 +15,7 @@ def build_document_bundle(
     overrides: dict | None = None,
     edited_document: dict | None = None,
     cached_bundle: tuple[DocumentAnalyzerResult, dict] | None = None,
+    cancelled: threading.Event | None = None,
 ) -> tuple[DocumentAnalyzerResult, dict]:
     if cached_bundle is not None:
         return cached_bundle
@@ -26,7 +29,7 @@ def build_document_bundle(
     else:
         editor_payload = extract_advanced_editor_payload(storage_path, mime_type)
     text = editor_payload["full_text"]
-    raw = analyze_document_fast(text, overrides=overrides)
+    raw = analyze_document_fast(text, overrides=overrides, cancelled=cancelled)
     raw_advanced = raw.get("advanced_editor") if isinstance(raw, dict) else None
     if isinstance(raw_advanced, dict):
         raw_advanced["rich_content"] = editor_payload.get("rich_content")

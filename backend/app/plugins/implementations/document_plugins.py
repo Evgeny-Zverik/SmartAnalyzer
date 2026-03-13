@@ -32,6 +32,7 @@ def _get_bundle(context: PluginRunContext):
         overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
         edited_document=context.edited_document.model_dump() if context.edited_document else None,
         cached_bundle=context.shared_bundle,
+        cancelled=context.cancelled,
     )
     if context.shared_bundle is None:
         context.shared_bundle = (bundle, editor_payload)

@@ -479,7 +479,13 @@ def _language_requirement(text: str) -> str:
     )
 
 
-def analyze_document_fast(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def analyze_document_fast(
+    text: str,
+    overrides: dict[str, Any] | None = None,
+    cancelled: "threading.Event | None" = None,
+) -> dict[str, Any]:
+    import threading
+
     opts = overrides or {}
     client, model = _build_openai_client(opts)
     raw_text = text[:MAX_SOURCE_CONTEXT_CHARS]
@@ -502,7 +508,7 @@ Document:
 ---
 {analysis_context}
 ---"""
-    content = _create_completion(client, model, prompt, opts, "fast analysis")
+    content = _create_completion(client, model, prompt, opts, "fast analysis", cancelled=cancelled)
     try:
         data = json.loads(_coerce_json_payload(content))
     except json.JSONDecodeError as e:
@@ -528,12 +534,25 @@ Document:
     return data
 
 
-def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any], operation: str) -> str:
+def _create_completion(
+    client: Any,
+    model: str,
+    prompt: str,
+    opts: dict[str, Any],
+    operation: str,
+    cancelled: "threading.Event | None" = None,
+) -> str:
+    import threading
+
+    from app.plugins.base import CancelledException
+
     attempts = max(1, int(opts.get("max_retries") or app_settings.llm_max_retries))
     timeout = max(1, int(opts.get("timeout") or app_settings.llm_timeout_seconds))
     last_error: Exception | None = None
 
     for attempt in range(1, attempts + 1):
+        if cancelled is not None and cancelled.is_set():
+            raise CancelledException("LLM request cancelled by client")
         try:
             request_kwargs: dict[str, Any] = {
                 "model": model,
@@ -542,10 +561,14 @@ def _create_completion(client: Any, model: str, prompt: str, opts: dict[str, Any
                 "timeout": timeout,
             }
             response = client.chat.completions.create(**request_kwargs)
+            if cancelled is not None and cancelled.is_set():
+                raise CancelledException("LLM request cancelled by client")
             content = _extract_message_content(response)
             if not content:
                 raise_error(500, "LLM_ERROR", "Empty response from analysis service.", {})
             return content
+        except CancelledException:
+            raise
         except Exception as e:
             last_error = e
             retryable = _is_llm_unavailable_error(e)
