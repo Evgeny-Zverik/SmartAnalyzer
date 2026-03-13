@@ -23,7 +23,7 @@ TOOL_SLUGS = (
     "speech_transcription",
 )
 
-FREE_DAILY_RUNS_PER_TOOL = 3
+FREE_DAILY_RUNS_PER_TOOL = 50
 
 
 def get_plan_limits(plan: str) -> dict[str, int | None]:

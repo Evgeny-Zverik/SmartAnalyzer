@@ -161,7 +161,7 @@ class DatesDeadlinesPlugin:
         description="Извлекает даты, дедлайны и связанные контекстные заметки.",
         category="analysis",
         supported_inputs=["pdf", "docx", "text"],
-        required_plan="pro",
+        required_plan="free",
         ui_slots=["right_sidebar", "inspector_panel", "bottom_panel"],
         capabilities=["extract", "timeline", "panel"],
         output_schema_version="1.0",
@@ -218,7 +218,7 @@ class RiskAnalyzerPlugin:
         description="Находит рискованные формулировки и дает рекомендации по исправлению.",
         category="composite",
         supported_inputs=["pdf", "docx", "text"],
-        required_plan="pro",
+        required_plan="free",
         ui_slots=["right_sidebar", "document_overlay", "inspector_panel", "document_toolbar", "bottom_panel"],
         capabilities=["analyze", "highlight", "annotate", "suggest", "toolbar_action", "panel"],
         output_schema_version="1.0",
@@ -284,22 +284,7 @@ class RiskAnalyzerPlugin:
             ),
             findings=findings,
             overlays=overlays,
-            actions=[
-                PluginAction(
-                    id="toggle-risk-overlays",
-                    label="Риски",
-                    slot="document_toolbar",
-                    action_type="toggle_overlay",
-                    payload={"plugin_id": self.manifest.id},
-                ),
-                PluginAction(
-                    id="open-risk-panel",
-                    label="Открыть риски",
-                    slot="right_sidebar",
-                    action_type="open_panel",
-                    payload={"panel_id": "risk-findings"},
-                ),
-            ],
+            actions=[],
             panels=[
                 PluginPanel(
                     id="risk-findings",
@@ -321,7 +306,7 @@ class SuggestedEditsPlugin:
         description="Показывает фрагменты, которые стоит переписать, и готовые варианты текста.",
         category="composite",
         supported_inputs=["pdf", "docx", "text"],
-        required_plan="pro",
+        required_plan="free",
         ui_slots=["right_sidebar", "document_overlay", "inspector_panel", "document_toolbar", "bottom_panel"],
         capabilities=["suggest", "annotate", "highlight", "toolbar_action", "panel"],
         output_schema_version="1.0",
@@ -375,15 +360,7 @@ class SuggestedEditsPlugin:
             ),
             findings=findings,
             overlays=overlays,
-            actions=[
-                PluginAction(
-                    id="toggle-suggestions",
-                    label="Правки",
-                    slot="document_toolbar",
-                    action_type="toggle_overlay",
-                    payload={"plugin_id": self.manifest.id},
-                )
-            ],
+            actions=[],
             panels=[
                 PluginPanel(
                     id="suggested-edits",

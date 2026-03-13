@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.v1 import analyses, auth, billing, documents, folders, plugins, tools, usage
+from app.api.v1 import analyses, auth, billing, documents, folders, plugins, settings, tools, usage
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
 api_router.include_router(folders.router, prefix="/folders", tags=["folders"])
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(tools.router, prefix="/tools", tags=["tools"])

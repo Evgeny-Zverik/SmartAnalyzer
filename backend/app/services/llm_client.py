@@ -683,12 +683,15 @@ def _normalize_advanced_editor(raw: Any, full_text: str) -> dict[str, Any]:
     annotations: list[dict[str, Any]] = []
     used_ranges: list[tuple[int, int]] = []
 
+    logger.info("[advanced_editor] raw annotations count: %d, full_text length: %d", len(annotations_raw), len(full_text))
+
     for idx, item in enumerate(annotations_raw[:20], start=1):
         normalized = _normalize_document_annotation(item, full_text, idx, used_ranges)
         if normalized is not None:
             annotations.append(normalized)
             used_ranges.append((normalized["start_offset"], normalized["end_offset"]))
 
+    logger.info("[advanced_editor] normalized annotations count: %d (from %d raw)", len(annotations), len(annotations_raw))
     return {"full_text": full_text, "annotations": annotations}
 
 
@@ -699,6 +702,7 @@ def _normalize_document_annotation(
     used_ranges: list[tuple[int, int]],
 ) -> dict[str, Any] | None:
     if not isinstance(item, dict):
+        logger.warning("[annotation %s] skipped: not a dict", idx)
         return None
 
     quote = str(item.get("exact_quote") or "").strip()
@@ -719,6 +723,7 @@ def _normalize_document_annotation(
     if start_offset is None or end_offset is None:
         anchored = _find_annotation_range(full_text, quote, used_ranges, preferred_start=start)
         if anchored is None:
+            logger.warning("[annotation %s] skipped: quote not found in text. quote=%r (len=%d), full_text_len=%d", idx, quote[:80], len(quote), len(full_text))
             return None
         start_offset, end_offset = anchored
 
@@ -736,6 +741,7 @@ def _normalize_document_annotation(
     reason = str(item.get("reason") or "").strip()
     suggested_rewrite = str(item.get("suggested_rewrite") or "").strip()
     if not title or not reason or not suggested_rewrite:
+        logger.warning("[annotation %s] skipped: missing fields. title=%r, reason=%r, suggested_rewrite=%r", idx, bool(title), bool(reason), bool(suggested_rewrite))
         return None
 
     return {
@@ -777,6 +783,48 @@ def _find_annotation_range(
     matches = collect_matches(full_text, quote)
     if not matches:
         matches = collect_matches(full_text.lower(), quote.lower())
+
+    if not matches:
+        # Fuzzy fallback: normalize whitespace and try again
+        normalized_text = re.sub(r"\s+", " ", full_text)
+        normalized_quote = re.sub(r"\s+", " ", quote)
+        if normalized_quote:
+            # Build a mapping from normalized positions back to original positions
+            orig_positions: list[int] = []
+            ni = 0
+            for oi, ch in enumerate(full_text):
+                if ni < len(normalized_text) and normalized_text[ni] == ch:
+                    orig_positions.append(oi)
+                    ni += 1
+                elif ch in (" ", "\t", "\n", "\r", "\xa0"):
+                    continue
+                else:
+                    orig_positions.append(oi)
+                    ni += 1
+
+            norm_matches = collect_matches(normalized_text.lower(), normalized_quote.lower())
+            for ns, ne in norm_matches:
+                os_ = orig_positions[ns] if ns < len(orig_positions) else 0
+                oe = (orig_positions[min(ne, len(orig_positions) - 1)] + 1) if ne > 0 and orig_positions else len(full_text)
+                candidate = (os_, oe)
+                if candidate[0] < candidate[1] and not _ranges_overlap(candidate, used_ranges):
+                    matches.append(candidate)
+                    break
+
+    if not matches:
+        # Last resort: try matching by first 60 chars of the quote
+        short = re.sub(r"\s+", " ", quote[:60]).strip().lower()
+        if len(short) >= 20:
+            pos = re.sub(r"\s+", " ", full_text).lower().find(short)
+            if pos != -1:
+                # Approximate: use the position in original text
+                approx_start = full_text.lower().find(short[:30])
+                if approx_start == -1:
+                    approx_start = max(0, pos)
+                approx_end = min(len(full_text), approx_start + len(quote))
+                candidate = (approx_start, approx_end)
+                if not _ranges_overlap(candidate, used_ranges):
+                    matches.append(candidate)
 
     if not matches:
         return None
