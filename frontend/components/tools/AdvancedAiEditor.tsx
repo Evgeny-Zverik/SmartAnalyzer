@@ -32,6 +32,8 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableRow } from "@tiptap/extension-table-row";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
@@ -77,6 +79,13 @@ type AdvancedAiEditorProps = {
 type AnnotationFilter = "all" | "risk" | "improvement";
 type EditorFormatPreset = DownloadFormatPreset;
 type EditorAlignment = DownloadTextAlignment;
+type AppliedHighlight = {
+  id: string;
+  start_offset: number;
+  end_offset: number;
+};
+
+const ANNOTATION_HIGHLIGHT_PLUGIN_KEY = new PluginKey("annotationHighlight");
 
 const FORMAT_PRESETS: Array<{
   value: EditorFormatPreset;
@@ -196,6 +205,81 @@ function shiftAnnotations(
       }
       return annotation;
     });
+}
+
+function shiftAppliedHighlights(
+  highlights: AppliedHighlight[],
+  startOffset: number,
+  endOffset: number,
+  nextTextLength: number
+): AppliedHighlight[] {
+  const delta = nextTextLength - (endOffset - startOffset);
+  return highlights
+    .filter((highlight) => highlight.end_offset <= startOffset || highlight.start_offset >= endOffset)
+    .map((highlight) => {
+      if (highlight.start_offset >= endOffset) {
+        return {
+          ...highlight,
+          start_offset: highlight.start_offset + delta,
+          end_offset: highlight.end_offset + delta,
+        };
+      }
+      return highlight;
+    });
+}
+
+function buildAnnotationDecorations(
+  doc: ProseMirrorNode,
+  annotations: AdvancedAnnotation[],
+  activeId: string | null,
+  appliedHighlights: AppliedHighlight[]
+): DecorationSet {
+  const decorations: Decoration[] = [];
+
+  for (const annotation of annotations) {
+    const range = getOffsetRange(doc, annotation.start_offset, annotation.end_offset, annotation.exact_quote);
+    if (!range) continue;
+    const isActive = activeId === annotation.id;
+    decorations.push(
+      Decoration.inline(range.from, range.to, {
+        class:
+          annotation.type === "risk"
+            ? isActive
+              ? "sa-annotation sa-annotation-risk sa-annotation-active"
+              : "sa-annotation sa-annotation-risk"
+            : isActive
+              ? "sa-annotation sa-annotation-improvement sa-annotation-active"
+              : "sa-annotation sa-annotation-improvement",
+      })
+    );
+  }
+
+  for (const highlight of appliedHighlights) {
+    const range = getOffsetRange(doc, highlight.start_offset, highlight.end_offset);
+    if (!range) continue;
+    decorations.push(
+      Decoration.inline(range.from, range.to, {
+        class: "sa-annotation sa-annotation-applied",
+      })
+    );
+  }
+
+  return DecorationSet.create(doc, decorations);
+}
+
+function createAnnotationHighlightPlugin(
+  annotations: AdvancedAnnotation[],
+  activeId: string | null,
+  appliedHighlights: AppliedHighlight[]
+) {
+  return new Plugin({
+    key: ANNOTATION_HIGHLIGHT_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        return buildAnnotationDecorations(state.doc, annotations, activeId, appliedHighlights);
+      },
+    },
+  });
 }
 
 function textToDocJson(text: string): JSONContent {
@@ -379,6 +463,7 @@ export function AdvancedAiEditor({
   const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
   const [toolbarFontSize, setToolbarFontSize] = useState("16");
   const [inspectorEnabled, setInspectorEnabled] = useState(showInspectorPanel ?? false);
+  const [appliedHighlights, setAppliedHighlights] = useState<AppliedHighlight[]>([]);
   const suppressManualWarningRef = useRef(false);
   const initialEditorSignatureRef = useRef("");
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
@@ -521,6 +606,10 @@ export function AdvancedAiEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotationsSignature]);
 
+  useEffect(() => {
+    setAppliedHighlights([]);
+  }, [contentSignature]);
+
   // Reset editor only when the actual document content changes (new document loaded).
   useEffect(() => {
     setEditorText(data.full_text);
@@ -576,6 +665,15 @@ export function AdvancedAiEditor({
       editor.off("transaction", syncToolbarState);
     };
   }, [editor, syncToolbarState]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const plugin = createAnnotationHighlightPlugin(annotations, activeId, appliedHighlights);
+    editor.registerPlugin(plugin);
+    return () => {
+      editor.unregisterPlugin(ANNOTATION_HIGHLIGHT_PLUGIN_KEY);
+    };
+  }, [editor, annotations, activeId, appliedHighlights]);
 
   const counts = useMemo(
     () => ({
@@ -665,6 +763,14 @@ export function AdvancedAiEditor({
       .insertContentAt(range, annotation.suggested_rewrite)
       .run();
 
+    setAppliedHighlights((prev) => [
+      ...shiftAppliedHighlights(prev, annotation.start_offset, annotation.end_offset, annotation.suggested_rewrite.length),
+      {
+        id: `${annotation.id}-applied`,
+        start_offset: annotation.start_offset,
+        end_offset: annotation.start_offset + annotation.suggested_rewrite.length,
+      },
+    ]);
     setAnnotations((prev) => shiftAnnotations(prev, annotation, annotation.suggested_rewrite.length));
     setActiveId(null);
     setManualEditWarning(false);
@@ -918,7 +1024,7 @@ export function AdvancedAiEditor({
               className="relative min-h-[1080px] max-h-[1080px] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
             >
               <div
-                className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
+                className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8 [&_.sa-annotation]:rounded-[0.35rem] [&_.sa-annotation]:px-0.5 [&_.sa-annotation]:py-[0.08rem] [&_.sa-annotation]:transition-colors [&_.sa-annotation-risk]:bg-red-100/90 [&_.sa-annotation-risk]:text-red-950 [&_.sa-annotation-improvement]:bg-amber-100/90 [&_.sa-annotation-improvement]:text-amber-950 [&_.sa-annotation-applied]:bg-emerald-100 [&_.sa-annotation-applied]:text-emerald-950 [&_.sa-annotation-active]:ring-2 [&_.sa-annotation-active]:ring-offset-1 [&_.sa-annotation-risk.sa-annotation-active]:ring-red-300 [&_.sa-annotation-improvement.sa-annotation-active]:ring-amber-300`}
               >
                 {editor ? <EditorContent editor={editor} /> : null}
               </div>
