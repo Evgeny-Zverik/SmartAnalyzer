@@ -71,6 +71,7 @@ export async function runAllDocumentWorkspacePlugins(
     llmConfig?: LLMConfigRequest | null;
     editedDocument?: EditedDocumentRequest | null;
     pluginIds?: string[] | null;
+    signal?: AbortSignal;
   }
 ): Promise<{ items: BatchRunPluginResponseItem[] }> {
   return apiFetch(`/api/v1/plugins/workspaces/documents/${documentId}/plugins/run-all`, {
@@ -80,5 +81,6 @@ export async function runAllDocumentWorkspacePlugins(
       edited_document: options?.editedDocument ?? null,
       plugin_ids: options?.pluginIds ?? null,
     }),
+    signal: options?.signal,
   });
 }

@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.core.logging import logger
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.plugin_execution import PluginExecution
 from app.models.user import User
 from app.models.workspace_enabled_plugin import WorkspaceEnabledPlugin
-from app.plugins.base import PluginRunContext
+from app.plugins.base import CancelledException, PluginRunContext
 from app.plugins.helpers import detect_document_input_type, plan_satisfies
 from app.plugins.registry import get_registered_plugin, list_registered_plugins
 from app.schemas.plugins import (
@@ -293,9 +295,10 @@ def run_workspace_plugin(
 
 
 @router.post("/workspaces/documents/{document_id}/plugins/run-all", response_model=BatchRunPluginResponse)
-def run_all_workspace_plugins(
+async def run_all_workspace_plugins(
     document_id: int,
     body: BatchRunPluginRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -321,6 +324,8 @@ def run_all_workspace_plugins(
                 continue
         plugins_to_run.append(plugin)
 
+    cancelled = threading.Event()
+
     shared_context = PluginRunContext(
         db=db,
         user=current_user,
@@ -328,60 +333,95 @@ def run_all_workspace_plugins(
         input_type=input_type,
         llm_config=body.llm_config,
         edited_document=body.edited_document,
+        cancelled=cancelled,
     )
 
-    items: list[BatchRunPluginResponseItem] = []
-    for plugin in plugins_to_run:
-        execution = PluginExecution(
-            user_id=current_user.id,
-            document_id=document_id,
-            plugin_id=plugin.manifest.id,
-            plugin_version=plugin.manifest.version,
-            status="running",
-        )
-        db.add(execution)
-        db.commit()
-        db.refresh(execution)
+    def _run_plugins_sync() -> list[BatchRunPluginResponseItem]:
+        items: list[BatchRunPluginResponseItem] = []
+        for plugin in plugins_to_run:
+            if cancelled.is_set():
+                break
 
-        started_at = datetime.now(timezone.utc)
-        execution.started_at = started_at
-        db.commit()
+            execution = PluginExecution(
+                user_id=current_user.id,
+                document_id=document_id,
+                plugin_id=plugin.manifest.id,
+                plugin_version=plugin.manifest.version,
+                status="running",
+            )
+            db.add(execution)
+            db.commit()
+            db.refresh(execution)
 
-        try:
-            if not asyncio.run(plugin.can_handle(shared_context)):
+            started_at = datetime.now(timezone.utc)
+            execution.started_at = started_at
+            db.commit()
+
+            try:
+                if not asyncio.run(plugin.can_handle(shared_context)):
+                    execution.status = "failed"
+                    execution.finished_at = datetime.now(timezone.utc)
+                    execution.error_json = {"code": "PLUGIN_INCOMPATIBLE", "message": "Plugin rejected input."}
+                    db.commit()
+                    items.append(BatchRunPluginResponseItem(
+                        execution_id=execution.id, plugin_id=plugin.manifest.id,
+                        state="failed", error=execution.error_json,
+                    ))
+                    continue
+
+                result = asyncio.run(plugin.run(shared_context))
+                finished_at = result.finished_at or datetime.now(timezone.utc)
+                execution.status = result.status
+                execution.finished_at = finished_at
+                execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+                execution.result_json = result.model_dump(mode="json")
+                execution.error_json = None
+                db.commit()
+                log_run(db, current_user.id, plugin.manifest.id)
+                items.append(BatchRunPluginResponseItem(
+                    execution_id=execution.id, plugin_id=plugin.manifest.id,
+                    state=execution.status, result=execution.result_json,
+                ))
+            except CancelledException:
+                finished_at = datetime.now(timezone.utc)
                 execution.status = "failed"
-                execution.finished_at = datetime.now(timezone.utc)
-                execution.error_json = {"code": "PLUGIN_INCOMPATIBLE", "message": "Plugin rejected input."}
+                execution.finished_at = finished_at
+                execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+                execution.error_json = {"code": "CANCELLED", "message": "Cancelled by client"}
                 db.commit()
                 items.append(BatchRunPluginResponseItem(
                     execution_id=execution.id, plugin_id=plugin.manifest.id,
                     state="failed", error=execution.error_json,
                 ))
-                continue
+                break
+            except Exception as exc:
+                finished_at = datetime.now(timezone.utc)
+                execution.status = "failed"
+                execution.finished_at = finished_at
+                execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+                execution.error_json = {"code": "PLUGIN_RUN_FAILED", "message": str(exc)}
+                db.commit()
+                items.append(BatchRunPluginResponseItem(
+                    execution_id=execution.id, plugin_id=plugin.manifest.id,
+                    state="failed", error=execution.error_json,
+                ))
+        return items
 
-            result = asyncio.run(plugin.run(shared_context))
-            finished_at = result.finished_at or datetime.now(timezone.utc)
-            execution.status = result.status
-            execution.finished_at = finished_at
-            execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
-            execution.result_json = result.model_dump(mode="json")
-            execution.error_json = None
-            db.commit()
-            log_run(db, current_user.id, plugin.manifest.id)
-            items.append(BatchRunPluginResponseItem(
-                execution_id=execution.id, plugin_id=plugin.manifest.id,
-                state=execution.status, result=execution.result_json,
-            ))
-        except Exception as exc:
-            finished_at = datetime.now(timezone.utc)
-            execution.status = "failed"
-            execution.finished_at = finished_at
-            execution.duration_ms = int((finished_at - started_at).total_seconds() * 1000)
-            execution.error_json = {"code": "PLUGIN_RUN_FAILED", "message": str(exc)}
-            db.commit()
-            items.append(BatchRunPluginResponseItem(
-                execution_id=execution.id, plugin_id=plugin.manifest.id,
-                state="failed", error=execution.error_json,
-            ))
+    async def _poll_disconnect():
+        while True:
+            await asyncio.sleep(0.5)
+            if await request.is_disconnected():
+                logger.info("Client disconnected, cancelling plugin run for document %s", document_id)
+                cancelled.set()
+                return
+
+    loop = asyncio.get_event_loop()
+    run_task = loop.run_in_executor(None, _run_plugins_sync)
+    poll_task = asyncio.ensure_future(_poll_disconnect())
+
+    try:
+        items = await run_task
+    finally:
+        poll_task.cancel()
 
     return BatchRunPluginResponse(items=items)
