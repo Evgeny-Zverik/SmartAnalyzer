@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   AlignCenter,
   AlignJustify,
@@ -47,6 +46,7 @@ import {
 
 export type AdvancedAnnotation = {
   id: string;
+  plugin_id?: string;
   type: "risk" | "improvement";
   severity: "low" | "medium" | "high";
   start_offset: number;
@@ -182,6 +182,16 @@ function annotationSpanClass(annotation: AdvancedAnnotation, active: boolean): s
   return active
     ? "rounded bg-amber-200/90 px-0.5 ring-2 ring-amber-300"
     : "rounded bg-amber-100/90 px-0.5 hover:bg-amber-200";
+}
+
+function getAnnotationElement(target: EventTarget | null): HTMLElement | null {
+  if (target instanceof Element) {
+    return target.closest<HTMLElement>("[data-annotation-id]");
+  }
+  if (target instanceof Node) {
+    return target.parentElement?.closest<HTMLElement>("[data-annotation-id]") ?? null;
+  }
+  return null;
 }
 
 function getAnnotationExcerpt(text: string, annotation: AdvancedAnnotation): string {
@@ -374,8 +384,6 @@ function createAiAnnotationsExtension(config: {
   getAnnotations: () => AdvancedAnnotation[];
   getActiveId: () => string | null;
   onSelect: (id: string, element: HTMLElement) => void;
-  onHover: (id: string, element: HTMLElement) => void;
-  onLeave: (relatedTarget: EventTarget | null) => void;
 }) {
   return Extension.create({
     name: "aiAnnotations",
@@ -407,33 +415,22 @@ function createAiAnnotationsExtension(config: {
               return DecorationSet.create(state.doc, decorations);
             },
             handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
-              const target = event.target as HTMLElement | null;
-              const element = target?.closest<HTMLElement>("[data-annotation-id]");
+              const element = getAnnotationElement(event.target);
               const id = element?.dataset.annotationId;
               if (!id || !element) return false;
+              event.preventDefault();
               config.onSelect(id, element);
-              return false;
+              return true;
             },
             handleDOMEvents: {
-              mouseover: (_view: EditorView, event: Event) => {
-                const target = event.target as HTMLElement | null;
-                const element = target?.closest<HTMLElement>("[data-annotation-id]");
+              mousedown: (_view: EditorView, event: Event) => {
+                const mouseEvent = event as MouseEvent;
+                const element = getAnnotationElement(mouseEvent.target);
                 const id = element?.dataset.annotationId;
                 if (!id || !element) return false;
-                config.onHover(id, element);
-                return false;
-              },
-              mouseout: (_view: EditorView, event: Event) => {
-                const mouseEvent = event as MouseEvent;
-                const target = mouseEvent.target as HTMLElement | null;
-                const sourceEl = target?.closest<HTMLElement>("[data-annotation-id]");
-                if (!sourceEl) return false;
-                // Don't leave if moving to another span of the same annotation
-                const related = mouseEvent.relatedTarget as HTMLElement | null;
-                const relatedEl = related?.closest<HTMLElement>("[data-annotation-id]");
-                if (relatedEl?.dataset.annotationId === sourceEl.dataset.annotationId) return false;
-                config.onLeave(mouseEvent.relatedTarget);
-                return false;
+                mouseEvent.preventDefault();
+                config.onSelect(id, element);
+                return true;
               },
             },
           },
@@ -464,15 +461,11 @@ export function AdvancedAiEditor({
   const [toolbarHeading, setToolbarHeading] = useState<"paragraph" | "heading1">("paragraph");
   const [toolbarFontFamily, setToolbarFontFamily] = useState(FONT_FAMILIES[1]?.value ?? "inherit");
   const [toolbarFontSize, setToolbarFontSize] = useState("16");
-  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
-  const [hoverAnchorRect, setHoverAnchorRect] = useState<DOMRect | null>(null);
   const filteredAnnotationsRef = useRef<AdvancedAnnotation[]>(data.annotations);
   const activeIdRef = useRef<string | null>(data.annotations[0]?.id ?? null);
   const suppressManualWarningRef = useRef(false);
   const initialEditorSignatureRef = useRef("");
-  const hoverHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
-  const popupRef = useRef<HTMLDivElement | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -504,31 +497,7 @@ export function AdvancedAiEditor({
         getActiveId: () => activeIdRef.current,
         onSelect: (id, element) => {
           setActiveId(id);
-          if (hoverHideTimeoutRef.current) {
-            window.clearTimeout(hoverHideTimeoutRef.current);
-            hoverHideTimeoutRef.current = null;
-          }
-          setHoveredAnnotationId(id);
-          setHoverAnchorRect(element.getBoundingClientRect());
-        },
-        onHover: (id, element) => {
-          if (hoverHideTimeoutRef.current) {
-            window.clearTimeout(hoverHideTimeoutRef.current);
-            hoverHideTimeoutRef.current = null;
-          }
-          setHoveredAnnotationId(id);
-          setHoverAnchorRect(element.getBoundingClientRect());
-        },
-        onLeave: (relatedTarget) => {
-          const nextTarget = relatedTarget as Node | null;
-          if (nextTarget && popupRef.current?.contains(nextTarget)) {
-            return;
-          }
-          hoverHideTimeoutRef.current = setTimeout(() => {
-            setHoveredAnnotationId(null);
-            setHoverAnchorRect(null);
-            hoverHideTimeoutRef.current = null;
-          }, 120);
+          void element;
         },
       }),
     ],
@@ -583,8 +552,6 @@ export function AdvancedAiEditor({
     setToolbarFontFamily(FONT_FAMILIES[1]?.value ?? "inherit");
     setToolbarFontSize("16");
     setDownloadMenuOpen(false);
-    setHoveredAnnotationId(null);
-    setHoverAnchorRect(null);
     initialEditorSignatureRef.current = JSON.stringify(
       (data.rich_content as JSONContent | null | undefined) ?? textToDocJson(data.full_text)
     );
@@ -675,14 +642,6 @@ export function AdvancedAiEditor({
     onSelectedAnnotationChange(activeId);
   }, [activeId, onSelectedAnnotationChange]);
 
-  useEffect(() => {
-    return () => {
-      if (hoverHideTimeoutRef.current) {
-        clearTimeout(hoverHideTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(editorText);
@@ -747,46 +706,8 @@ export function AdvancedAiEditor({
     setActiveId(null);
   };
 
-  const closeHoverCard = () => {
-    if (hoverHideTimeoutRef.current) {
-      clearTimeout(hoverHideTimeoutRef.current);
-      hoverHideTimeoutRef.current = null;
-    }
-    setHoveredAnnotationId(null);
-    setHoverAnchorRect(null);
-  };
-
   const handleApplyAnnotation = (annotation: AdvancedAnnotation) => {
     applyAnnotation(annotation);
-    closeHoverCard();
-  };
-
-  const hoveredAnnotation = useMemo(
-    () => filteredAnnotations.find((annotation) => annotation.id === hoveredAnnotationId) ?? null,
-    [filteredAnnotations, hoveredAnnotationId]
-  );
-
-  const hoverPopupPosition = useMemo(() => {
-    if (!hoverAnchorRect || !editorScrollRef.current) return null;
-    const containerRect = editorScrollRef.current.getBoundingClientRect();
-    const scrollTop = editorScrollRef.current.scrollTop;
-    const top = Math.max(16, hoverAnchorRect.top - containerRect.top + scrollTop - 16);
-    return { top };
-  }, [hoverAnchorRect]);
-
-  const handleHoverCardMouseEnter = () => {
-    if (hoverHideTimeoutRef.current) {
-      clearTimeout(hoverHideTimeoutRef.current);
-      hoverHideTimeoutRef.current = null;
-    }
-  };
-
-  const handleHoverCardMouseLeave = (event: ReactMouseEvent<HTMLDivElement>) => {
-    const nextTarget = event.relatedTarget as Node | null;
-    if (nextTarget?.parentElement?.closest("[data-annotation-id]")) {
-      return;
-    }
-    closeHoverCard();
   };
 
   const handleNavigate = (direction: 1 | -1) => {
@@ -815,8 +736,8 @@ export function AdvancedAiEditor({
   return (
     <div className="space-y-6">
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="overflow-hidden p-0">
-          <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
+        <div>
+          <div className="px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Advanced AI Editor</h3>
@@ -834,7 +755,7 @@ export function AdvancedAiEditor({
               </div>
             </div>
           </div>
-          <div className="space-y-4 bg-[#edf1f5] p-4 sm:p-6 lg:p-8">
+          <div className="space-y-4 p-4 sm:p-6 lg:p-8">
             {manualEditWarning && (
               <div className="mx-auto max-w-[980px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 После ручных правок подсветка может немного сместиться. AI-аннотации не пересчитываются в реальном времени.
@@ -1035,62 +956,20 @@ export function AdvancedAiEditor({
                 </div>
               </div>
               <div className="mx-auto w-full">
-                <div ref={editorScrollRef} className="relative max-h-[80vh] overflow-y-auto rounded-[28px]">
+                <div
+                  ref={editorScrollRef}
+                  className="relative max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white"
+                >
                   <div
-                    className={`rounded-[28px] border border-gray-200 bg-white px-8 py-10 text-gray-800 shadow-[0_25px_80px_rgba(15,23,42,0.08)] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-gray-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
+                    className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8`}
                   >
                     {editor ? <EditorContent editor={editor} /> : null}
                   </div>
-                  {hoveredAnnotation && hoverPopupPosition ? (
-                    <div
-                      ref={popupRef}
-                      onMouseEnter={handleHoverCardMouseEnter}
-                      onMouseLeave={handleHoverCardMouseLeave}
-                      className="absolute inset-x-0 z-30 px-8 sm:px-12 lg:px-20"
-                      style={{
-                        top: `${hoverPopupPosition.top}px`,
-                        transform: "translateY(-100%)",
-                      }}
-                    >
-                      <div className="animate-[annotation-popover-in_180ms_ease-out] rounded-[28px] border border-gray-200 bg-white/98 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur sm:p-6">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                              hoveredAnnotation.type === "risk"
-                                ? "border-red-200 bg-red-50 text-red-700"
-                                : "border-amber-200 bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {hoveredAnnotation.type === "risk" ? "Risk" : "Improvement"}
-                          </span>
-                          <SeverityBadge severity={hoveredAnnotation.severity} />
-                        </div>
-                        <p className="mt-3 text-base font-semibold text-gray-900 sm:text-lg">{hoveredAnnotation.title}</p>
-                        <p className="mt-2 max-w-4xl text-sm leading-6 text-gray-600 sm:text-base">{hoveredAnnotation.reason}</p>
-                        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
-                          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
-                            Предлагаемая формулировка
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-900">
-                            {hoveredAnnotation.suggested_rewrite}
-                          </p>
-                        </div>
-                        <div className="mt-5 flex flex-wrap gap-3">
-                          <Button type="button" variant="primary" onClick={() => handleApplyAnnotation(hoveredAnnotation)}>
-                            Применить
-                          </Button>
-                          <Button type="button" variant="secondary" onClick={closeHoverCard}>
-                            Отмена
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         <div className="space-y-6 2xl:pt-[2px]">
           <Card>

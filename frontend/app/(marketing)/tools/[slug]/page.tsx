@@ -113,7 +113,7 @@ function PrepareEditorLoader() {
           </div>
         </div>
       </div>
-      <div className="grid gap-6 bg-[#edf1f5] p-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="rounded-[28px] border border-gray-200 bg-white px-10 py-12 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
           <div className="space-y-5">
             <div className="h-8 w-2/5 animate-pulse rounded-full bg-gray-100" />

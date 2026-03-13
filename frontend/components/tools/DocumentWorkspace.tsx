@@ -43,6 +43,7 @@ function findingToAnnotation(finding: PluginFinding, pluginId: string): Advanced
   const annotationType = pluginId === "risk_analyzer" ? "risk" : "improvement";
   return {
     id: finding.id,
+    plugin_id: pluginId,
     type: annotationType,
     severity:
       finding.severity === "critical"
@@ -301,6 +302,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     return mapped;
   }, [orderedItems, store.visible_overlay_by_plugin, store.result_by_plugin]);
 
+  const annotationPluginById = useMemo(
+    () => Object.fromEntries(annotations.map((annotation) => [annotation.id, annotation.plugin_id])),
+    [annotations]
+  );
+
   useEffect(() => {
     if (!editorData) return;
     setEditorData((prev) => (prev ? { ...prev, annotations } : prev));
@@ -431,7 +437,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               dispatch({
                 type: "set_active_finding",
                 findingId: annotationId ?? undefined,
-                pluginId: selectedPlugin?.manifest.id,
+                pluginId: annotationId ? annotationPluginById[annotationId] : undefined,
               })
             }
             isAnalyzing={runningPluginId !== null}
