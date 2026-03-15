@@ -29,6 +29,8 @@ import {
   type LLMConfig,
 } from "@/components/tools/LLMSettingsModal";
 import { Button } from "@/components/ui/Button";
+import { getFeatureModules } from "@/lib/api/settings";
+import { getFeatureKeyForTool, isToolEnabled } from "@/lib/features/toolFeatureGate";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 type DocumentTab = "summary" | "advanced";
@@ -157,6 +159,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     notFound();
   }
 
+  const [featureAccessReady, setFeatureAccessReady] = useState(() => getFeatureKeyForTool(tool.slug) === null);
+  const [featureAllowed, setFeatureAllowed] = useState(true);
+
   if (tool.slug === "document-analyzer") {
     return (
       <ToolShell tool={tool}>
@@ -213,6 +218,37 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
   }, []);
+
+  useEffect(() => {
+    const featureKey = getFeatureKeyForTool(tool.slug);
+    if (!featureKey) {
+      setFeatureAllowed(true);
+      setFeatureAccessReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    getFeatureModules()
+      .then((modules) => {
+        if (cancelled) return;
+        const allowed = isToolEnabled(tool.slug, modules);
+        setFeatureAllowed(allowed);
+        setFeatureAccessReady(true);
+        if (!allowed) {
+          router.replace("/tools");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFeatureAllowed(false);
+        setFeatureAccessReady(true);
+        router.replace("/tools");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, tool.slug]);
 
   const currentMode = llmConfig?.mode ?? "local";
   const setLlmMode = useCallback((mode: "local" | "api") => {
@@ -413,6 +449,20 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       analysisAbortRef.current?.abort();
     };
   }, []);
+
+  if (!featureAccessReady) {
+    return (
+      <ToolShell tool={tool}>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <p className="text-sm text-gray-500">Проверяем доступность инструмента...</p>
+        </div>
+      </ToolShell>
+    );
+  }
+
+  if (!featureAllowed) {
+    return null;
+  }
 
   return (
     <ToolShell

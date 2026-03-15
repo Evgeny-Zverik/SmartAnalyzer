@@ -419,6 +419,7 @@ def run_handwriting_recognition(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "handwriting_recognition")
     ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "handwriting-recognition")
     doc = _get_document_for_user(db, body.document_id, current_user.id)

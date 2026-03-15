@@ -22,8 +22,6 @@ const COMPRESSION_OPTIONS = [
   { value: "aggressive", label: "Агрессивная" },
 ];
 
-type Tab = "plugins" | "settings";
-
 function ExampleSnippet({ value }: { value: string }) {
   return (
     <pre className="mt-2 overflow-x-auto rounded-xl bg-gray-950 px-3 py-2 text-[11px] leading-5 text-emerald-100 shadow-sm">
@@ -37,7 +35,7 @@ const ENCRYPTION_TOOLTIP =
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("plugins");
+  const [activeTab, setActiveTab] = useState<string>("document_analyzer");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -119,6 +117,26 @@ export default function SettingsPage() {
     }
   }
 
+  const parentFeatures = featureModules.filter((item) => item.kind === "feature");
+  const featureTabLabels: Record<string, string> = {
+    document_analyzer: "Плагины Анализатора документов",
+    handwriting_recognition: "Распознавание рукописных документов",
+  };
+  const featureTabs = parentFeatures.map((feature) => ({
+    key: feature.key,
+    label: featureTabLabels[feature.key] ?? feature.name,
+  }));
+  const tabs = [...featureTabs, { key: "settings", label: "Настройки анализа" }];
+  const selectedParentFeature =
+    parentFeatures.find((feature) => feature.key === activeTab) ?? parentFeatures[0] ?? null;
+
+  useEffect(() => {
+    if (activeTab === "settings") return;
+    if (!selectedParentFeature && parentFeatures[0]) {
+      setActiveTab(parentFeatures[0].key);
+    }
+  }, [activeTab, parentFeatures, selectedParentFeature]);
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -127,17 +145,11 @@ export default function SettingsPage() {
     );
   }
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: "plugins", label: "Плагины Анализатора документов" },
-    { key: "settings", label: "Настройки анализа" },
-  ];
-  const parentFeatures = featureModules.filter((item) => item.kind === "feature");
-
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Tabs */}
         <div className="mb-8 flex border-b border-gray-200">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -153,13 +165,13 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {/* Tab: Plugins */}
-        {activeTab === "plugins" && (
+        {/* Feature Tabs */}
+        {activeTab !== "settings" && selectedParentFeature && (
           <div className="space-y-6">
             {/* Section header */}
             <div className="rounded-xl bg-gray-100 px-5 py-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Модули анализа
+                {selectedParentFeature.key === "document_analyzer" ? "Модули анализа" : "Настройки фичи"}
               </span>
             </div>
 
@@ -168,7 +180,8 @@ export default function SettingsPage() {
             )}
 
             <div className="space-y-3">
-              {parentFeatures.map((feature) => {
+              {(() => {
+                const feature = selectedParentFeature;
                 const children = featureModules.filter((item) => item.parent_key === feature.key);
                 const isOpen = expandedKeys.has(feature.key);
                 const isLocked = !feature.available_for_plan;
@@ -220,24 +233,26 @@ export default function SettingsPage() {
                           }`}
                         />
                       </button>
-                      <button
-                        type="button"
-                        onClick={toggleExpand}
-                        className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-                      >
-                        <svg
-                          className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
+                      {children.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={toggleExpand}
+                          className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
+                          <svg
+                            className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
 
-                    {isOpen && (
+                    {isOpen && children.length > 0 && (
                       <div className="border-t border-gray-100 bg-gray-50/50 px-5 py-5">
                         <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -316,7 +331,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                 );
-              })}
+              })()}
             </div>
           </div>
         )}

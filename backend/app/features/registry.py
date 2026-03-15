@@ -91,6 +91,16 @@ Rewrite: "в течение 3 дней..."''',
         plugin_id="dates_deadlines",
         sort_order=120,
     ),
+    FeatureModuleDefinition(
+        key="handwriting_recognition",
+        name="Распознавание рукописных документов",
+        description="OCR-фича для рукописных текстов, заявлений, анкет и архивных материалов.",
+        example='''scan("statement.jpg")
+recognize_handwriting()
+export_editable_text()''',
+        kind="feature",
+        sort_order=200,
+    ),
 ]
 
 FEATURES_BY_KEY = {definition.key: definition for definition in FEATURE_DEFINITIONS}
