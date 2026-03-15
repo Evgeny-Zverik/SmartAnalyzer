@@ -84,6 +84,18 @@ class DataExtractorResult(BaseModel):
     confidence: float
 
 
+class OCRLineItem(BaseModel):
+    text: str
+    confidence: float
+
+
+class HandwritingRecognitionResult(BaseModel):
+    recognized_text: str
+    confidence: float
+    page_count: int
+    lines: list[OCRLineItem]
+
+
 class RequirementItem(BaseModel):
     id: str
     text: str
@@ -173,6 +185,12 @@ class DataExtractorRunResponse(BaseModel):
     analysis_id: int
     tool_slug: str
     result: DataExtractorResult
+
+
+class HandwritingRecognitionRunResponse(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    result: HandwritingRecognitionResult
 
 
 class TenderAnalyzerRunResponse(BaseModel):

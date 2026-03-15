@@ -101,6 +101,17 @@ export type DataExtractorRunResponse = {
   };
 };
 
+export type HandwritingRecognitionRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    recognized_text: string;
+    confidence: number;
+    page_count: number;
+    lines: Array<{ text: string; confidence: number }>;
+  };
+};
+
 export type LLMConfigRequest = {
   base_url?: string;
   api_key?: string;
@@ -160,6 +171,17 @@ export async function runContractChecker(documentId: number, signal?: AbortSigna
 
 export async function runDataExtractor(documentId: number, signal?: AbortSignal): Promise<DataExtractorRunResponse> {
   return apiFetch<DataExtractorRunResponse>("/api/v1/tools/data-extractor/run", {
+    method: "POST",
+    body: JSON.stringify({ document_id: documentId }),
+    signal,
+  });
+}
+
+export async function runHandwritingRecognition(
+  documentId: number,
+  signal?: AbortSignal
+): Promise<HandwritingRecognitionRunResponse> {
+  return apiFetch<HandwritingRecognitionRunResponse>("/api/v1/tools/handwriting-recognition/run", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
     signal,
@@ -322,7 +344,12 @@ export async function runToolAnalysis(
   const startMs = Date.now();
   const elapsed = () => Math.round((Date.now() - startMs) / 1000);
 
-  if (toolSlug === "document-analyzer" || toolSlug === "contract-checker" || toolSlug === "data-extractor") {
+  if (
+    toolSlug === "document-analyzer" ||
+    toolSlug === "contract-checker" ||
+    toolSlug === "data-extractor" ||
+    toolSlug === "handwriting-recognition"
+  ) {
     let documentId = options?.existingDocumentId ?? null;
     if (!documentId) {
       onProgress?.("upload", elapsed());
@@ -345,8 +372,11 @@ export async function runToolAnalysis(
     } else if (toolSlug === "contract-checker") {
       const runRes = await runContractChecker(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
-    } else {
+    } else if (toolSlug === "data-extractor") {
       const runRes = await runDataExtractor(documentId, signal);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else {
+      const runRes = await runHandwritingRecognition(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     }
     onProgress?.("done", elapsed());

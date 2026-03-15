@@ -15,6 +15,7 @@ TOOL_SLUGS = (
     "data-extractor",
     "tender-analyzer",
     "risk-analyzer",
+    "handwriting-recognition",
     "key_points",
     "dates_deadlines",
     "risk_analyzer",

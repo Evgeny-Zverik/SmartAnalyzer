@@ -115,6 +115,20 @@ function isDataExtractorResult(r: Record<string, unknown>): r is {
   );
 }
 
+function isHandwritingRecognitionResult(r: Record<string, unknown>): r is {
+  recognized_text: string;
+  confidence: number;
+  page_count: number;
+  lines: Array<{ text: string; confidence: number }>;
+} {
+  return (
+    typeof r.recognized_text === "string" &&
+    typeof r.confidence === "number" &&
+    typeof r.page_count === "number" &&
+    Array.isArray(r.lines)
+  );
+}
+
 function DataExtractorResultView({
   result,
 }: {
@@ -144,6 +158,65 @@ function DataExtractorResultView({
         <TablesView tables={result.tables} />
       </Card>
       <JsonActions data={result as unknown as Record<string, unknown>} />
+    </div>
+  );
+}
+
+function HandwritingRecognitionResultView({
+  result,
+}: {
+  result: {
+    recognized_text: string;
+    confidence: number;
+    page_count: number;
+    lines: Array<{ text: string; confidence: number }>;
+  };
+}) {
+  const confidencePercent = Math.round((result.confidence || 0) * 100);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Уверенность</h3>
+            <p className="text-sm text-gray-600">{confidencePercent}%</p>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Страницы</h3>
+            <p className="text-sm text-gray-600">{result.page_count}</p>
+          </div>
+        </div>
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Распознанный текст</h3>
+        {result.recognized_text.trim() ? (
+          <pre className="whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+            {result.recognized_text}
+          </pre>
+        ) : (
+          <p className="text-sm text-gray-400">Текст не распознан</p>
+        )}
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Распознанные строки</h3>
+        {result.lines.length > 0 ? (
+          <ul className="space-y-2">
+            {result.lines.map((line, index) => (
+              <li key={`${index}-${line.text.slice(0, 24)}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-gray-700">{line.text}</p>
+                  <span className="shrink-0 text-xs text-gray-500">
+                    {Math.round((line.confidence || 0) * 100)}%
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-400">Нет строк для отображения</p>
+        )}
+      </Card>
     </div>
   );
 }
@@ -409,6 +482,9 @@ export function ResultsPanel({
     }
     if (toolSlug === "data-extractor" && isDataExtractorResult(result)) {
       return <DataExtractorResultView result={result} />;
+    }
+    if (toolSlug === "handwriting-recognition" && isHandwritingRecognitionResult(result)) {
+      return <HandwritingRecognitionResultView result={result} />;
     }
     const entries = Object.entries(result).filter(
       ([_, v]) => v !== undefined && v !== null

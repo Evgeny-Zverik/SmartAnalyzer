@@ -14,6 +14,7 @@ from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.folders import ensure_user_system_folders, resolve_analysis_folder
+from app.services.ocr import recognize_handwriting
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
@@ -45,6 +46,8 @@ from app.schemas.tools import (
     RiskAnalyzerRunResponse,
     RiskAnalyzerResult,
     RiskDriverItem,
+    HandwritingRecognitionRunResponse,
+    HandwritingRecognitionResult,
     RiskItem,
     RiskyClauseItem,
     TableItem,
@@ -408,6 +411,44 @@ def run_data_extractor(
     )
     log_run(db, current_user.id, "data-extractor")
     return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug="data-extractor", result=result)
+
+
+@router.post("/handwriting-recognition/run", response_model=HandwritingRecognitionRunResponse)
+def run_handwriting_recognition(
+    body: ToolRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ensure_user_system_folders(db, current_user.id)
+    assert_can_run(db, current_user, "handwriting-recognition")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    raw_result = recognize_handwriting(doc.storage_path, doc.mime_type)
+    try:
+        result = HandwritingRecognitionResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "OCR_INVALID_RESPONSE", "Handwriting recognition result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="handwriting-recognition",
+        fallback_folder_id=doc.folder_id,
+    )
+    analysis_id = _save_analysis(
+        db,
+        current_user,
+        current_user.id,
+        body.document_id,
+        "handwriting-recognition",
+        result.model_dump(),
+        folder.id,
+    )
+    log_run(db, current_user.id, "handwriting-recognition")
+    return HandwritingRecognitionRunResponse(
+        analysis_id=analysis_id,
+        tool_slug="handwriting-recognition",
+        result=result,
+    )
 
 
 @router.post("/tender-analyzer/run", response_model=TenderAnalyzerRunResponse)

@@ -41,6 +41,11 @@ SYSTEM_FOLDER_DEFINITIONS: tuple[SystemFolderDefinition, ...] = (
         tool_slug="tender-analyzer",
     ),
     SystemFolderDefinition(
+        system_key="tool_handwriting_recognition",
+        name="Распознавание рукописных документов",
+        tool_slug="handwriting-recognition",
+    ),
+    SystemFolderDefinition(
         system_key="tool_risk_analyzer",
         name="Risk Analyzer",
         tool_slug="risk-analyzer",

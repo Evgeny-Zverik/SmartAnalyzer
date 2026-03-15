@@ -19,7 +19,7 @@ export const tools: Tool[] = [
     description:
       "Загрузите документ и получите структурированные выводы, риски и ключевые даты.",
     category: "Documents",
-    icon: "FileText",
+    icon: "FileSearch",
     mvp: {
       accepts: ["pdf", "docx"],
       output: ["summary", "key points", "risks", "dates"],
@@ -27,11 +27,11 @@ export const tools: Tool[] = [
   },
   {
     slug: "contract-checker",
-    title: "Проверка договоров",
+    title: "AI Юрист",
     description:
-      "Проверка договоров на соответствие, риски и отсутствующие пункты.",
+      "AI Юрист анализирует договор, подсвечивает риски, предлагает правки и поддерживает интеграцию с Гарант для проверки норм и формулировок.",
     category: "Documents",
-    icon: "FileCheck",
+    icon: "Scale",
     mvp: {
       accepts: ["pdf", "docx"],
       output: ["risky clauses", "penalties", "obligations", "deadlines"],
@@ -39,11 +39,11 @@ export const tools: Tool[] = [
   },
   {
     slug: "data-extractor",
-    title: "Извлечение данных",
+    title: "Сравнение документов",
     description:
-      "Извлечение структурированных данных из документов и экспорт в JSON или таблицы.",
+      "Сравнивает версии документов, находит изменения в формулировках, сроках и обязательствах и показывает, что было добавлено, удалено или переписано.",
     category: "Data",
-    icon: "Table",
+    icon: "GitCompareArrows",
     mvp: {
       accepts: ["pdf", "docx", "xlsx"],
       output: ["structured fields", "tables", "json export"],
@@ -51,26 +51,26 @@ export const tools: Tool[] = [
   },
   {
     slug: "tender-analyzer",
-    title: "Анализатор тендеров",
+    title: "Обзор судебной практики",
     description:
-      "Анализ тендеров: требования, сроки и оценка рисков.",
+      "Формирует подборку судебной практики по регионам, показывает подходы судов по аналогичным спорам и прикладывает ссылки на судебные акты и применимые нормы права.",
     category: "Documents",
-    icon: "ClipboardList",
+    icon: "Landmark",
     mvp: {
       accepts: ["pdf", "docx"],
       output: ["requirements", "compliance checklist", "deadlines", "risks"],
     },
   },
   {
-    slug: "risk-analyzer",
-    title: "Анализатор рисков",
+    slug: "handwriting-recognition",
+    title: "Распознавание рукописных документов",
     description:
-      "Выявление и оценка рисков в документах и бизнес-процессах.",
-    category: "Risk",
-    icon: "AlertTriangle",
+      "Распознает рукописные тексты, заявления, анкеты и архивные материалы, переводит их в редактируемый цифровой вид и подготавливает структуру для дальнейшего анализа.",
+    category: "Documents",
+    icon: "PenTool",
     mvp: {
-      accepts: ["pdf", "docx", "xlsx"],
-      output: ["risk score", "key drivers", "recommendations"],
+      accepts: ["pdf", "jpg", "png"],
+      output: ["recognized text", "structured fields", "editable document"],
     },
   },
 ];
@@ -82,7 +82,7 @@ export const TOOL_SLUGS = [
   "contract-checker",
   "data-extractor",
   "tender-analyzer",
-  "risk-analyzer",
+  "handwriting-recognition",
 ] as const;
 
 export function getToolBySlug(slug: string): Tool | undefined {

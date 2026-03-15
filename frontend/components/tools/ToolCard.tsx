@@ -1,10 +1,10 @@
 import Link from "next/link";
 import {
-  FileText,
-  FileCheck,
-  Table,
-  ClipboardList,
-  AlertTriangle,
+  FileSearch,
+  Scale,
+  GitCompareArrows,
+  Landmark,
+  PenTool,
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -14,11 +14,11 @@ import type { Tool } from "@/lib/config/tools";
 import { CATEGORY_LABELS } from "@/lib/config/tools";
 
 const iconMap: Record<string, LucideIcon> = {
-  FileText,
-  FileCheck,
-  Table,
-  ClipboardList,
-  AlertTriangle,
+  FileSearch,
+  Scale,
+  GitCompareArrows,
+  Landmark,
+  PenTool,
 };
 
 type ToolCardProps = {
@@ -26,7 +26,7 @@ type ToolCardProps = {
 };
 
 export function ToolCard({ tool }: ToolCardProps) {
-  const Icon = iconMap[tool.icon] ?? FileText;
+  const Icon = iconMap[tool.icon] ?? FileSearch;
 
   return (
     <Card>

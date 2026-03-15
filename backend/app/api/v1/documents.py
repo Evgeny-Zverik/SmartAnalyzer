@@ -21,8 +21,17 @@ from app.utils.errors import raise_error
 
 router = APIRouter()
 
-ALLOWED_MIME = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
+ALLOWED_MIME = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/heic",
+    "image/heif",
+}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".heic", ".heif"}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=201)
@@ -35,10 +44,20 @@ def upload(
 ):
     ensure_user_system_folders(db, current_user.id)
     if file.content_type and file.content_type not in ALLOWED_MIME:
-        raise_error(400, "BAD_REQUEST", "Unsupported file type. Use PDF, DOCX or XLSX.", {"mime_type": file.content_type})
+        raise_error(
+            400,
+            "BAD_REQUEST",
+            "Unsupported file type. Use PDF, DOCX, XLSX, PNG or JPEG.",
+            {"mime_type": file.content_type},
+        )
     ext = Path(file.filename or "file").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise_error(400, "BAD_REQUEST", "Unsupported file extension. Use .pdf, .docx or .xlsx.", {"filename": file.filename or "file"})
+        raise_error(
+            400,
+            "BAD_REQUEST",
+            "Unsupported file extension. Use .pdf, .docx, .xlsx, .png or .jpg.",
+            {"filename": file.filename or "file"},
+        )
     try:
         content = file.file.read()
     except Exception as e:

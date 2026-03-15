@@ -78,7 +78,7 @@ export function Header() {
           {!authReady ? (
             <div
               aria-hidden="true"
-              className="h-10 w-[360px] rounded-xl bg-gray-100/80"
+              className="h-10 w-[360px] rounded-xl opacity-0 pointer-events-none"
             />
           ) : loggedIn ? (
             <>
