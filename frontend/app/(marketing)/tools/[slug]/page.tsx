@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { notFound } from "next/navigation";
-import { FileText, Sparkles } from "lucide-react";
+import { FileText, GitCompareArrows, ScanSearch, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
 import {
   prepareDocumentAnalyzer,
@@ -196,8 +196,18 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       }) ?? { full_text: "", annotations: [] }),
     [result?.advanced_editor]
   );
-  const isIntroCollapsed = (!!file || !!compareFile) && (state === "loading" || state === "success" || state === "error");
   const isCompareTool = tool.slug === "data-extractor";
+  const isDataExtractorPage = tool.slug === "data-extractor";
+  const isComparisonPairReady = isCompareTool && !!file && !!compareFile;
+  const showCompactComparisonHeader =
+    isDataExtractorPage &&
+    !!file &&
+    !!compareFile &&
+    (state === "loading" || state === "success" || state === "error");
+  const isIntroCollapsed =
+    isDataExtractorPage
+      ? false
+      : (!!file || !!compareFile) && (state === "loading" || state === "success" || state === "error");
   const analysisAbortRef = useRef<AbortController | null>(null);
   const actionHint = isCompareTool
     ? file && compareFile
@@ -558,136 +568,355 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     >
       <div className="space-y-8">
         {!isIntroCollapsed && (
-          <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-            <div className="mb-4">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Быстрый старт
-                </div>
-                <h2 className="mt-3 text-lg font-semibold text-gray-900">Загрузите файл и запустите анализ</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Начните с документа. Остальные действия доступны в компактной панели ниже.
-                </p>
-              </div>
-            </div>
-            {isCompareTool ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ слева</p>
-                  <UploadDropzone
-                    acceptedExtensions={tool.mvp.accepts}
-                    file={file}
-                    onFileChange={handleFileChange}
-                    compact
-                    showFileCard={false}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ справа</p>
-                  <UploadDropzone
-                    acceptedExtensions={tool.mvp.accepts}
-                    file={compareFile}
-                    onFileChange={handleCompareFileChange}
-                    compact
-                    showFileCard={false}
-                  />
-                </div>
-              </div>
-            ) : (
-              <UploadDropzone
-                acceptedExtensions={tool.mvp.accepts}
-                file={file}
-                onFileChange={handleFileChange}
-                compact
-                showFileCard={false}
-              />
-            )}
-          </section>
-        )}
+          isDataExtractorPage ? (
+            showCompactComparisonHeader ? (
+              <section className="overflow-hidden rounded-[30px] border border-stone-300 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(243,240,232,0.96)_60%,_rgba(235,229,219,0.98))] p-4 shadow-[0_24px_80px_rgba(28,25,23,0.12)] sm:p-5">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-center">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                    <div className="min-w-0 rounded-[24px] border border-emerald-200 bg-white/85 px-4 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">Документ слева</p>
+                      <p className="mt-2 truncate text-sm font-medium text-stone-900">
+                        {file ? file.name : "Файл не выбран"}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        {file ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}` : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                      </p>
+                    </div>
 
-        <div className="sticky top-4 z-30">
-          <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-              {isCompareTool ? (
-                <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                  {[
-                    { title: "Документ слева", currentFile: file },
-                    { title: "Документ справа", currentFile: compareFile },
-                  ].map((item) => (
-                    <div key={item.title} className="flex min-w-0 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
-                      <div className="rounded-2xl bg-white p-2 text-gray-500">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{item.title}</p>
-                        <p className="truncate text-sm font-medium text-gray-900">
-                          {item.currentFile ? item.currentFile.name : "Файл не выбран"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {item.currentFile
-                            ? `${formatSize(item.currentFile.size)} · ${tool.mvp.accepts.join(", ")}`
-                            : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
-                        </p>
+                    <div className="hidden justify-center md:flex">
+                      <div
+                        className={`flex items-center gap-3 rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] transition-all duration-500 ${
+                          isComparisonPairReady
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-700 shadow-[0_0_24px_rgba(110,231,183,0.14)]"
+                            : "border-stone-300 bg-white/70 text-stone-500"
+                        }`}
+                      >
+                        <span>Левая</span>
+                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-emerald-300 via-stone-300 to-sky-300">
+                          {isComparisonPairReady ? (
+                            <div className="absolute inset-y-0 left-0 w-6 animate-[pulse_1.4s_ease-in-out_infinite] bg-white/80 blur-[2px]" />
+                          ) : null}
+                        </div>
+                        <span>{isComparisonPairReady ? "Готово" : "Ожидание"}</span>
+                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-emerald-300 via-stone-300 to-sky-300">
+                          {isComparisonPairReady ? (
+                            <div className="absolute inset-y-0 right-0 w-6 animate-[pulse_1.4s_ease-in-out_infinite] bg-white/80 blur-[2px]" />
+                          ) : null}
+                        </div>
+                        <span>Правая</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {file ? "Выбранный файл" : "Готово к загрузке"}
-                    </p>
-                    <p className="truncate text-sm font-medium text-gray-900">
-                      {file ? file.name : "Выберите документ для анализа"}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {file
-                        ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
-                        : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
-                    </p>
-                  </div>
-                </div>
-              )}
 
-              <div className="space-y-3 xl:max-w-[760px] xl:justify-self-end">
-                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                    <div className="min-w-0 rounded-[24px] border border-sky-200 bg-white/85 px-4 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">Документ справа</p>
+                      <p className="mt-2 truncate text-sm font-medium text-stone-900">
+                        {compareFile ? compareFile.name : "Файл не выбран"}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        {compareFile ? `${formatSize(compareFile.size)} · ${tool.mvp.accepts.join(", ")}` : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                      </p>
+                    </div>
+                  </div>
+
                   <Button
                     type="button"
-                    variant={state === "success" && !hasEditorChanges ? "secondary" : "primary"}
-                    disabled={(!file || (isCompareTool && !compareFile)) || (state === "success" && !hasEditorChanges)}
+                    variant={state === "success" ? "secondary" : "primary"}
+                    disabled={!file || !compareFile || state === "success"}
                     onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
-                    className={`shrink-0 whitespace-nowrap ${
-                      state === "success" && !hasEditorChanges
-                        ? "min-w-[180px] border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "min-w-[220px]"
+                    className={`w-full ${
+                      state === "success"
+                        ? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-900"
+                        : "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
                     }`}
                   >
-                    {state === "loading"
-                      ? "Остановить анализ"
-                      : state === "success" && hasEditorChanges
-                        ? "Проанализировать еще раз"
-                        : state === "success"
-                        ? "Проанализировано"
-                        : tool.slug === "data-extractor"
-                        ? "Сравнить документы"
-                        : "Запустить анализ"}
+                    {state === "loading" ? "Остановить сравнение" : state === "success" ? "Проанализировано" : "Сравнить документы"}
                   </Button>
                 </div>
-                {actionHint ? (
-                  <p className="text-xs text-gray-500 xl:text-right">{actionHint}</p>
-                ) : null}
+              </section>
+            ) : (
+            <section className="relative overflow-hidden rounded-[36px] border border-stone-300 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.92),_rgba(246,240,229,0.96)_52%,_rgba(232,225,214,0.98))] p-5 shadow-[0_30px_120px_rgba(28,25,23,0.14)] sm:p-7">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(24,24,27,0.03),transparent_28%,rgba(16,185,129,0.07)_72%,rgba(24,24,27,0.06))]" />
+              <div className="pointer-events-none absolute -right-16 top-10 h-40 w-40 rounded-full bg-emerald-200/20 blur-3xl" />
+              <div className="pointer-events-none absolute bottom-0 left-1/3 h-px w-1/2 bg-gradient-to-r from-transparent via-stone-500/30 to-transparent" />
+
+              <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_420px]">
+                <div className="space-y-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-stone-400/40 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-700">
+                      <GitCompareArrows className="h-3.5 w-3.5" />
+                      Пространство сравнения
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-stone-100">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI-сравнение
+                    </span>
+                  </div>
+
+                  <div className="max-w-3xl">
+                    <h2 className="max-w-2xl text-3xl font-semibold leading-[1.05] tracking-[-0.04em] text-stone-900 sm:text-5xl">
+                      Сцена сравнения для двух версий одного смысла.
+                    </h2>
+                    <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-700 sm:text-base">
+                      Загружайте базовый документ и новую редакцию. Страница соберет общее, выделит смысловые расхождения и покажет,
+                      насколько оба файла действительно связаны между собой.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {[
+                      ["1", "Загрузите пару", "Поддерживаются PDF и DOCX, чтобы сравнивать версии договора, приложения или политики."],
+                      ["2", "Запустите анализ", "Инструмент строит компактную карту совпадений, различий и общей связи между двумя документами."],
+                      ["3", "Заберите вывод", "Результат сразу готов для просмотра и обсуждения."],
+                    ].map(([step, title, text]) => (
+                      <div
+                        key={step}
+                        className="rounded-[28px] border border-stone-300/80 bg-white/70 p-4 backdrop-blur sm:p-5"
+                      >
+                        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-400/30 bg-stone-900 text-sm font-semibold text-stone-50">
+                          {step}
+                        </div>
+                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">{title}</p>
+                        <p className="mt-3 text-sm leading-6 text-stone-700">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden rounded-[30px] border border-stone-700/80 bg-stone-950 p-4 text-stone-50 shadow-[0_30px_80px_rgba(28,25,23,0.32)] sm:p-5">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.2),transparent_42%)]" />
+                  <div className="relative space-y-5">
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/90">Зона загрузки</p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">Загрузите две стороны сравнения</h3>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-emerald-300">
+                        <ScanSearch className="h-6 w-6" />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Документ слева</p>
+                        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-2">
+                          <UploadDropzone
+                            acceptedExtensions={tool.mvp.accepts}
+                            file={file}
+                            onFileChange={handleFileChange}
+                            compact
+                            showFileCard={false}
+                            variant="comparison"
+                            comparisonTone="left"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Документ справа</p>
+                        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-2">
+                          <UploadDropzone
+                            acceptedExtensions={tool.mvp.accepts}
+                            file={compareFile}
+                            onFileChange={handleCompareFileChange}
+                            compact
+                            showFileCard={false}
+                            variant="comparison"
+                            comparisonTone="right"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 border-t border-white/10 pt-4 text-xs text-stone-300">
+                      <div className="rounded-2xl bg-white/[0.04] p-3">
+                        <p className="uppercase tracking-[0.2em] text-stone-500">Форматы</p>
+                        <p className="mt-2 text-sm text-stone-100">{tool.mvp.accepts.join(" / ").toUpperCase()}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/[0.04] p-3">
+                        <p className="uppercase tracking-[0.2em] text-stone-500">Фокус</p>
+                        <p className="mt-2 text-sm text-stone-100">Формулировки, сроки, обязательства</p>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/10 pt-4">
+                      <Button
+                        type="button"
+                        variant={state === "success" ? "secondary" : "primary"}
+                        disabled={!file || !compareFile || state === "success"}
+                        onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
+                        className={`w-full ${
+                          state === "success"
+                            ? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
+                            : "bg-emerald-400 text-stone-950 hover:bg-emerald-300"
+                        }`}
+                      >
+                        {state === "loading"
+                          ? isDataExtractorPage
+                            ? "Остановить сравнение"
+                            : "Остановить анализ"
+                          : state === "success"
+                            ? "Проанализировано"
+                            : "Сравнить документы"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            )
+          ) : (
+            <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Быстрый старт
+                  </div>
+                  <h2 className="mt-3 text-lg font-semibold text-gray-900">Загрузите файл и запустите анализ</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Начните с документа. Остальные действия доступны в компактной панели ниже.
+                  </p>
+                </div>
+              </div>
+              {isCompareTool ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ слева</p>
+                    <UploadDropzone
+                      acceptedExtensions={tool.mvp.accepts}
+                      file={file}
+                      onFileChange={handleFileChange}
+                      compact
+                      showFileCard={false}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ справа</p>
+                    <UploadDropzone
+                      acceptedExtensions={tool.mvp.accepts}
+                      file={compareFile}
+                      onFileChange={handleCompareFileChange}
+                      compact
+                      showFileCard={false}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <UploadDropzone
+                  acceptedExtensions={tool.mvp.accepts}
+                  file={file}
+                  onFileChange={handleFileChange}
+                  compact
+                  showFileCard={false}
+                />
+              )}
+            </section>
+          )
+        )}
+
+        {!isDataExtractorPage && (
+          <div className="sticky top-4 z-30">
+            <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                {isCompareTool ? (
+                  <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                    {[
+                      { title: "Документ слева", currentFile: file },
+                      { title: "Документ справа", currentFile: compareFile },
+                    ].map((item) => (
+                      <div key={item.title} className="flex min-w-0 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
+                        <div className="rounded-2xl bg-white p-2 text-gray-500">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{item.title}</p>
+                          <p className="truncate text-sm font-medium text-gray-900">
+                            {item.currentFile ? item.currentFile.name : "Файл не выбран"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.currentFile
+                              ? `${formatSize(item.currentFile.size)} · ${tool.mvp.accepts.join(", ")}`
+                              : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {file ? "Выбранный файл" : "Готово к загрузке"}
+                      </p>
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {file ? file.name : "Выберите документ для анализа"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {file
+                          ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
+                          : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3 xl:max-w-[760px] xl:justify-self-end">
+                  <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                    <Button
+                      type="button"
+                      variant={state === "success" && !hasEditorChanges ? "secondary" : "primary"}
+                      disabled={(!file || (isCompareTool && !compareFile)) || (state === "success" && !hasEditorChanges)}
+                      onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
+                      className={`shrink-0 whitespace-nowrap ${
+                        state === "success" && !hasEditorChanges
+                          ? "min-w-[180px] border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "min-w-[220px]"
+                      }`}
+                    >
+                      {state === "loading"
+                        ? isDataExtractorPage
+                          ? "Остановить сравнение"
+                          : "Остановить анализ"
+                        : state === "success" && hasEditorChanges
+                          ? "Проанализировать еще раз"
+                          : state === "success"
+                            ? "Проанализировано"
+                            : tool.slug === "data-extractor"
+                              ? "Сравнить документы"
+                              : "Запустить анализ"}
+                    </Button>
+                  </div>
+                  {actionHint ? (
+                    <p className="text-xs text-gray-500 xl:text-right">{actionHint}</p>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Results</h2>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className={`text-lg font-semibold ${isDataExtractorPage ? "tracking-[-0.03em] text-stone-900 sm:text-[1.75rem]" : "text-gray-900"}`}>
+                {isDataExtractorPage ? "Панель сравнения" : "Results"}
+              </h2>
+              {isDataExtractorPage ? (
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-stone-600">
+                  Общая картина, расхождения и итоговая оценка связи между двумя документами собраны в одной ленте.
+                </p>
+              ) : null}
+            </div>
+            {isDataExtractorPage ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-stone-100/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-600">
+                <GitCompareArrows className="h-3.5 w-3.5" />
+                Сравнение документов
+              </div>
+            ) : null}
+          </div>
           {tool.slug === "document-analyzer" && (state === "success" || state === "loading") && result ? (
             <div className="space-y-5">
               <div

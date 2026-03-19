@@ -174,7 +174,7 @@ function isTenderAnalyzerResult(r: Record<string, unknown>): r is {
 function DataExtractorResultView({
   result,
 }: {
-    result: {
+  result: {
     summary: string;
     left_document_summary: string;
     right_document_summary: string;
@@ -184,62 +184,147 @@ function DataExtractorResultView({
     are_documents_related: boolean;
   };
 }) {
+  const relatedTone = result.are_documents_related
+    ? "border-emerald-300/70 bg-emerald-100/80 text-emerald-900"
+    : "border-amber-300/70 bg-amber-100/80 text-amber-900";
+  const metricCards = [
+    {
+      label: "Совпадения",
+      value: String(result.common_points.length),
+      note: "точек пересечения",
+      tone: "border-emerald-200 bg-emerald-50/80 text-emerald-900",
+    },
+    {
+      label: "Различия",
+      value: String(result.differences.length),
+      note: "ключевых сдвигов",
+      tone: "border-stone-300 bg-stone-50/90 text-stone-900",
+    },
+    {
+      label: "Связь",
+      value: result.are_documents_related ? "Да" : "Нет",
+      note: "единый предмет",
+      tone: result.are_documents_related
+        ? "border-emerald-200 bg-white/80 text-emerald-900"
+        : "border-amber-200 bg-amber-50/80 text-amber-900",
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="overflow-hidden rounded-[32px] border border-stone-300 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(246,240,229,0.98)_54%,_rgba(234,226,214,0.98))] shadow-[0_30px_100px_rgba(28,25,23,0.12)]">
+        <div className="grid gap-5 border-b border-stone-300/80 px-5 py-5 sm:px-7 lg:grid-cols-[minmax(0,1.2fr)_240px] lg:items-start">
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-gray-700">Итог сравнения</h3>
-            <p className="text-sm leading-6 text-gray-600">{result.summary}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Общий итог</p>
+            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-stone-900 sm:text-[2rem]">Итог сравнения</h3>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700 sm:text-[15px]">{result.summary}</p>
           </div>
-          <span
-            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-              result.are_documents_related ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-            }`}
-          >
-            {result.are_documents_related ? "Документы связаны" : "Документы о разном"}
-          </span>
+          <div className="space-y-3">
+            <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${relatedTone}`}>
+              {result.are_documents_related ? "Документы связаны" : "Документы о разном"}
+            </div>
+            <div className="rounded-[26px] border border-stone-300/80 bg-white/70 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Индикатор</p>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-stone-900">
+                {result.are_documents_related ? "Высокий" : "Низкий"}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-stone-600">
+                Быстрый индикатор того, насколько два файла относятся к одному предмету регулирования или одной версии документа.
+              </p>
+            </div>
+          </div>
         </div>
-      </Card>
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <h3 className="mb-3 text-sm font-semibold text-gray-700">Документ слева</h3>
-          <p className="text-sm leading-6 text-gray-600">{result.left_document_summary}</p>
+
+        <div className="grid gap-px border-b border-stone-300/80 bg-stone-300/80 md:grid-cols-3">
+          {metricCards.map((item) => (
+            <div key={item.label} className={`px-5 py-4 sm:px-7 ${item.tone}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-70">{item.label}</p>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="text-3xl font-semibold tracking-[-0.05em]">{item.value}</span>
+                <span className="pb-1 text-xs uppercase tracking-[0.2em] opacity-70">{item.note}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-px bg-stone-300/80 lg:grid-cols-2">
+          {[
+            ["Левая сторона", result.left_document_summary],
+            ["Правая сторона", result.right_document_summary],
+          ].map(([title, text], index) => (
+            <div key={title} className={`bg-white/75 px-5 py-5 sm:px-7 ${index === 0 ? "lg:border-r lg:border-stone-300/80" : ""}`}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{title}</p>
+                <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-50">
+                  Кратко
+                </span>
+              </div>
+              <p className="text-sm leading-7 text-stone-700">{text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <Card className="rounded-[30px] border-emerald-200 bg-[linear-gradient(180deg,rgba(240,253,250,0.98),rgba(236,253,245,0.9))] p-0 shadow-[0_26px_80px_rgba(16,185,129,0.08)] hover:shadow-[0_26px_80px_rgba(16,185,129,0.08)]">
+          <div className="border-b border-emerald-200 px-6 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">Общее</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-stone-900">Общее между документами</h3>
+          </div>
+          <div className="px-6 py-5">
+            {result.common_points.length > 0 ? (
+              <ul className="space-y-3">
+                {result.common_points.map((item, index) => (
+                  <li
+                    key={`${index}-${item.slice(0, 32)}`}
+                    className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3"
+                  >
+                    <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[11px] font-semibold text-emerald-700">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm leading-6 text-stone-700">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-stone-500">Существенных пересечений не найдено.</p>
+            )}
+          </div>
         </Card>
-        <Card>
-          <h3 className="mb-3 text-sm font-semibold text-gray-700">Документ справа</h3>
-          <p className="text-sm leading-6 text-gray-600">{result.right_document_summary}</p>
+
+        <Card className="rounded-[30px] border-stone-300 bg-white/90 shadow-[0_26px_70px_rgba(28,25,23,0.1)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Различия</p>
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-stone-900">Ключевые различия</h3>
+          {result.differences.length > 0 ? (
+            <ul className="mt-5 space-y-4">
+              {result.differences.map((item, index) => (
+                <li
+                  key={`${index}-${item.slice(0, 32)}`}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 rounded-[22px] border border-stone-200 bg-stone-50/80 px-4 py-4"
+                >
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-300 bg-white text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">Изменение</p>
+                    <p className="mt-2 text-sm leading-6 text-stone-700">{item}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-5 text-sm text-gray-400">Содержательных различий не найдено.</p>
+          )}
         </Card>
       </div>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Общее между документами</h3>
-        {result.common_points.length > 0 ? (
-          <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
-            {result.common_points.map((item, index) => (
-              <li key={`${index}-${item.slice(0, 32)}`}>{item}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gray-400">Существенных пересечений не найдено.</p>
-        )}
+
+      <Card className="rounded-[30px] border-stone-300 bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(240,253,244,0.88))] shadow-[0_22px_70px_rgba(16,185,129,0.08)]">
+        <div>
+          <h3 className="text-xl font-semibold tracking-[-0.04em] text-stone-900">Оценка связи между документами</h3>
+          <p className="mt-3 text-sm leading-7 text-stone-700">{result.relation_assessment}</p>
+        </div>
       </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Ключевые различия</h3>
-        {result.differences.length > 0 ? (
-          <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
-            {result.differences.map((item, index) => (
-              <li key={`${index}-${item.slice(0, 32)}`}>{item}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gray-400">Содержательных различий не найдено.</p>
-        )}
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Оценка связи между документами</h3>
-        <p className="text-sm leading-6 text-gray-600">{result.relation_assessment}</p>
-      </Card>
-      <JsonActions data={result as unknown as Record<string, unknown>} filename="document-comparison-result.json" />
+
     </div>
   );
 }
@@ -664,6 +749,116 @@ function AnalysisProgress({
   );
 }
 
+function DataExtractorIdleState() {
+  return (
+    <div className="relative overflow-hidden rounded-[32px] border border-stone-300 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(246,240,229,0.98)_58%,_rgba(234,226,214,0.98))] p-6 shadow-[0_24px_90px_rgba(28,25,23,0.1)] sm:p-8">
+      <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-emerald-200/20 blur-3xl" />
+      <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_300px] lg:items-end">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-stone-500">Предпросмотр сравнения</p>
+          <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-stone-900">
+            Здесь появится карта изменений между двумя документами.
+          </h3>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-700">
+            После загрузки пары файлов страница соберет общий итог, точки пересечения, список ключевых различий и итоговую оценку их связи.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          {["Итог", "Общее", "Различия", "Связь"].map((item) => (
+            <div key={item} className="rounded-[22px] border border-stone-300/80 bg-white/70 px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">{item}</p>
+              <div className="mt-3 h-2 w-full rounded-full bg-stone-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DataExtractorLoadingState({
+  stage,
+  elapsedSec,
+}: {
+  stage?: AnalysisStage;
+  elapsedSec: number;
+}) {
+  const steps: Array<{ key: AnalysisStage; label: string; note: string }> = [
+    { key: "upload", label: "Intake", note: "Принимаем оба документа" },
+    { key: "analyze", label: "Diff", note: "Собираем общие и отличающиеся смысловые блоки" },
+    { key: "done", label: "Compose", note: "Формируем сравнение для интерфейса" },
+  ];
+  const currentIdx = stage ? steps.findIndex((item) => item.key === stage) : 0;
+
+  return (
+    <div className="overflow-hidden rounded-[32px] border border-stone-800 bg-[linear-gradient(135deg,#101314,#1a221f_45%,#101314)] p-6 text-stone-50 shadow-[0_28px_90px_rgba(17,24,39,0.35)] sm:p-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-300/80">Comparison in progress</p>
+          <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white">Собираем карту совпадений и расхождений.</h3>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-300">
+            Инструмент проходит по обеим версиям документа, сравнивает формулировки, сроки и обязательства и собирает итоговую связь между файлами.
+          </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {steps.map((item, index) => {
+              const isDone = currentIdx > index;
+              const isCurrent = currentIdx === index;
+              return (
+                <div
+                  key={item.key}
+                  className={`rounded-[24px] border px-4 py-4 ${
+                    isDone
+                      ? "border-emerald-400/20 bg-emerald-400/10"
+                      : isCurrent
+                        ? "border-white/15 bg-white/[0.06]"
+                        : "border-white/10 bg-white/[0.03]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">{item.label}</span>
+                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold ${
+                      isDone
+                        ? "bg-emerald-300 text-stone-950"
+                        : isCurrent
+                          ? "bg-white text-stone-950"
+                          : "bg-white/10 text-stone-300"
+                    }`}>
+                      {index + 1}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-stone-300">{item.note}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Live status</p>
+          <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-white">{formatTime(elapsedSec)}</p>
+          <p className="mt-2 text-sm leading-6 text-stone-300">
+            {stage ? STAGE_LABELS[stage] : "Подготовка сравнения…"}
+          </p>
+          <div className="mt-6 space-y-3">
+            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-stone-100 transition-all"
+                style={{ width: `${Math.max(18, ((currentIdx + 1) / steps.length) * 100)}%` }}
+              />
+            </div>
+            <div className="grid gap-2">
+              {["Распознаем файлы", "Сопоставляем смысл", "Собираем финальный ответ"].map((line) => (
+                <div key={line} className="h-10 rounded-2xl bg-white/[0.04]" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ResultsPanel({
   status,
   result,
@@ -675,6 +870,9 @@ export function ResultsPanel({
   documentView = "summary",
 }: ResultsPanelProps) {
   if (status === "idle") {
+    if (toolSlug === "data-extractor") {
+      return <DataExtractorIdleState />;
+    }
     return (
       <Card className="bg-gray-50">
         <p className="text-center text-gray-500">
@@ -685,6 +883,9 @@ export function ResultsPanel({
   }
 
   if (status === "loading") {
+    if (toolSlug === "data-extractor") {
+      return <DataExtractorLoadingState stage={stage} elapsedSec={elapsedSec} />;
+    }
     return <AnalysisProgress stage={stage} elapsedSec={elapsedSec} toolSlug={toolSlug} documentView={documentView} />;
   }
 

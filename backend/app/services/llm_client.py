@@ -218,7 +218,14 @@ def _coerce_json_payload(content: str) -> str:
 
 
 def _normalize_compression_level(opts: dict[str, Any]) -> str:
-    level = str(opts.get("compression_level") or "safe").strip().lower()
+    raw_level = opts.get("compression_level")
+    if raw_level is None:
+        analysis_mode = str(opts.get("analysis_mode") or "").strip().lower()
+        if analysis_mode == "fast":
+            raw_level = "aggressive"
+        elif analysis_mode == "deep":
+            raw_level = "safe"
+    level = str(raw_level or "safe").strip().lower()
     return level if level in COMPRESSION_LEVELS else "safe"
 
 

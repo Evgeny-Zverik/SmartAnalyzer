@@ -7,7 +7,7 @@ type ToolShellProps = {
   metaAction?: React.ReactNode;
 };
 
-export function ToolShell({ tool, children }: ToolShellProps) {
+export function ToolShell({ tool, children, metaAction }: ToolShellProps) {
   function handleHardNavigate(href: string) {
     window.location.href = href;
   }
@@ -46,11 +46,14 @@ export function ToolShell({ tool, children }: ToolShellProps) {
           <span className="font-medium text-gray-900">{tool.title}</span>
         </nav>
 
-        <header className="mb-5">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            {tool.title}
-          </h1>
-          <p className="mt-2 max-w-3xl text-gray-600">{tool.description}</p>
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              {tool.title}
+            </h1>
+            <p className="mt-2 max-w-3xl text-gray-600">{tool.description}</p>
+          </div>
+          {metaAction ? <div className="shrink-0">{metaAction}</div> : null}
         </header>
 
         <div>{children}</div>

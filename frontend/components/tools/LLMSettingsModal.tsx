@@ -119,13 +119,30 @@ export function getStoredLLMConfigForMode(mode: "local" | "api"): LLMConfig {
   return mode === "api" ? state.api : state.local;
 }
 
-export function getLLMConfigForRequest(config: LLMConfig | null): { base_url?: string; api_key?: string; model?: string; analysis_mode?: string } | null {
+function toCompressionLevel(config: LLMConfig): "aggressive" | "safe" {
+  return config.analysis_mode === "fast" ? "aggressive" : "safe";
+}
+
+export function getLLMConfigForRequest(config: LLMConfig | null): {
+  base_url?: string;
+  api_key?: string;
+  model?: string;
+  analysis_mode?: string;
+  compression_level?: string;
+} | null {
   if (!config || (!config.base_url && !config.api_key && !config.model)) return null;
-  const out: { base_url?: string; api_key?: string; model?: string; analysis_mode?: string } = {};
+  const out: {
+    base_url?: string;
+    api_key?: string;
+    model?: string;
+    analysis_mode?: string;
+    compression_level?: string;
+  } = {};
   if (config.base_url?.trim()) out.base_url = config.base_url.trim();
   if (config.api_key?.trim()) out.api_key = config.api_key.trim();
   if (config.model?.trim()) out.model = config.model.trim();
   out.analysis_mode = config.analysis_mode;
+  out.compression_level = toCompressionLevel(config);
   return Object.keys(out).length ? out : null;
 }
 
