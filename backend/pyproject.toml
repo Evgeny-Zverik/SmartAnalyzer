@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "smartanalyzer-backend"
 version = "0.1.0"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
@@ -23,6 +23,15 @@ dependencies = [
     "openpyxl",
     "openai",
     "cryptography",
+    "numpy<2",
+    "opencv-python-headless",
+    "Pillow",
+    "pillow-heif",
+    "PyMuPDF",
+    "safetensors",
+    "torch>=2.2,<2.3",
+    "torchvision>=0.17,<0.18",
+    "transformers>=4.41,<4.42",
 ]
 
 [project.optional-dependencies]
@@ -37,8 +46,8 @@ include = ["app*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 
 [tool.black]
 line-length = 100
-target-version = ["py39"]
+target-version = ["py311"]

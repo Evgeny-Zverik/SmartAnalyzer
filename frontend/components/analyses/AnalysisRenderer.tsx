@@ -125,101 +125,99 @@ function renderContractChecker(result: Record<string, unknown>) {
 }
 
 function renderDataExtractor(result: Record<string, unknown>) {
-  const fields = result.fields as Array<{ key?: string; value?: string }> | undefined;
-  const tables = result.tables as Array<{ name?: string; rows?: string[][] }> | undefined;
-  const confidence = result.confidence as number | undefined;
+  const summary = result.summary as string | undefined;
+  const leftSummary = result.left_document_summary as string | undefined;
+  const rightSummary = result.right_document_summary as string | undefined;
+  const commonPoints = result.common_points as string[] | undefined;
+  const differences = result.differences as string[] | undefined;
+  const relationAssessment = result.relation_assessment as string | undefined;
+  const areRelated = result.are_documents_related as boolean | undefined;
   return (
     <>
-      {confidence != null && (
-        <Section title="Уверенность">{String(confidence)}</Section>
-      )}
-      {fields?.length ? (
-        <Section title="Поля">
-          <dl className="space-y-1">
-            {fields.map((f, i) => (
-              <div key={i}>
-                <dt className="font-medium">{f.key}</dt>
-                <dd className="pl-4">{f.value}</dd>
-              </div>
+      {summary ? <Section title="Итог сравнения">{summary}</Section> : null}
+      {leftSummary ? <Section title="Документ слева">{leftSummary}</Section> : null}
+      {rightSummary ? <Section title="Документ справа">{rightSummary}</Section> : null}
+      {commonPoints?.length ? (
+        <Section title="Общее">
+          <ul className="list-disc pl-4">
+            {commonPoints.map((item, i) => (
+              <li key={i}>{item}</li>
             ))}
-          </dl>
+          </ul>
         </Section>
       ) : null}
-      {tables?.length ? (
-        <Section title="Таблицы">
-          {tables.map((t, i) => (
-            <div key={i} className="mb-2 overflow-x-auto">
-              <p className="font-medium">{t.name}</p>
-              <table className="min-w-full border border-gray-200 text-sm">
-                <tbody>
-                  {t.rows?.map((row, ri) => (
-                    <tr key={ri}>
-                      {row.map((cell, ci) => (
-                        <td key={ci} className="border border-gray-200 px-2 py-1">
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
+      {differences?.length ? (
+        <Section title="Различия">
+          <ul className="list-disc pl-4">
+            {differences.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
         </Section>
       ) : null}
+      {relationAssessment ? <Section title="Связь документов">{relationAssessment}</Section> : null}
+      {areRelated != null ? <Section title="Вывод">{areRelated ? "Документы связаны" : "Документы о разном"}</Section> : null}
     </>
   );
 }
 
 function renderTenderAnalyzer(result: Record<string, unknown>) {
   const summary = result.summary as string | undefined;
-  const requirements = result.requirements as Array<{ id?: string; text?: string; type?: string }> | undefined;
-  const complianceChecklist = result.compliance_checklist as Array<{ item?: string; status?: string; note?: string }> | undefined;
-  const deadlines = result.deadlines as Array<{ date?: string; description?: string }> | undefined;
-  const risks = result.risks as Array<{ title?: string; severity?: string; reason?: string }> | undefined;
+  const disputeOverview = result.dispute_overview as string | undefined;
+  const regions = result.regions as string[] | undefined;
+  const courtPositions = result.court_positions as Array<{ court?: string; position?: string; relevance?: string }> | undefined;
+  const citedCases = result.cited_cases as Array<{ title?: string; citation?: string; url?: string; takeaway?: string }> | undefined;
+  const legalBasis = result.legal_basis as string[] | undefined;
+  const practicalTakeaways = result.practical_takeaways as string[] | undefined;
   return (
     <>
       {summary != null && <Section title="Резюме">{summary}</Section>}
-      {requirements?.length ? (
-        <Section title="Требования">
+      {disputeOverview ? <Section title="Контекст спора">{disputeOverview}</Section> : null}
+      {regions?.length ? (
+        <Section title="Регионы">
           <ul className="list-disc pl-4">
-            {requirements.map((r, i) => (
+            {regions.map((region, i) => (
+              <li key={i}>{region}</li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+      {courtPositions?.length ? (
+        <Section title="Подходы судов">
+          <ul className="list-disc pl-4">
+            {courtPositions.map((item, i) => (
               <li key={i}>
-                {r.id} [{r.type}]: {r.text}
+                {item.court}: {item.position} {item.relevance ? `(${item.relevance})` : ""}
               </li>
             ))}
           </ul>
         </Section>
       ) : null}
-      {complianceChecklist?.length ? (
-        <Section title="Соответствие">
+      {citedCases?.length ? (
+        <Section title="Судебные акты">
           <ul className="list-disc pl-4">
-            {complianceChecklist.map((c, i) => (
+            {citedCases.map((item, i) => (
               <li key={i}>
-                {c.item} — {c.status} {c.note ? `(${c.note})` : ""}
+                {item.title} — {item.citation} {item.takeaway ? `(${item.takeaway})` : ""}
               </li>
             ))}
           </ul>
         </Section>
       ) : null}
-      {deadlines?.length ? (
-        <Section title="Сроки">
+      {legalBasis?.length ? (
+        <Section title="Нормы права">
           <ul className="list-disc pl-4">
-            {deadlines.map((d, i) => (
-              <li key={i}>
-                {d.date} — {d.description}
-              </li>
+            {legalBasis.map((item, i) => (
+              <li key={i}>{item}</li>
             ))}
           </ul>
         </Section>
       ) : null}
-      {risks?.length ? (
-        <Section title="Риски">
+      {practicalTakeaways?.length ? (
+        <Section title="Практические выводы">
           <ul className="list-disc pl-4">
-            {risks.map((r, i) => (
-              <li key={i}>
-                {r.title} [{r.severity}]: {r.reason}
-              </li>
+            {practicalTakeaways.map((item, i) => (
+              <li key={i}>{item}</li>
             ))}
           </ul>
         </Section>

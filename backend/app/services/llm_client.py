@@ -1046,3 +1046,62 @@ Document text:
         data["confidence"] = 0.5
 
     return data
+
+
+def compare_documents_detailed(
+    left_text: str,
+    right_text: str,
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    opts = overrides or {}
+    client, model = _build_openai_client(opts)
+    compression_level = _normalize_compression_level(opts)
+    left_source = left_text[:MAX_SOURCE_CONTEXT_CHARS]
+    right_source = right_text[:MAX_SOURCE_CONTEXT_CHARS]
+    left_bundle = _prepare_context_bundle(left_source, "contract", compression_level, include_verbatim=False)
+    right_bundle = _prepare_context_bundle(right_source, "contract", compression_level, include_verbatim=False)
+    language_rule = _language_requirement(f"{left_source}\n\n{right_source}")
+    prompt = f"""Compare two documents. Return JSON only, no markdown.
+{language_rule}
+
+Return a JSON object with exactly these keys:
+- "summary": 1-2 detailed paragraphs about what both documents are about and the overall comparison outcome.
+- "left_document_summary": 1 detailed paragraph about document A.
+- "right_document_summary": 1 detailed paragraph about document B.
+- "common_points": array of 0 to 8 strings describing major overlaps in subject, structure, obligations, terms or process.
+- "differences": array of 4 to 12 strings describing the most important differences in meaning, scope, dates, obligations, risks, parties or commercial terms.
+- "relation_assessment": 1 detailed paragraph stating whether these documents are versions of the same matter, adjacent documents in one process, or completely unrelated. If they are about different matters, say this directly.
+- "are_documents_related": boolean.
+
+Be concrete. Do not invent overlap if there is none.
+
+Document A:
+---
+{left_bundle["context"]}
+---
+
+Document B:
+---
+{right_bundle["context"]}
+---"""
+
+    content = _create_completion(client, model, prompt, opts, "document comparison")
+
+    try:
+        data = json.loads(_coerce_json_payload(content))
+    except json.JSONDecodeError as e:
+        raise_error(500, "LLM_ERROR", "Invalid JSON from comparison service.", {"detail": str(e)})
+
+    if not isinstance(data, dict):
+        raise_error(500, "LLM_ERROR", "Comparison result must be an object.", {})
+
+    data["summary"] = str(data.get("summary") or "").strip()
+    data["left_document_summary"] = str(data.get("left_document_summary") or "").strip()
+    data["right_document_summary"] = str(data.get("right_document_summary") or "").strip()
+    common_points = data.get("common_points")
+    data["common_points"] = [str(x).strip() for x in common_points[:8]] if isinstance(common_points, list) else []
+    differences = data.get("differences")
+    data["differences"] = [str(x).strip() for x in differences[:12]] if isinstance(differences, list) else []
+    data["relation_assessment"] = str(data.get("relation_assessment") or "").strip()
+    data["are_documents_related"] = bool(data.get("are_documents_related"))
+    return data

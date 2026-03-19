@@ -101,6 +101,46 @@ export_editable_text()''',
         kind="feature",
         sort_order=200,
     ),
+    FeatureModuleDefinition(
+        key="contract_checker",
+        name="AI Юрист",
+        description="Юридическая проверка договоров, поиск рисков и проблемных формулировок.",
+        example='''upload("agreement.docx")
+check_contract()
+review_risky_clauses()''',
+        kind="feature",
+        sort_order=210,
+    ),
+    FeatureModuleDefinition(
+        key="data_extractor",
+        name="Сравнение документов",
+        description="Сопоставление версий документа и извлечение отличий по тексту, срокам и обязательствам.",
+        example='''upload("v1.docx", "v2.docx")
+compare_versions()
+export_changes()''',
+        kind="feature",
+        sort_order=220,
+    ),
+    FeatureModuleDefinition(
+        key="tender_analyzer",
+        name="Обзор судебной практики",
+        description="Подбор судебной практики, актов и применимых норм по аналогичным спорам.",
+        example='''search_case_law(region="77")
+collect_court_acts()
+build_legal_review()''',
+        kind="feature",
+        sort_order=230,
+    ),
+    FeatureModuleDefinition(
+        key="risk_analyzer",
+        name="Анализатор рисков",
+        description="Отдельная фича оценки рисков и рекомендаций вне хоста document analyzer.",
+        example='''upload("project.pdf")
+score_risks()
+generate_recommendations()''',
+        kind="feature",
+        sort_order=240,
+    ),
 ]
 
 FEATURES_BY_KEY = {definition.key: definition for definition in FEATURE_DEFINITIONS}

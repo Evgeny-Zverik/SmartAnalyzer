@@ -37,7 +37,7 @@ SYSTEM_FOLDER_DEFINITIONS: tuple[SystemFolderDefinition, ...] = (
     ),
     SystemFolderDefinition(
         system_key="tool_tender_analyzer",
-        name="Tender Analyzer",
+        name="Обзор судебной практики",
         tool_slug="tender-analyzer",
     ),
     SystemFolderDefinition(
@@ -47,7 +47,7 @@ SYSTEM_FOLDER_DEFINITIONS: tuple[SystemFolderDefinition, ...] = (
     ),
     SystemFolderDefinition(
         system_key="tool_risk_analyzer",
-        name="Risk Analyzer",
+        name="Анализатор рисков",
         tool_slug="risk-analyzer",
     ),
 )

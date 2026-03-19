@@ -12,8 +12,26 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = ""
     openai_model: str = "gpt-4o-mini"
+    ocr_model_id: str = "kazars24/trocr-base-handwritten-ru@5342fbb29ec56eb677f553738c2fcc2befd6b0ab"
+    ocr_model_fallbacks: str = "cyrillic-trocr/trocr-handwritten-cyrillic,microsoft/trocr-base-handwritten"
+    ocr_generic_secondary_model_id: str = "cyrillic-trocr/trocr-handwritten-cyrillic"
+    ocr_generic_ensemble_enabled: bool = True
+    ocr_max_new_tokens: int = 128
+    ocr_pdf_render_scale: float = 2.0
     llm_timeout_seconds: int = 60
     llm_max_retries: int = 2
+    case_law_search_url: str = ""
+    case_law_search_api_key: str = ""
+    case_law_timeout_seconds: int = 20
+    yandex_search_api_key: str = ""
+    yandex_search_folder_id: str = ""
+    yandex_search_api_url: str = "https://searchapi.api.cloud.yandex.net/v2/web/search"
+    yandex_search_region: int = 225
+    yandex_search_groups_on_page: int = 8
+    yandex_search_docs_in_group: int = 1
+    case_law_web_search_url: str = ""
+    case_law_web_search_api_key: str = ""
+    case_law_web_search_domains: str = "kad.arbitr.ru,sudrf.ru"
     encryption_key: str = ""
 
     class Config:

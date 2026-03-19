@@ -15,11 +15,13 @@ from app.models.document_analysis import DocumentAnalysis
 from app.models.user import User
 from app.services.folders import ensure_user_system_folders, resolve_analysis_folder
 from app.services.ocr import recognize_handwriting
+from app.services.case_law_search import build_case_law_stub_result, search_case_law
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
     analyze_document_fast,
     check_contract,
+    compare_documents_detailed,
     extract_structured_data,
     stream_document_analysis_events,
 )
@@ -29,28 +31,28 @@ from app.schemas.tools import (
     ChecklistItem,
     ContractCheckerRunResponse,
     ContractCheckerResult,
-    DocumentAdvancedEditorResult,
-    DocumentAnnotationItem,
     DataExtractorRunResponse,
     DataExtractorResult,
     DateItem,
+    DocumentAdvancedEditorResult,
+    DocumentAnnotationItem,
     DocumentAnalyzerRunResponse,
     DocumentAnalyzerPrepareResponse,
     DocumentAnalyzerResult,
     FieldItem,
+    HandwritingRecognitionRunResponse,
+    HandwritingRecognitionResult,
     ObligationItem,
     PenaltyItem,
     RecommendationItem,
-    RequirementItem,
-    ComplianceItem,
     RiskAnalyzerRunResponse,
     RiskAnalyzerResult,
     RiskDriverItem,
-    HandwritingRecognitionRunResponse,
-    HandwritingRecognitionResult,
     RiskItem,
     RiskyClauseItem,
     TableItem,
+    TenderAnalyzerChatRequest,
+    TenderAnalyzerChatResponse,
     TenderAnalyzerRunResponse,
     TenderAnalyzerResult,
     ToolRunRequest,
@@ -151,9 +153,13 @@ def _stub_data_extractor(analysis_id: int) -> DataExtractorRunResponse:
         analysis_id=analysis_id,
         tool_slug="data-extractor",
         result=DataExtractorResult(
-            fields=[FieldItem(key="stub", value="stub")],
-            tables=[TableItem(name="Table 1", rows=[["c1", "c2"], ["v1", "v2"]])],
-            confidence=0.0,
+            summary="Документы описывают один и тот же предмет, но расходятся по срокам, объему и распределению ответственности.",
+            left_document_summary="Документ A фиксирует исходные условия сделки и базовые обязанности сторон.",
+            right_document_summary="Документ B описывает альтернативную версию условий с уточненными сроками и иным распределением рисков.",
+            common_points=["Оба документа посвящены одному процессу.", "Оба содержат обязательства сторон."],
+            differences=["Изменены сроки исполнения.", "Перераспределена ответственность сторон."],
+            relation_assessment="Документы связаны между собой и выглядят как разные версии одного договорного набора.",
+            are_documents_related=True,
         ),
     )
 
@@ -162,13 +168,7 @@ def _stub_tender_analyzer(analysis_id: int) -> TenderAnalyzerRunResponse:
     return TenderAnalyzerRunResponse(
         analysis_id=analysis_id,
         tool_slug="tender-analyzer",
-        result=TenderAnalyzerResult(
-            summary="Stub summary",
-            requirements=[RequirementItem(id="REQ-1", text="Stub", type="doc")],
-            compliance_checklist=[ComplianceItem(item="Stub", status="required", note="")],
-            deadlines=[DateItem(date="2026-03-05", description="Stub")],
-            risks=[RiskItem(title="Stub", severity="low", reason="Stub")],
-        ),
+        result=build_case_law_stub_result("практика по коммерческому спору Москва и Санкт-Петербург"),
     )
 
 
@@ -341,6 +341,7 @@ def run_contract_checker(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "contract_checker")
     ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "contract-checker")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
@@ -377,22 +378,22 @@ def run_data_extractor(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "data_extractor")
     ensure_user_system_folders(db, current_user.id)
     assert_can_run(db, current_user, "data-extractor")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
-    text = extract_text(doc.storage_path, doc.mime_type)
-    xlsx_tables: list[dict] = []
-    if doc.mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        xlsx_tables = extract_tables_from_xlsx(doc.storage_path)
+    compare_doc_id = body.compare_document_id
+    if compare_doc_id is None:
+        raise_error(400, "BAD_REQUEST", "Second document is required for comparison.", {"compare_document_id": None})
+    compare_doc = _get_document_for_user(db, compare_doc_id, current_user.id)
+    left_text = extract_text(doc.storage_path, doc.mime_type)
+    right_text = extract_text(compare_doc.storage_path, compare_doc.mime_type)
     overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
-    raw_result = extract_structured_data(text, overrides=overrides)
-    if xlsx_tables:
-        existing = raw_result.get("tables") or []
-        raw_result["tables"] = xlsx_tables + existing[: max(0, 3 - len(xlsx_tables))]
+    raw_result = compare_documents_detailed(left_text, right_text, overrides=overrides)
     try:
         result = DataExtractorResult.model_validate(raw_result)
     except ValidationError:
-        raise_error(500, "LLM_INVALID_RESPONSE", "Data extraction result format invalid. Try again.", {})
+        raise_error(500, "LLM_INVALID_RESPONSE", "Document comparison result format invalid. Try again.", {})
     folder = resolve_analysis_folder(
         db,
         current_user.id,
@@ -458,7 +459,9 @@ def run_tender_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "tender_analyzer")
     ensure_user_system_folders(db, current_user.id)
+    assert_can_run(db, current_user, "tender-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     stub = _stub_tender_analyzer(analysis_id=0)
     folder = resolve_analysis_folder(
@@ -477,7 +480,24 @@ def run_tender_analyzer(
         stub.result.model_dump(),
         folder.id,
     )
+    log_run(db, current_user.id, "tender-analyzer")
     return TenderAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
+
+
+@router.post("/tender-analyzer/chat", response_model=TenderAnalyzerChatResponse)
+def run_tender_analyzer_chat(
+    body: TenderAnalyzerChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _assert_feature_enabled(db, current_user, "tender_analyzer")
+    assert_can_run(db, current_user, "tender-analyzer")
+    query = body.query.strip()
+    if not query:
+        raise_error(400, "BAD_REQUEST", "Query is required.", {"query": ""})
+    result = search_case_law(query, allow_related_regions=body.allow_related_regions)
+    log_run(db, current_user.id, "tender-analyzer")
+    return TenderAnalyzerChatResponse(tool_slug="tender-analyzer", result=result)
 
 
 @router.post("/risk-analyzer/run", response_model=RiskAnalyzerRunResponse)
@@ -486,6 +506,7 @@ def run_risk_analyzer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_feature_enabled(db, current_user, "risk_analyzer")
     ensure_user_system_folders(db, current_user.id)
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     stub = _stub_risk_analyzer(analysis_id=0)

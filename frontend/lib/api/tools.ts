@@ -95,9 +95,13 @@ export type DataExtractorRunResponse = {
   analysis_id: number;
   tool_slug: string;
   result: {
-    fields: Array<{ key: string; value: string }>;
-    tables: Array<{ name: string; rows: string[][] }>;
-    confidence: number;
+    summary: string;
+    left_document_summary: string;
+    right_document_summary: string;
+    common_points: string[];
+    differences: string[];
+    relation_assessment: string;
+    are_documents_related: boolean;
   };
 };
 
@@ -108,8 +112,42 @@ export type HandwritingRecognitionRunResponse = {
     recognized_text: string;
     confidence: number;
     page_count: number;
-    lines: Array<{ text: string; confidence: number }>;
+    template_id?: string | null;
+    ocr_model_id?: string | null;
+    needs_review_count?: number;
+    lines: Array<{
+      text: string;
+      confidence: number;
+      model_id?: string | null;
+      page_index?: number;
+      field_name?: string | null;
+      source?: string | null;
+      needs_review?: boolean;
+      bbox?: { x: number; y: number; width: number; height: number } | null;
+    }>;
   };
+};
+
+export type TenderAnalyzerRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    query: string;
+    summary: string;
+    search_scope: string;
+    dispute_overview: string;
+    regions: string[];
+    court_positions: Array<{ court: string; position: string; relevance: string }>;
+    cited_cases: Array<{ title: string; citation: string; url: string; takeaway: string }>;
+    legal_basis: string[];
+    practical_takeaways: string[];
+    follow_up_prompt: string;
+  };
+};
+
+export type TenderAnalyzerChatResponse = {
+  tool_slug: string;
+  result: TenderAnalyzerRunResponse["result"];
 };
 
 export type LLMConfigRequest = {
@@ -169,10 +207,23 @@ export async function runContractChecker(documentId: number, signal?: AbortSigna
   });
 }
 
-export async function runDataExtractor(documentId: number, signal?: AbortSignal): Promise<DataExtractorRunResponse> {
+export async function runDataExtractor(
+  documentId: number,
+  compareDocumentId: number,
+  llmConfig?: LLMConfigRequest | null,
+  signal?: AbortSignal
+): Promise<DataExtractorRunResponse> {
+  const body: {
+    document_id: number;
+    compare_document_id: number;
+    llm_config?: LLMConfigRequest;
+  } = { document_id: documentId, compare_document_id: compareDocumentId };
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
+    body.llm_config = llmConfig;
+  }
   return apiFetch<DataExtractorRunResponse>("/api/v1/tools/data-extractor/run", {
     method: "POST",
-    body: JSON.stringify({ document_id: documentId }),
+    body: JSON.stringify(body),
     signal,
   });
 }
@@ -188,6 +239,29 @@ export async function runHandwritingRecognition(
   });
 }
 
+export async function runTenderAnalyzer(
+  documentId: number,
+  signal?: AbortSignal
+): Promise<TenderAnalyzerRunResponse> {
+  return apiFetch<TenderAnalyzerRunResponse>("/api/v1/tools/tender-analyzer/run", {
+    method: "POST",
+    body: JSON.stringify({ document_id: documentId }),
+    signal,
+  });
+}
+
+export async function runTenderAnalyzerChat(
+  query: string,
+  allowRelatedRegions = false,
+  signal?: AbortSignal
+): Promise<TenderAnalyzerChatResponse> {
+  return apiFetch<TenderAnalyzerChatResponse>("/api/v1/tools/tender-analyzer/chat", {
+    method: "POST",
+    body: JSON.stringify({ query, allow_related_regions: allowRelatedRegions }),
+    signal,
+  });
+}
+
 const mockBySlug: Record<string, Record<string, unknown>> = {
   "contract-checker": {
     riskyClauses: ["П. 4.2 — неограниченная ответственность"],
@@ -196,15 +270,38 @@ const mockBySlug: Record<string, Record<string, unknown>> = {
     deadlines: ["Подписание до 01.03.2025"],
   },
   "data-extractor": {
-    structuredFields: { name: "Пример", value: "Значение" },
-    tables: [{ col1: "A", col2: "B" }],
-    jsonExport: true,
+    summary: "Документы описывают один и тот же предмет, но расходятся по срокам и распределению обязанностей.",
+    left_document_summary: "Первый документ фиксирует базовые условия и общий предмет договоренности.",
+    right_document_summary: "Второй документ описывает альтернативную редакцию с уточненными сроками и обязанностями.",
+    common_points: ["Одинаковый предмет регулирования", "Схожая структура обязательств"],
+    differences: ["Изменены сроки исполнения", "Перераспределена ответственность сторон"],
+    relation_assessment: "Документы связаны и выглядят как разные версии одного договорного материала.",
+    are_documents_related: true,
   },
   "tender-analyzer": {
-    requirements: ["Требование 1", "Требование 2"],
-    complianceChecklist: ["Критерий A — да", "Критерий B — да"],
-    deadlines: ["Подача заявки до 10.03.2025"],
-    risks: ["Риск несоответствия срокам"],
+    query: "практика по спорам Брянска",
+    summary: "Подборка показывает подходы арбитражных судов к аналогичному спору и выделяет доказательства, которые влияют на исход дела.",
+    search_scope: "Регион: Брянская область. Контур поиска: арбитражные суды.",
+    dispute_overview: "Спор касается исполнения договорных обязательств, подтверждения объема работ и просрочки исполнения.",
+    regions: ["Москва", "Санкт-Петербург"],
+    court_positions: [
+      {
+        court: "Арбитражный суд города Москвы",
+        position: "Суд оценивает не только договор, но и переписку, акты и платежные документы.",
+        relevance: "Подходит для споров о фактическом исполнении обязательств.",
+      },
+    ],
+    cited_cases: [
+      {
+        title: "Спор о взыскании оплаты по договору",
+        citation: "А40-000001/2025",
+        url: "https://kad.arbitr.ru/",
+        takeaway: "Частичная оплата и акты могут подтвердить исполнение даже при споре о формулировках.",
+      },
+    ],
+    legal_basis: ["Ст. 309 ГК РФ", "Ст. 431 ГК РФ", "Ст. 65 АПК РФ"],
+    practical_takeaways: ["Соберите первичные документы и переписку.", "Покажите причинную связь между нарушением и убытками."],
+    follow_up_prompt: "Уточните регион, период и инстанцию.",
   },
   "risk-analyzer": {
     riskScore: 42,
@@ -338,6 +435,7 @@ export async function runToolAnalysis(
   signal?: AbortSignal,
   options?: {
     existingDocumentId?: number | null;
+    compareDocumentId?: number | null;
     editedDocument?: EditedDocumentRequest | null;
   }
 ): Promise<ToolAnalysisResult> {
@@ -348,7 +446,8 @@ export async function runToolAnalysis(
     toolSlug === "document-analyzer" ||
     toolSlug === "contract-checker" ||
     toolSlug === "data-extractor" ||
-    toolSlug === "handwriting-recognition"
+    toolSlug === "handwriting-recognition" ||
+    toolSlug === "tender-analyzer"
   ) {
     let documentId = options?.existingDocumentId ?? null;
     if (!documentId) {
@@ -373,7 +472,13 @@ export async function runToolAnalysis(
       const runRes = await runContractChecker(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "data-extractor") {
-      const runRes = await runDataExtractor(documentId, signal);
+      if (!options?.compareDocumentId) {
+        throw new Error("Second document is required for comparison.");
+      }
+      const runRes = await runDataExtractor(documentId, options.compareDocumentId, llmConfig, signal);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else if (toolSlug === "tender-analyzer") {
+      const runRes = await runTenderAnalyzer(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else {
       const runRes = await runHandwritingRecognition(documentId, signal);

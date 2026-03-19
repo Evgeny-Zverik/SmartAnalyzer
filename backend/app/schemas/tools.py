@@ -79,20 +79,40 @@ class TableItem(BaseModel):
 
 
 class DataExtractorResult(BaseModel):
-    fields: list[FieldItem]
-    tables: list[TableItem]
-    confidence: float
+    summary: str
+    left_document_summary: str
+    right_document_summary: str
+    common_points: list[str]
+    differences: list[str]
+    relation_assessment: str
+    are_documents_related: bool
+
+
+class OCRBoundingBox(BaseModel):
+    x: int
+    y: int
+    width: int
+    height: int
 
 
 class OCRLineItem(BaseModel):
     text: str
     confidence: float
+    model_id: str | None = None
+    page_index: int = 0
+    field_name: str | None = None
+    source: str | None = None
+    needs_review: bool = False
+    bbox: OCRBoundingBox | None = None
 
 
 class HandwritingRecognitionResult(BaseModel):
     recognized_text: str
     confidence: float
     page_count: int
+    template_id: str | None = None
+    ocr_model_id: str | None = None
+    needs_review_count: int = 0
     lines: list[OCRLineItem]
 
 
@@ -114,12 +134,30 @@ class RiskItem(BaseModel):
     reason: str
 
 
+class CourtPositionItem(BaseModel):
+    court: str
+    position: str
+    relevance: str
+
+
+class CaseLawReferenceItem(BaseModel):
+    title: str
+    citation: str
+    url: str
+    takeaway: str
+
+
 class TenderAnalyzerResult(BaseModel):
+    query: str
     summary: str
-    requirements: list[RequirementItem]
-    compliance_checklist: list[ComplianceItem]
-    deadlines: list[DateItem]
-    risks: list[RiskItem]
+    search_scope: str
+    dispute_overview: str
+    regions: list[str]
+    court_positions: list[CourtPositionItem]
+    cited_cases: list[CaseLawReferenceItem]
+    legal_basis: list[str]
+    practical_takeaways: list[str]
+    follow_up_prompt: str
 
 
 class RiskDriverItem(BaseModel):
@@ -158,9 +196,15 @@ class EditedDocumentPayload(BaseModel):
 
 class ToolRunRequest(BaseModel):
     document_id: int
+    compare_document_id: int | None = None
     folder_id: int | None = None
     llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
+
+
+class TenderAnalyzerChatRequest(BaseModel):
+    query: str
+    allow_related_regions: bool = False
 
 
 class DocumentAnalyzerRunResponse(BaseModel):
@@ -195,6 +239,11 @@ class HandwritingRecognitionRunResponse(BaseModel):
 
 class TenderAnalyzerRunResponse(BaseModel):
     analysis_id: int
+    tool_slug: str
+    result: TenderAnalyzerResult
+
+
+class TenderAnalyzerChatResponse(BaseModel):
     tool_slug: str
     result: TenderAnalyzerResult
 

@@ -45,20 +45,20 @@ export const tools: Tool[] = [
     category: "Data",
     icon: "GitCompareArrows",
     mvp: {
-      accepts: ["pdf", "docx", "xlsx"],
-      output: ["structured fields", "tables", "json export"],
+      accepts: ["pdf", "docx"],
+      output: ["detailed summary", "differences", "relation assessment"],
     },
   },
   {
     slug: "tender-analyzer",
     title: "Обзор судебной практики",
     description:
-      "Формирует подборку судебной практики по регионам, показывает подходы судов по аналогичным спорам и прикладывает ссылки на судебные акты и применимые нормы права.",
+      "Чат по судебной практике: ищет подходы судов по регионам, собирает ссылки на акты и подсказывает, какие нормы и аргументы проверить.",
     category: "Documents",
     icon: "Landmark",
     mvp: {
-      accepts: ["pdf", "docx"],
-      output: ["requirements", "compliance checklist", "deadlines", "risks"],
+      accepts: [],
+      output: ["free-form query", "court positions", "links to cases", "legal basis"],
     },
   },
   {

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { notFound } from "next/navigation";
-import { FileText, Settings, Sparkles } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
 import {
   prepareDocumentAnalyzer,
@@ -20,11 +20,10 @@ import { ToolShell } from "@/components/tools/ToolShell";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { ResultsPanel } from "@/components/tools/ResultsPanel";
 import { AdvancedAiEditor } from "@/components/tools/AdvancedAiEditor";
+import { CaseLawChatWorkspace } from "@/components/tools/CaseLawChatWorkspace";
 import { DocumentWorkspace } from "@/components/tools/DocumentWorkspace";
 import {
-  LLMSettingsModal,
   getStoredLLMConfig,
-  getStoredLLMConfigForMode,
   getLLMConfigForRequest,
   type LLMConfig,
 } from "@/components/tools/LLMSettingsModal";
@@ -162,27 +161,21 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [featureAccessReady, setFeatureAccessReady] = useState(() => getFeatureKeyForTool(tool.slug) === null);
   const [featureAllowed, setFeatureAllowed] = useState(true);
 
-  if (tool.slug === "document-analyzer") {
-    return (
-      <ToolShell tool={tool}>
-        <DocumentWorkspace accepts={tool.mvp.accepts} />
-      </ToolShell>
-    );
-  }
-
   const [state, setState] = useState<ToolState>("idle");
   const [file, setFile] = useState<File | null>(null);
+  const [compareFile, setCompareFile] = useState<File | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showUpgradeCta, setShowUpgradeCta] = useState(false);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
-  const [llmModalOpen, setLlmModalOpen] = useState(false);
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
   const [documentId, setDocumentId] = useState<number | null>(null);
+  const [compareDocumentId, setCompareDocumentId] = useState<number | null>(null);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
+  const isLlmConfigurableTool = tool.slug === "document-analyzer" || tool.slug === "data-extractor";
   const advancedEditorData = useMemo(
     () =>
       ((result?.advanced_editor as {
@@ -203,17 +196,26 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       }) ?? { full_text: "", annotations: [] }),
     [result?.advanced_editor]
   );
-  const isIntroCollapsed = !!file && (state === "loading" || state === "success" || state === "error");
+  const isIntroCollapsed = (!!file || !!compareFile) && (state === "loading" || state === "success" || state === "error");
+  const isCompareTool = tool.slug === "data-extractor";
   const analysisAbortRef = useRef<AbortController | null>(null);
-  const actionHint = file
-    ? state === "loading"
-      ? "Идет анализ документа. Можно остановить процесс в любой момент."
-      : tool.slug === "document-analyzer" && hasEditorChanges
-        ? "Документ изменен. Можно отправить текущую отредактированную версию на повторный анализ."
-      : state === "success"
-        ? ""
-        : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
-    : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку.";
+  const actionHint = isCompareTool
+    ? file && compareFile
+      ? state === "loading"
+        ? "Идет сравнение двух документов. Можно остановить процесс в любой момент."
+        : state === "success"
+          ? ""
+          : "Слева загрузите первый документ, справа второй. После этого запустите сравнение."
+      : "Нужно загрузить два документа: базовый слева и документ для сравнения справа."
+    : file
+      ? state === "loading"
+        ? "Идет анализ документа. Можно остановить процесс в любой момент."
+        : tool.slug === "document-analyzer" && hasEditorChanges
+          ? "Документ изменен. Можно отправить текущую отредактированную версию на повторный анализ."
+          : state === "success"
+            ? ""
+            : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
+      : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку.";
 
   useEffect(() => {
     setLlmConfig(getStoredLLMConfig());
@@ -238,11 +240,15 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           router.replace("/tools");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
-        setFeatureAllowed(false);
+        if (isUnauthorized(error)) {
+          logout();
+          router.replace("/login");
+          return;
+        }
+        setFeatureAllowed(true);
         setFeatureAccessReady(true);
-        router.replace("/tools");
       });
 
     return () => {
@@ -250,21 +256,26 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     };
   }, [router, tool.slug]);
 
-  const currentMode = llmConfig?.mode ?? "local";
-  const setLlmMode = useCallback((mode: "local" | "api") => {
-    setLlmConfig(getStoredLLMConfigForMode(mode));
-  }, []);
-
   const handleFileChange = useCallback((f: File | null) => {
     setFile(f);
-    setState(f ? "ready" : "idle");
+    setState(f || compareFile ? "ready" : "idle");
     setResult(null);
     setErrorMessage(null);
     setDocumentTab("summary");
     setDocumentId(null);
+    setCompareDocumentId(null);
     setEditedDocument(null);
     setHasEditorChanges(false);
-  }, []);
+  }, [compareFile]);
+
+  const handleCompareFileChange = useCallback((f: File | null) => {
+    setCompareFile(f);
+    setState(file || f ? "ready" : "idle");
+    setResult(null);
+    setErrorMessage(null);
+    setDocumentTab("summary");
+    setCompareDocumentId(null);
+  }, [file]);
 
   const handleAdvancedEditorDocumentChange = useCallback((payload: {
     full_text: string;
@@ -290,6 +301,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
   const handleAnalyze = useCallback(async () => {
     if (!file) return;
+    if (isCompareTool && !compareFile) return;
     analysisAbortRef.current?.abort();
     const controller = new AbortController();
     analysisAbortRef.current = controller;
@@ -300,7 +312,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setResult(null);
     setShowUpgradeCta(false);
     try {
-      const requestLlm = tool.slug === "document-analyzer" ? getLLMConfigForRequest(llmConfig) : undefined;
+      const requestLlm = isLlmConfigurableTool ? getLLMConfigForRequest(llmConfig) : undefined;
       if (tool.slug === "document-analyzer") {
         let currentDocumentId = documentId;
 
@@ -366,6 +378,41 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             }
           }
         );
+      } else if (tool.slug === "data-extractor") {
+        let currentDocumentId = documentId;
+        let currentCompareDocumentId = compareDocumentId;
+
+        setStage("upload");
+        if (!currentDocumentId) {
+          const uploadRes = await uploadDocument(file, { signal: controller.signal });
+          currentDocumentId = uploadRes.document_id;
+          setDocumentId(currentDocumentId);
+        }
+        if (!currentCompareDocumentId && compareFile) {
+          const uploadRes = await uploadDocument(compareFile, { signal: controller.signal });
+          currentCompareDocumentId = uploadRes.document_id;
+          setCompareDocumentId(currentCompareDocumentId);
+        }
+        if (!currentCompareDocumentId) {
+          throw new Error("Second document is required for comparison.");
+        }
+
+        setStage("analyze");
+        const analysis = await runToolAnalysis(
+          tool.slug,
+          file,
+          requestLlm,
+          (s) => {
+            setStage(s);
+          },
+          controller.signal,
+          {
+            existingDocumentId: currentDocumentId,
+            compareDocumentId: currentCompareDocumentId,
+          }
+        );
+        setResult(analysis.result as Record<string, unknown>);
+        setState("success");
       } else {
         const analysis = await runToolAnalysis(
           tool.slug,
@@ -407,7 +454,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         if (tool.slug === "contract-checker") {
           message = message || "Cannot extract text from contract.";
         } else if (tool.slug === "data-extractor") {
-          message = message || "Cannot read text from document or unsupported format.";
+          message = message || "Невозможно прочитать один из документов для сравнения.";
         } else {
           message = message || "Cannot read text from document.";
         }
@@ -424,7 +471,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         } else if (tool.slug === "contract-checker") {
           message = message || "Contract analysis failed. Try again.";
         } else if (tool.slug === "data-extractor") {
-          message = message || "Data extraction failed. Try again.";
+          message = message || "Сравнение документов не удалось. Попробуйте еще раз.";
         } else {
           message = message || "Analysis failed. Try again.";
         }
@@ -437,7 +484,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         analysisAbortRef.current = null;
       }
     }
-  }, [file, tool.slug, router, llmConfig, documentId, editedDocument, hasEditorChanges]);
+  }, [file, compareFile, isCompareTool, isLlmConfigurableTool, tool.slug, router, llmConfig, documentId, compareDocumentId, editedDocument, hasEditorChanges]);
 
   const handleAbortAnalysis = useCallback(() => {
     analysisAbortRef.current?.abort();
@@ -464,11 +511,27 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     return null;
   }
 
+  if (tool.slug === "document-analyzer") {
+    return (
+      <ToolShell tool={tool}>
+        <DocumentWorkspace accepts={tool.mvp.accepts} />
+      </ToolShell>
+    );
+  }
+
+  if (tool.slug === "tender-analyzer") {
+    return (
+      <ToolShell tool={tool}>
+        <CaseLawChatWorkspace tool={tool} />
+      </ToolShell>
+    );
+  }
+
   return (
     <ToolShell
       tool={tool}
       metaAction={
-        file ? (
+        file || compareFile ? (
           <Button
             type="button"
             variant="secondary"
@@ -477,10 +540,18 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 handleAbortAnalysis();
               }
               handleFileChange(null);
+              if (isCompareTool) {
+                handleCompareFileChange(null);
+              }
+              setState("idle");
+              setResult(null);
+              setErrorMessage(null);
+              setDocumentId(null);
+              setCompareDocumentId(null);
             }}
             className="whitespace-nowrap"
           >
-            Сменить файл
+            {isCompareTool ? "Сменить файлы" : "Сменить файл"}
           </Button>
         ) : null
       }
@@ -500,85 +571,95 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 </p>
               </div>
             </div>
-            <UploadDropzone
-              acceptedExtensions={tool.mvp.accepts}
-              file={file}
-              onFileChange={handleFileChange}
-              compact
-              showFileCard={false}
-            />
+            {isCompareTool ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ слева</p>
+                  <UploadDropzone
+                    acceptedExtensions={tool.mvp.accepts}
+                    file={file}
+                    onFileChange={handleFileChange}
+                    compact
+                    showFileCard={false}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Документ справа</p>
+                  <UploadDropzone
+                    acceptedExtensions={tool.mvp.accepts}
+                    file={compareFile}
+                    onFileChange={handleCompareFileChange}
+                    compact
+                    showFileCard={false}
+                  />
+                </div>
+              </div>
+            ) : (
+              <UploadDropzone
+                acceptedExtensions={tool.mvp.accepts}
+                file={file}
+                onFileChange={handleFileChange}
+                compact
+                showFileCard={false}
+              />
+            )}
           </section>
         )}
 
         <div className="sticky top-4 z-30">
           <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
-                  <FileText className="h-5 w-5" />
+              {isCompareTool ? (
+                <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                  {[
+                    { title: "Документ слева", currentFile: file },
+                    { title: "Документ справа", currentFile: compareFile },
+                  ].map((item) => (
+                    <div key={item.title} className="flex min-w-0 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
+                      <div className="rounded-2xl bg-white p-2 text-gray-500">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{item.title}</p>
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {item.currentFile ? item.currentFile.name : "Файл не выбран"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item.currentFile
+                            ? `${formatSize(item.currentFile.size)} · ${tool.mvp.accepts.join(", ")}`
+                            : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {file ? "Выбранный файл" : "Готово к загрузке"}
-                  </p>
-                  <p className="truncate text-sm font-medium text-gray-900">
-                    {file ? file.name : "Выберите документ для анализа"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {file
-                      ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
-                      : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
-                  </p>
+              ) : (
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="rounded-2xl bg-gray-100 p-2 text-gray-500">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {file ? "Выбранный файл" : "Готово к загрузке"}
+                    </p>
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {file ? file.name : "Выберите документ для анализа"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {file
+                        ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
+                        : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-3 xl:max-w-[760px] xl:justify-self-end">
                 <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-                  {tool.slug === "document-analyzer" && (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div
-                        className="flex shrink-0 rounded-xl border border-gray-300 bg-gray-100 p-0.5"
-                        role="group"
-                        aria-label="Режим LLM"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setLlmMode("local")}
-                          className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                            currentMode === "local"
-                              ? "bg-white text-gray-900 shadow-sm"
-                              : "text-gray-600 hover:text-gray-900"
-                          }`}
-                        >
-                          Свой сервер
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setLlmMode("api")}
-                          className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
-                            currentMode === "api"
-                              ? "bg-white text-gray-900 shadow-sm"
-                              : "text-gray-600 hover:text-gray-900"
-                          }`}
-                        >
-                          API
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setLlmModalOpen(true)}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
-                        title="Настройки LLM"
-                        aria-label="Настройки LLM"
-                      >
-                        <Settings className="h-5 w-5" />
-                      </button>
-                    </div>
-                  )}
                   <Button
                     type="button"
                     variant={state === "success" && !hasEditorChanges ? "secondary" : "primary"}
-                    disabled={!file || (state === "success" && !hasEditorChanges)}
+                    disabled={(!file || (isCompareTool && !compareFile)) || (state === "success" && !hasEditorChanges)}
                     onClick={state === "loading" ? handleAbortAnalysis : handleAnalyze}
                     className={`shrink-0 whitespace-nowrap ${
                       state === "success" && !hasEditorChanges
@@ -593,7 +674,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                         : state === "success"
                         ? "Проанализировано"
                         : tool.slug === "data-extractor"
-                        ? "Запустить извлечение"
+                        ? "Сравнить документы"
                         : "Запустить анализ"}
                   </Button>
                 </div>
@@ -604,14 +685,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             </div>
           </div>
         </div>
-        {tool.slug === "document-analyzer" && (
-          <LLMSettingsModal
-            isOpen={llmModalOpen}
-            onClose={() => setLlmModalOpen(false)}
-            initialConfig={llmConfig}
-            onSave={setLlmConfig}
-          />
-        )}
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Results</h2>

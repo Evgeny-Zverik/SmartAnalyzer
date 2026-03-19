@@ -25,6 +25,7 @@ services:
     volumes:
       - ./backend:/app
       - ./storage:/storage
+      - hf_models:/models/huggingface
     ports:
       - "8000:8000"
     depends_on:
@@ -50,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  hf_models:

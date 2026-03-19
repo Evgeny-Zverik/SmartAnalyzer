@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 const STORAGE_KEY = "smartanalyzer_llm_config";
+const LEGACY_LOCAL_BASE_URL = "http://localhost:11434/v1";
 
 export type LLMConfig = {
   mode: "local" | "api";
@@ -16,9 +17,9 @@ export type LLMConfig = {
 
 export const DEFAULT_LOCAL: LLMConfig = {
   mode: "local",
-  base_url: "http://localhost:11434/v1",
+  base_url: "http://127.0.0.1:1234/v1",
   api_key: "ollama",
-  model: "llama3.2",
+  model: "google/gemma-3-4b",
   analysis_mode: "fast",
 };
 
@@ -43,11 +44,19 @@ function getDefaultConfig(mode: "local" | "api"): LLMConfig {
 function normalizeConfig(mode: "local" | "api", value: unknown): LLMConfig {
   const source = value && typeof value === "object" ? (value as Partial<LLMConfig>) : {};
   const fallback = getDefaultConfig(mode);
+  const rawBaseUrl = typeof source.base_url === "string" ? source.base_url : fallback.base_url;
+  const migratedBaseUrl =
+    mode === "local" && rawBaseUrl.trim() === LEGACY_LOCAL_BASE_URL ? DEFAULT_LOCAL.base_url : rawBaseUrl;
+  const rawModel = typeof source.model === "string" ? source.model : fallback.model;
+  const migratedModel =
+    mode === "local" && rawBaseUrl.trim() === LEGACY_LOCAL_BASE_URL && rawModel.trim() === "llama3.2"
+      ? DEFAULT_LOCAL.model
+      : rawModel;
   return {
     mode,
-    base_url: typeof source.base_url === "string" ? source.base_url : fallback.base_url,
+    base_url: migratedBaseUrl,
     api_key: typeof source.api_key === "string" ? source.api_key : fallback.api_key,
-    model: typeof source.model === "string" ? source.model : fallback.model,
+    model: migratedModel,
     analysis_mode: source.analysis_mode === "fast" ? "fast" : source.analysis_mode === "deep" ? "deep" : fallback.analysis_mode,
   };
 }
@@ -249,7 +258,7 @@ export function LLMSettingsModal({ isOpen, onClose, initialConfig, onSave }: LLM
                 label="Base URL"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="http://localhost:11434/v1"
+                placeholder="http://127.0.0.1:1234/v1"
               />
               <Input
                 label="Модель"

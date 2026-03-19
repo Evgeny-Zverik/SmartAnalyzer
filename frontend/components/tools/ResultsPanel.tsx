@@ -5,8 +5,6 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
 import { ChecklistView } from "@/components/tools/ChecklistView";
-import { FieldsTable } from "@/components/tools/FieldsTable";
-import { TablesView } from "@/components/tools/TablesView";
 import { JsonActions } from "@/components/tools/JsonActions";
 
 type AnalysisStage = "upload" | "analyze" | "review" | "done";
@@ -40,8 +38,12 @@ const KEY_LABELS: Record<string, string> = {
   key_risks: "Ключевые риски",
   risk_drivers: "Драйверы риска",
   recommendations: "Рекомендации",
-  requirements: "Требования",
-  compliance_checklist: "Соответствие",
+  dispute_overview: "Контекст спора",
+  regions: "Регионы",
+  court_positions: "Подходы судов",
+  cited_cases: "Судебные акты",
+  legal_basis: "Нормы права",
+  practical_takeaways: "Практические выводы",
 };
 
 function formatKey(key: string): string {
@@ -104,14 +106,22 @@ function isContractCheckerResult(r: Record<string, unknown>): r is {
 }
 
 function isDataExtractorResult(r: Record<string, unknown>): r is {
-  fields: Array<{ key: string; value: string }>;
-  tables: Array<{ name: string; rows: string[][] }>;
-  confidence: number;
+  summary: string;
+  left_document_summary: string;
+  right_document_summary: string;
+  common_points: string[];
+  differences: string[];
+  relation_assessment: string;
+  are_documents_related: boolean;
 } {
   return (
-    Array.isArray(r.fields) &&
-    Array.isArray(r.tables) &&
-    typeof r.confidence === "number"
+    typeof r.summary === "string" &&
+    typeof r.left_document_summary === "string" &&
+    typeof r.right_document_summary === "string" &&
+    Array.isArray(r.common_points) &&
+    Array.isArray(r.differences) &&
+    typeof r.relation_assessment === "string" &&
+    typeof r.are_documents_related === "boolean"
   );
 }
 
@@ -119,7 +129,19 @@ function isHandwritingRecognitionResult(r: Record<string, unknown>): r is {
   recognized_text: string;
   confidence: number;
   page_count: number;
-  lines: Array<{ text: string; confidence: number }>;
+  template_id?: string | null;
+  ocr_model_id?: string | null;
+  needs_review_count?: number;
+  lines: Array<{
+    text: string;
+    confidence: number;
+    model_id?: string | null;
+    page_index?: number;
+    field_name?: string | null;
+    source?: string | null;
+    needs_review?: boolean;
+    bbox?: { x: number; y: number; width: number; height: number } | null;
+  }>;
 } {
   return (
     typeof r.recognized_text === "string" &&
@@ -129,35 +151,199 @@ function isHandwritingRecognitionResult(r: Record<string, unknown>): r is {
   );
 }
 
+function isTenderAnalyzerResult(r: Record<string, unknown>): r is {
+  summary: string;
+  dispute_overview: string;
+  regions: string[];
+  court_positions: Array<{ court: string; position: string; relevance: string }>;
+  cited_cases: Array<{ title: string; citation: string; url: string; takeaway: string }>;
+  legal_basis: string[];
+  practical_takeaways: string[];
+} {
+  return (
+    typeof r.summary === "string" &&
+    typeof r.dispute_overview === "string" &&
+    Array.isArray(r.regions) &&
+    Array.isArray(r.court_positions) &&
+    Array.isArray(r.cited_cases) &&
+    Array.isArray(r.legal_basis) &&
+    Array.isArray(r.practical_takeaways)
+  );
+}
+
 function DataExtractorResultView({
   result,
 }: {
-  result: {
-    fields: Array<{ key: string; value: string }>;
-    tables: Array<{ name: string; rows: string[][] }>;
-    confidence: number;
+    result: {
+    summary: string;
+    left_document_summary: string;
+    right_document_summary: string;
+    common_points: string[];
+    differences: string[];
+    relation_assessment: string;
+    are_documents_related: boolean;
   };
 }) {
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Уверенность</h3>
-        <p className="text-sm text-gray-600">
-          {typeof result.confidence === "number"
-            ? (result.confidence * 100).toFixed(0)
-            : "—"}
-          %
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Итог сравнения</h3>
+            <p className="text-sm leading-6 text-gray-600">{result.summary}</p>
+          </div>
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+              result.are_documents_related ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {result.are_documents_related ? "Документы связаны" : "Документы о разном"}
+          </span>
+        </div>
+      </Card>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Документ слева</h3>
+          <p className="text-sm leading-6 text-gray-600">{result.left_document_summary}</p>
+        </Card>
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Документ справа</h3>
+          <p className="text-sm leading-6 text-gray-600">{result.right_document_summary}</p>
+        </Card>
+      </div>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Общее между документами</h3>
+        {result.common_points.length > 0 ? (
+          <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+            {result.common_points.map((item, index) => (
+              <li key={`${index}-${item.slice(0, 32)}`}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-400">Существенных пересечений не найдено.</p>
+        )}
       </Card>
       <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Поля</h3>
-        <FieldsTable fields={result.fields} />
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Ключевые различия</h3>
+        {result.differences.length > 0 ? (
+          <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+            {result.differences.map((item, index) => (
+              <li key={`${index}-${item.slice(0, 32)}`}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-400">Содержательных различий не найдено.</p>
+        )}
       </Card>
       <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Таблицы</h3>
-        <TablesView tables={result.tables} />
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Оценка связи между документами</h3>
+        <p className="text-sm leading-6 text-gray-600">{result.relation_assessment}</p>
       </Card>
-      <JsonActions data={result as unknown as Record<string, unknown>} />
+      <JsonActions data={result as unknown as Record<string, unknown>} filename="document-comparison-result.json" />
+    </div>
+  );
+}
+
+function TenderAnalyzerResultView({
+  result,
+}: {
+  result: {
+    summary: string;
+    dispute_overview: string;
+    regions: string[];
+    court_positions: Array<{ court: string; position: string; relevance: string }>;
+    cited_cases: Array<{ title: string; citation: string; url: string; takeaway: string }>;
+    legal_basis: string[];
+    practical_takeaways: string[];
+  };
+}) {
+  const emptyNote = <span className="text-sm text-gray-400">Не найдено</span>;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700">Итог обзора</h3>
+        <p className="mt-2 text-sm leading-6 text-gray-600">{result.summary || emptyNote}</p>
+      </Card>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(240px,0.7fr)]">
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700">Контекст спора</h3>
+          <p className="mt-2 text-sm leading-6 text-gray-600">{result.dispute_overview || emptyNote}</p>
+        </Card>
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700">Регионы практики</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {result.regions.length > 0
+              ? result.regions.map((region) => (
+                  <span key={region} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                    {region}
+                  </span>
+                ))
+              : emptyNote}
+          </div>
+        </Card>
+      </div>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Подходы судов</h3>
+        {result.court_positions.length > 0 ? (
+          <ul className="space-y-3">
+            {result.court_positions.map((item, index) => (
+              <li key={`${index}-${item.court}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm font-semibold text-gray-900">{item.court}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-600">{item.position}</p>
+                <p className="mt-2 text-xs leading-5 text-gray-500">{item.relevance}</p>
+              </li>
+            ))}
+          </ul>
+        ) : emptyNote}
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Судебные акты</h3>
+        {result.cited_cases.length > 0 ? (
+          <ul className="space-y-3">
+            {result.cited_cases.map((item, index) => (
+              <li key={`${index}-${item.citation}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-600">{item.citation}</span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-gray-600">{item.takeaway}</p>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                >
+                  Открыть источник
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : emptyNote}
+      </Card>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Применимые нормы права</h3>
+          {result.legal_basis.length > 0 ? (
+            <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+              {result.legal_basis.map((item, index) => (
+                <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>
+              ))}
+            </ul>
+          ) : emptyNote}
+        </Card>
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Практические выводы</h3>
+          {result.practical_takeaways.length > 0 ? (
+            <ul className="list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+              {result.practical_takeaways.map((item, index) => (
+                <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>
+              ))}
+            </ul>
+          ) : emptyNote}
+        </Card>
+      </div>
+      <JsonActions data={result as unknown as Record<string, unknown>} filename="case-law-review-result.json" />
     </div>
   );
 }
@@ -169,15 +355,30 @@ function HandwritingRecognitionResultView({
     recognized_text: string;
     confidence: number;
     page_count: number;
-    lines: Array<{ text: string; confidence: number }>;
+    template_id?: string | null;
+    ocr_model_id?: string | null;
+    needs_review_count?: number;
+    lines: Array<{
+      text: string;
+      confidence: number;
+      model_id?: string | null;
+      page_index?: number;
+      field_name?: string | null;
+      source?: string | null;
+      needs_review?: boolean;
+      bbox?: { x: number; y: number; width: number; height: number } | null;
+    }>;
   };
 }) {
   const confidencePercent = Math.round((result.confidence || 0) * 100);
+  const templateLabel = result.template_id?.trim() ? result.template_id : "generic";
+  const modelLabel = result.ocr_model_id?.trim() ? result.ocr_model_id : "n/a";
+  const reviewCount = result.needs_review_count || result.lines.filter((line) => line.needs_review).length;
 
   return (
     <div className="space-y-6">
       <Card>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <h3 className="mb-2 text-sm font-semibold text-gray-700">Уверенность</h3>
             <p className="text-sm text-gray-600">{confidencePercent}%</p>
@@ -185,6 +386,18 @@ function HandwritingRecognitionResultView({
           <div>
             <h3 className="mb-2 text-sm font-semibold text-gray-700">Страницы</h3>
             <p className="text-sm text-gray-600">{result.page_count}</p>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Шаблон</h3>
+            <p className="text-sm text-gray-600">{templateLabel}</p>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">OCR модель</h3>
+            <p className="text-sm text-gray-600 break-all">{modelLabel}</p>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Требуют проверки</h3>
+            <p className="text-sm text-gray-600">{reviewCount}</p>
           </div>
         </div>
       </Card>
@@ -203,12 +416,33 @@ function HandwritingRecognitionResultView({
         {result.lines.length > 0 ? (
           <ul className="space-y-2">
             {result.lines.map((line, index) => (
-              <li key={`${index}-${line.text.slice(0, 24)}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <li
+                key={`${index}-${line.text.slice(0, 24)}`}
+                className={`rounded-xl border p-3 ${
+                  line.needs_review ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-gray-700">{line.text}</p>
-                  <span className="shrink-0 text-xs text-gray-500">
-                    {Math.round((line.confidence || 0) * 100)}%
-                  </span>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-700">{line.text}</p>
+                    <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                      {line.field_name ? <span>Поле: {line.field_name}</span> : null}
+                      {typeof line.page_index === "number" ? <span>Страница: {line.page_index + 1}</span> : null}
+                      {line.model_id ? <span>Модель: {line.model_id}</span> : null}
+                      {line.source ? <span>Источник: {line.source}</span> : null}
+                      {line.bbox ? (
+                        <span>
+                          bbox: {line.bbox.x},{line.bbox.y},{line.bbox.width},{line.bbox.height}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="block text-xs text-gray-500">
+                      {Math.round((line.confidence || 0) * 100)}%
+                    </span>
+                    {line.needs_review ? <span className="mt-1 block text-xs font-medium text-amber-700">Нужна проверка</span> : null}
+                  </div>
                 </div>
               </li>
             ))}
@@ -482,6 +716,9 @@ export function ResultsPanel({
     }
     if (toolSlug === "data-extractor" && isDataExtractorResult(result)) {
       return <DataExtractorResultView result={result} />;
+    }
+    if (toolSlug === "tender-analyzer" && isTenderAnalyzerResult(result)) {
+      return <TenderAnalyzerResultView result={result} />;
     }
     if (toolSlug === "handwriting-recognition" && isHandwritingRecognitionResult(result)) {
       return <HandwritingRecognitionResultView result={result} />;
