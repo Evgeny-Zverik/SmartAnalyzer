@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -28,109 +29,73 @@ export function Header() {
     const isActive = href === "/"
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
-    return `text-sm font-medium transition ${
-      isActive ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+    return `inline-flex items-center rounded-full px-3 py-2 text-sm font-medium transition ${
+      isActive
+        ? "bg-stone-900 text-stone-50 shadow-[0_10px_30px_rgba(28,25,23,0.16)]"
+        : "text-stone-600 hover:bg-white/70 hover:text-stone-900"
     }`;
   }
 
-  function handleHardNavigate(href: string) {
-    if (pathname === href) return;
-    window.location.href = href;
-  }
-
   return (
-    <header className="sticky top-0 z-[1000] isolate pointer-events-auto border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <a
-          href="/"
-          onMouseDown={(e) => {
-            if (e.button !== 0) return;
-            e.preventDefault();
-            handleHardNavigate("/");
-          }}
-          className="text-xl font-semibold text-gray-900 hover:text-gray-700"
-        >
-          SmartAnalyzer
-        </a>
-        <nav className="flex items-center gap-6">
-          <a
-            href="/tools"
-            onMouseDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              handleHardNavigate("/tools");
-            }}
-            className={navClass("/tools")}
-          >
+    <header className="sticky top-0 z-[1000] isolate pointer-events-auto border-b border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(250,248,243,0.9))] backdrop-blur-xl">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4 rounded-[28px] border border-stone-200/80 bg-white/80 px-4 py-3 shadow-[0_12px_40px_rgba(28,25,23,0.08)] backdrop-blur sm:px-5">
+        <Link href="/" className="group flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.32),rgba(255,255,255,0.96)_62%)] text-sm font-semibold text-emerald-700 shadow-[0_10px_30px_rgba(16,185,129,0.12)]">
+            SA
+          </span>
+          <span className="flex flex-col">
+            <span className="text-xl font-semibold tracking-[-0.04em] text-stone-900 transition group-hover:text-stone-700">
+              SmartAnalyzer
+            </span>
+            <span className="text-[11px] uppercase tracking-[0.24em] text-stone-400">
+              Document intelligence
+            </span>
+          </span>
+        </Link>
+        <nav className="flex items-center gap-2 rounded-full border border-stone-200/80 bg-stone-100/80 px-2 py-2">
+          <Link href="/tools" className={navClass("/tools")}>
             Инструменты
-          </a>
-          <a
-            href="/pricing"
-            onMouseDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              handleHardNavigate("/pricing");
-            }}
-            className={navClass("/pricing")}
-          >
+          </Link>
+          <Link href="/pricing" className={navClass("/pricing")}>
             Тарифы
-          </a>
+          </Link>
           {!authReady ? (
             <div
               aria-hidden="true"
-              className="h-10 w-[360px] rounded-xl opacity-0 pointer-events-none"
+              className="h-12 w-[360px] rounded-2xl opacity-0 pointer-events-none"
             />
           ) : loggedIn ? (
             <>
-              <a
-                href="/dashboard"
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.preventDefault();
-                  handleHardNavigate("/dashboard");
-                }}
-                className={navClass("/dashboard")}
-              >
-                Dashboard
-              </a>
-              <a
-                href="/settings"
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.preventDefault();
-                  handleHardNavigate("/settings");
-                }}
-                className={navClass("/settings")}
-              >
+              <Link href="/dashboard" className={navClass("/dashboard")}>
+                Кабинет
+              </Link>
+              <Link href="/settings" className={navClass("/settings")}>
                 Настройки
-              </a>
+              </Link>
               <button
                 onClick={handleLogout}
                 type="button"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center rounded-full px-3 py-2 text-sm font-medium text-stone-600 transition hover:bg-white/70 hover:text-stone-900"
               >
                 Выйти
               </button>
             </>
           ) : (
             <>
-              <a
+              <Link
                 href="/login"
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.preventDefault();
-                  handleHardNavigate("/login");
-                }}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center rounded-full px-3 py-2 text-sm font-medium text-stone-600 transition hover:bg-white/70 hover:text-stone-900"
               >
                 Войти
-              </a>
-              <Button href="/register" variant="primary">
+              </Link>
+              <Button href="/register" variant="primary" className="rounded-full bg-stone-900 px-5 hover:bg-stone-800 focus:ring-stone-500">
                 Попробовать бесплатно
               </Button>
             </>
           )}
         </nav>
+        </div>
       </div>
     </header>
   );

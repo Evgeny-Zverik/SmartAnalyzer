@@ -36,6 +36,17 @@ function statusLabel(s: string) {
   return map[s] ?? s;
 }
 
+function statusClass(s: string) {
+  const map: Record<string, string> = {
+    uploaded: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    queued: "border-amber-200 bg-amber-50 text-amber-700",
+    processing: "border-sky-200 bg-sky-50 text-sky-700",
+    completed: "border-teal-200 bg-teal-50 text-teal-700",
+    failed: "border-rose-200 bg-rose-50 text-rose-700",
+  };
+  return map[s] ?? "border-zinc-200 bg-zinc-50 text-zinc-700";
+}
+
 export function FolderContentTable({
   items,
   pagination,
@@ -69,36 +80,36 @@ export function FolderContentTable({
   const hasNext = page < totalPages;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-hidden rounded-[26px] border border-zinc-200/90 bg-white shadow-[0_18px_60px_rgba(10,16,30,0.08)]">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-zinc-100">
+          <thead className="bg-[linear-gradient(180deg,#fafaf9,#f5f5f4)]">
             <tr>
               <th className="w-8 px-2 py-3" aria-hidden />
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Тип
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Инструмент
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Название
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Дата
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Статус
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Действия
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
+          <tbody className="divide-y divide-zinc-100 bg-white">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
                   В папке пока ничего нет
                 </td>
               </tr>
@@ -110,39 +121,43 @@ export function FolderContentTable({
                 return (
                   <tr
                     key={key}
-                    className="hover:bg-gray-50"
+                    className="transition hover:bg-zinc-50/70"
                     draggable={userFolderIds.size > 0}
                     onDragStart={(e) => handleDragStart(e, item)}
                   >
-                    <td className="w-8 px-2 py-3 text-gray-400">
+                    <td className="w-8 px-2 py-3 text-zinc-400">
                       {userFolderIds.size > 0 && (
                         <GripVertical className="h-4 w-4 cursor-grab" aria-hidden />
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-zinc-700">
                       {item.entity_type === "document" ? (
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.12em] text-zinc-600">
                           <FileText className="h-4 w-4" />
                           Документ
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.12em] text-zinc-600">
                           <BarChart3 className="h-4 w-4" />
                           Анализ
                         </span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-zinc-900">
                       {tool?.title ?? item.tool_slug ?? "—"}
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-900" title={item.title}>
+                    <td className="max-w-xs truncate px-4 py-3 text-sm text-zinc-800" title={item.title}>
                       {item.title}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-zinc-600">
                       {formatDate(item.created_at)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                      {statusLabel(item.status)}
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-zinc-600">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.1em] ${statusClass(item.status)}`}
+                      >
+                        {statusLabel(item.status)}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                       <div className="flex justify-end gap-2">
@@ -188,8 +203,8 @@ export function FolderContentTable({
         </table>
       </div>
       {(hasPrev || hasNext) && (
-        <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3">
-          <p className="text-sm text-gray-600">
+        <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/70 px-4 py-3">
+          <p className="text-sm text-zinc-600">
             {total === 0
               ? "0 элементов"
               : `Показано ${(page - 1) * page_size + 1}–${Math.min(page * page_size, total)} из ${total}`}
