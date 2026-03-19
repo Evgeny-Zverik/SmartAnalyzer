@@ -1,13 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Landmark, Link2, MapPin, Scale, Search } from "lucide-react";
+import { IBM_Plex_Sans, PT_Serif } from "next/font/google";
+import {
+  ArrowUpRight,
+  Gavel,
+  Landmark,
+  Link2,
+  MapPin,
+  Scale,
+  Search,
+  ShieldAlert,
+  Sparkles,
+} from "lucide-react";
 import type { Tool } from "@/lib/config/tools";
 import { runTenderAnalyzerChat, type TenderAnalyzerChatResponse } from "@/lib/api/tools";
 import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+
+const displayFont = PT_Serif({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-case-display",
+  weight: ["400", "700"],
+});
+
+const bodyFont = IBM_Plex_Sans({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-case-body",
+  weight: ["400", "500", "600"],
+});
 
 type ChatState = "idle" | "loading" | "success" | "error";
 
@@ -39,98 +61,119 @@ function formatTime(sec: number): string {
 
 function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["result"] }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-        <p className="text-sm font-medium text-emerald-900">{result.summary}</p>
+    <div className="space-y-4 [font-family:var(--font-case-body)]">
+      <div className="rounded-[24px] border border-emerald-200/70 bg-[linear-gradient(135deg,#f1fbf6,#ecfdf5_48%,#f8fffc)] p-4">
+        <p className="text-sm font-semibold text-emerald-900">{result.summary}</p>
         <p className="mt-2 text-sm leading-6 text-emerald-800/90">{result.search_scope}</p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
-        <Card className="p-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <Search className="h-4 w-4 text-emerald-600" />
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
+            <Search className="h-4 w-4 text-emerald-700" />
             Контекст запроса
           </h3>
-          <p className="mt-3 text-sm leading-6 text-gray-600">{result.dispute_overview}</p>
-        </Card>
-        <Card className="p-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <MapPin className="h-4 w-4 text-emerald-600" />
+          <p className="mt-3 text-sm leading-6 text-stone-700">{result.dispute_overview}</p>
+        </div>
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
+            <MapPin className="h-4 w-4 text-emerald-700" />
             Регионы
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {result.regions.map((region) => (
-              <span key={region} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+              <span
+                key={region}
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700"
+              >
                 {region}
               </span>
             ))}
           </div>
-        </Card>
+        </div>
       </div>
 
-      <Card className="p-5">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Scale className="h-4 w-4 text-emerald-600" />
+      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
+          <Scale className="h-4 w-4 text-emerald-700" />
           Подходы судов
         </h3>
         <div className="mt-4 space-y-3">
           {result.court_positions.map((item, index) => (
-            <div key={`${index}-${item.court}`} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-sm font-semibold text-gray-900">{item.court}</p>
-              <p className="mt-2 text-sm leading-6 text-gray-600">{item.position}</p>
-              <p className="mt-2 text-xs leading-5 text-gray-500">{item.relevance}</p>
+            <div
+              key={`${index}-${item.court}`}
+              className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+            >
+              <p className="text-sm font-semibold text-stone-900">{item.court}</p>
+              <p className="mt-2 text-sm leading-6 text-stone-700">{item.position}</p>
+              <p className="mt-2 text-xs leading-5 text-stone-500">{item.relevance}</p>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
-      <Card className="p-5">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Link2 className="h-4 w-4 text-emerald-600" />
+      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
+          <Link2 className="h-4 w-4 text-emerald-700" />
           Ссылки на акты
         </h3>
         <div className="mt-4 space-y-3">
           {result.cited_cases.map((item, index) => (
-            <div key={`${index}-${item.citation}`} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <div
+              key={`${index}-${item.citation}`}
+              className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                  <p className="mt-1 text-xs font-medium text-gray-500">{item.citation}</p>
+                  <p className="text-sm font-semibold text-stone-900">{item.title}</p>
+                  <p className="mt-1 text-xs font-medium text-stone-500">{item.citation}</p>
                 </div>
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100"
                 >
                   Открыть
-                  <ArrowUpRight className="h-4 w-4" />
+                  <ArrowUpRight className="h-3.5 w-3.5" />
                 </a>
               </div>
-              <p className="mt-3 text-sm leading-6 text-gray-600">{item.takeaway}</p>
+              <p className="mt-3 text-sm leading-6 text-stone-700">{item.takeaway}</p>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="p-5">
-          <h3 className="text-sm font-semibold text-gray-900">Нормы права</h3>
-          <ul className="mt-3 list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Нормы права</h3>
+          <ul className="mt-3 space-y-2">
             {result.legal_basis.map((item, index) => (
-              <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>
+              <li
+                key={`${index}-${item.slice(0, 24)}`}
+                className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
+              >
+                {item}
+              </li>
             ))}
           </ul>
-        </Card>
-        <Card className="p-5">
-          <h3 className="text-sm font-semibold text-gray-900">Что делать дальше</h3>
-          <ul className="mt-3 list-inside list-disc space-y-2 text-sm leading-6 text-gray-600">
+        </div>
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Что делать дальше</h3>
+          <ul className="mt-3 space-y-2">
             {result.practical_takeaways.map((item, index) => (
-              <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>
+              <li
+                key={`${index}-${item.slice(0, 24)}`}
+                className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
+              >
+                {item}
+              </li>
             ))}
           </ul>
-          <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{result.follow_up_prompt}</p>
-        </Card>
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {result.follow_up_prompt}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -164,7 +207,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
     () =>
       status === "loading"
         ? `Ищем практику и собираем ссылки на акты. Прошло ${formatTime(elapsedSec)}.`
-        : "Спросите про регион, вид суда, предмет спора и попросите ссылки на акты.",
+        : "Укажите регион, суд, предмет спора и что нужно получить: позиции, нормы или ссылки на акты.",
     [elapsedSec, status]
   );
 
@@ -215,7 +258,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       const parsed = parseApiError(error);
       let message = parsed.message || "Не удалось собрать подборку практики.";
       if (isLimitReached(error)) {
-        message = "Daily limit reached. Upgrade to Pro.";
+        message = "Дневной лимит исчерпан. Перейдите на Pro.";
       } else if (parsed.status === 400) {
         message = message || "Нужно ввести запрос.";
       }
@@ -229,25 +272,34 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
   }, [allowRelatedRegions, query]);
 
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[32px] border border-gray-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_32%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-sm">
-        <div className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] xl:p-8">
+    <div className={`${displayFont.variable} ${bodyFont.variable} space-y-8`}>
+      <section className="relative overflow-hidden rounded-[34px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_100%_0%,rgba(56,189,248,0.24),transparent_38%),linear-gradient(160deg,#0b1019,#101827_52%,#152033)] p-5 text-zinc-100 shadow-[0_35px_120px_rgba(2,6,23,0.45)] sm:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_30%,rgba(255,255,255,0.04)_72%,transparent)]" />
+        <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,0.8fr)]">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-xs font-medium text-emerald-700 shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-200 [font-family:var(--font-case-body)]">
               <Landmark className="h-3.5 w-3.5" />
-              Legal Research Chat
+              Обзор судебной практики
             </div>
-            <h2 className="mt-4 max-w-2xl text-2xl font-semibold text-gray-900">Спросите как в правовой базе, но своими словами</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-600">
-              Опишите спор, регион, вид суда и что именно нужно: подходы судов, ссылки на акты, применимые нормы или общую сводку по практике.
+            <h2 className="mt-4 max-w-3xl text-3xl leading-[1.08] tracking-[-0.03em] text-white sm:text-5xl [font-family:var(--font-case-display)]">
+              Диалог с судебной
+              <br />
+              аналитикой
+              <br />
+              в реальном времени.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base [font-family:var(--font-case-body)]">
+              Опишите спор естественным языком. Инструмент соберет позиции судов, ссылки на акты, релевантные нормы
+              и короткий план, что проверить дальше.
             </p>
+
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {SUGGESTIONS.map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setQuery(item)}
-                  className="rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 text-left text-sm leading-6 text-gray-700 shadow-sm transition hover:border-emerald-300 hover:bg-white"
+                  className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-left text-sm leading-6 text-zinc-100 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 [font-family:var(--font-case-body)]"
                 >
                   {item}
                 </button>
@@ -255,54 +307,80 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-gray-200 bg-white/90 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">Запрос</p>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{headerHint}</p>
+          <div className="rounded-[28px] border border-white/15 bg-white/8 p-5 backdrop-blur [font-family:var(--font-case-body)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-300">Запрос</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-200">{headerHint}</p>
+              </div>
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
+                <Sparkles className="h-5 w-5" />
+              </div>
+            </div>
+
             <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Например: практика по взысканию неустойки, Брянская область, арбитраж, ссылки на акты"
-              className="mt-4 min-h-[180px] w-full resize-y rounded-2xl border border-gray-300 px-4 py-3 text-sm leading-6 text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-4 min-h-[190px] w-full resize-y rounded-2xl border border-white/20 bg-zinc-950/50 px-4 py-3 text-sm leading-6 text-zinc-100 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/25"
             />
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+
+            <div className="mt-4 space-y-3">
               <Button
                 type="button"
                 onClick={status === "loading" ? () => abortRef.current?.abort() : handleSubmit}
                 disabled={!canSubmit && status !== "loading"}
-                className="min-w-[220px]"
+                className="w-full rounded-xl bg-emerald-400 text-zinc-950 hover:bg-emerald-300 focus:ring-emerald-200"
               >
                 {status === "loading" ? "Остановить поиск" : "Найти практику"}
               </Button>
-              <label className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+
+              <label className="flex items-start gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs text-zinc-200">
                 <input
                   type="checkbox"
                   checked={allowRelatedRegions}
                   onChange={(e) => setAllowRelatedRegions(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-500 bg-zinc-900 text-emerald-400 focus:ring-emerald-300"
                 />
                 Разрешить похожие акты из других регионов
               </label>
-              <p className="text-xs text-gray-500">Формат ответа: краткая сводка, позиции судов и ссылки на акты.</p>
+
+              <p className="text-xs text-zinc-400">Формат ответа: сводка, позиции судов, ссылки на акты и нормы права.</p>
             </div>
+
             {errorMessage ? (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
+              <div className="mt-4 rounded-xl border border-rose-300/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {errorMessage}
+              </div>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
+      <section className="[font-family:var(--font-case-body)]">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Диалог</h2>
-            <p className="mt-1 text-sm text-gray-500">{tool.title} запоминает ход беседы в рамках текущей страницы.</p>
+            <h2 className="text-[30px] leading-tight tracking-[-0.02em] text-zinc-900 [font-family:var(--font-case-display)]">
+              Диалог и выводы
+            </h2>
+            <p className="mt-1 text-sm text-zinc-500">{tool.title} хранит контекст в рамках текущей сессии страницы.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
+            <Gavel className="h-3.5 w-3.5 text-emerald-600" />
+            Сообщений: {messages.length}
           </div>
         </div>
 
         {messages.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-sm text-gray-500">Пока пусто. Отправьте запрос вроде «решения судов Брянска по поставке, ссылки на акты».</p>
-          </Card>
+          <div className="rounded-[28px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f6f7f8)] p-10 text-center shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
+              <ShieldAlert className="h-6 w-6" />
+            </div>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-zinc-600">
+              Диалог пока пуст. Начните с запроса вроде: «арбитражная практика по неустойке в Брянской области,
+              ссылки на акты».
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
@@ -310,15 +388,11 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                 <div
                   className={
                     message.role === "user"
-                      ? "max-w-3xl rounded-[28px] bg-gray-900 px-5 py-4 text-sm leading-6 text-white shadow-sm"
-                      : "w-full max-w-5xl rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm"
+                      ? "max-w-3xl rounded-[26px] border border-zinc-800 bg-zinc-900 px-5 py-4 text-sm leading-7 text-zinc-100 shadow-[0_16px_44px_rgba(15,23,42,0.22)] [font-family:var(--font-case-body)]"
+                      : "w-full max-w-6xl rounded-[30px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f8f9fa)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]"
                   }
                 >
-                  {message.role === "user" ? (
-                    <p>{message.content}</p>
-                  ) : (
-                    <AssistantAnswer result={message.result} />
-                  )}
+                  {message.role === "user" ? <p>{message.content}</p> : <AssistantAnswer result={message.result} />}
                 </div>
               </div>
             ))}

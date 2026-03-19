@@ -1034,26 +1034,36 @@ export function AdvancedAiEditor({
 
         {inspectorEnabled ? (
           <div className="space-y-6">
-            <Card>
-              <h3 className="text-sm font-semibold text-gray-900">AI Inspector</h3>
+            <Card className="rounded-[26px] border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] shadow-[0_16px_50px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">AI Inspector</h3>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  Фокус
+                </span>
+              </div>
               {showAiLoadingState ? (
-                <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-10 w-10 rounded-2xl bg-amber-100">
-                      <div className="absolute inset-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                <div className="mt-4 rounded-[24px] border border-amber-300 bg-[linear-gradient(135deg,#fff8e8,#fffef9_52%,#fff3dd)] p-4 shadow-[0_12px_34px_rgba(245,158,11,0.14)]">
+                  <div className="flex items-start gap-3">
+                    <div className="relative mt-1 h-11 w-11 shrink-0 rounded-2xl border border-amber-300 bg-amber-100/90">
+                      <div className="absolute inset-2 rounded-full border-[2.5px] border-amber-500 border-t-transparent animate-spin" />
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">AI размечает документ</p>
-                      <p className="mt-1 text-sm text-gray-600">
+                    <div className="min-w-0">
+                      <p className="text-[34px] font-semibold leading-[1.04] tracking-[-0.02em] text-zinc-900 sm:text-4xl">
+                        AI размечает документ
+                      </p>
+                      <p className="mt-2 text-[15px] leading-7 text-zinc-600">
                         Подготавливаем риски, улучшения и предлагаемые формулировки.
                       </p>
+                      <span className="mt-3 inline-flex rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        В процессе
+                      </span>
                     </div>
                   </div>
-                  <div className="mt-4 space-y-3">
-                    <div className="h-3 w-24 animate-pulse rounded-full bg-amber-100" />
-                    <div className="h-4 w-full animate-pulse rounded-full bg-gray-100" />
-                    <div className="h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
-                    <div className="h-20 w-full animate-pulse rounded-2xl bg-white/80" />
+                  <div className="mt-4 space-y-3 rounded-2xl border border-amber-200/80 bg-white/80 p-3">
+                    <div className="h-3 w-28 animate-pulse rounded-full bg-amber-200" />
+                    <div className="h-4 w-full animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-4 w-5/6 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-20 w-full animate-pulse rounded-2xl bg-zinc-100" />
                   </div>
                 </div>
               ) : activeAnnotation ? (
@@ -1066,7 +1076,7 @@ export function AdvancedAiEditor({
                           : "border-amber-200 bg-amber-50 text-amber-700"
                       }`}
                     >
-                      {activeAnnotation.type === "risk" ? "Risk" : "Improvement"}
+                      {activeAnnotation.type === "risk" ? "Риск" : "Улучшение"}
                     </span>
                     <SeverityBadge severity={activeAnnotation.severity} />
                   </div>
@@ -1103,18 +1113,18 @@ export function AdvancedAiEditor({
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  Выберите подсвеченный фрагмент или замечание из списка.
+                <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/80 p-4 text-sm leading-7 text-zinc-600">
+                  Выберите фрагмент в документе или карточку в очереди.
                   <br />
-                  Красный помечает риски, желтый показывает места для улучшения.
+                  Красный цвет показывает риски, желтый отмечает зоны для улучшения.
                 </div>
               )}
             </Card>
 
-            <Card className="flex flex-col">
+            <Card className="flex flex-col rounded-[26px] border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] shadow-[0_16px_50px_rgba(15,23,42,0.08)]">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-gray-900">Очередь замечаний</h3>
-                <span className="text-xs text-gray-500">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">Очередь замечаний</h3>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
                   {showAiLoadingState ? "Идет анализ..." : `${filteredAnnotations.length} шт.`}
                 </span>
               </div>
@@ -1124,15 +1134,15 @@ export function AdvancedAiEditor({
                     {[0, 1, 2].map((index) => (
                       <div
                         key={index}
-                        className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+                        className="rounded-2xl border border-zinc-200 bg-[linear-gradient(135deg,#ffffff,#f8fafc)] p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-20 animate-pulse rounded-full bg-red-100" />
-                          <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+                          <div className="h-5 w-24 animate-pulse rounded-full bg-rose-100" />
+                          <div className="h-5 w-20 animate-pulse rounded-full bg-zinc-200" />
                         </div>
-                        <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-gray-100" />
-                        <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-gray-100" />
-                        <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-gray-100" />
+                        <div className="mt-3 h-4 w-3/4 animate-pulse rounded-full bg-zinc-200" />
+                        <div className="mt-2 h-4 w-full animate-pulse rounded-full bg-zinc-200" />
+                        <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-zinc-200" />
                       </div>
                     ))}
                   </div>
@@ -1173,7 +1183,7 @@ export function AdvancedAiEditor({
                                 : "border-amber-200 bg-amber-50 text-amber-700"
                           }`}
                         >
-                          {annotation.type === "risk" ? "Risk" : "Improvement"}
+                          {annotation.type === "risk" ? "Риск" : "Улучшение"}
                         </span>
                         <SeverityBadge severity={annotation.severity} />
                       </div>
@@ -1193,8 +1203,10 @@ export function AdvancedAiEditor({
                 ) : null}
               </div>
             ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                Явных замечаний не найдено. Можно работать с чистым извлеченным текстом.
+              <div className="mt-4 rounded-2xl border border-dashed border-emerald-300 bg-[linear-gradient(135deg,#ecfdf5,#d1fae5)] p-4 text-sm leading-7 text-emerald-900">
+                Явных замечаний не найдено.
+                <br />
+                Можно продолжать работу с чистым извлеченным текстом.
               </div>
             )}
             </Card>

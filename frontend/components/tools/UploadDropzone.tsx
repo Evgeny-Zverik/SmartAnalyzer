@@ -12,6 +12,7 @@ type UploadDropzoneProps = {
   showFileCard?: boolean;
   variant?: "default" | "comparison";
   comparisonTone?: "left" | "right";
+  surface?: "light" | "dark";
 };
 
 function getExtension(name: string): string {
@@ -34,6 +35,7 @@ export function UploadDropzone({
   showFileCard = true,
   variant = "default",
   comparisonTone = "left",
+  surface = "light",
 }: UploadDropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -177,8 +179,12 @@ export function UploadDropzone({
               ? `${comparisonAccent.border} ${comparisonAccent.bgSoft}`
               : `border-white/15 bg-white/[0.02] ${comparisonAccent.hover} hover:bg-white/[0.05] focus:border-current focus:ring-2 ${comparisonAccent.ring} focus:ring-offset-2 focus:ring-offset-stone-950 ${comparisonAccent.text}`
             : isDragOver
-              ? "border-emerald-500 bg-emerald-50/50"
-              : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              ? surface === "dark"
+                ? "border-emerald-300 bg-emerald-400/10"
+                : "border-emerald-500 bg-emerald-50/50"
+              : surface === "dark"
+                ? "border-white/20 bg-white/[0.06] hover:border-emerald-300/60 hover:bg-white/[0.1] focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/40 focus:ring-offset-2 focus:ring-offset-zinc-950"
+                : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         }`}
         style={{ minHeight: compact ? 118 : 160 }}
       >
@@ -217,11 +223,24 @@ export function UploadDropzone({
           </div>
         ) : (
           <>
-            <Upload className={`${compact ? "h-8 w-8" : "h-10 w-10"} ${isComparison ? comparisonAccent.text : "text-gray-400"}`} aria-hidden />
-            <p className={`mt-2 ${compact ? "text-sm" : "text-sm"} ${isComparison ? "text-stone-100" : "text-gray-600"}`}>
+            <Upload
+              className={`${compact ? "h-8 w-8" : "h-10 w-10"} ${
+                isComparison ? comparisonAccent.text : surface === "dark" ? "text-zinc-300" : "text-gray-400"
+              }`}
+              aria-hidden
+            />
+            <p
+              className={`mt-2 ${compact ? "text-sm" : "text-sm"} ${
+                isComparison ? "text-stone-100" : surface === "dark" ? "text-zinc-100" : "text-gray-600"
+              }`}
+            >
               {isComparison ? "Перетащите документ в зону сравнения" : "Перетащите файл сюда или нажмите для выбора"}
             </p>
-            <p className={`mt-1 text-xs ${isComparison ? "text-stone-400" : "text-gray-500"}`}>
+            <p
+              className={`mt-1 text-xs ${
+                isComparison ? "text-stone-400" : surface === "dark" ? "text-zinc-400" : "text-gray-500"
+              }`}
+            >
               {acceptedExtensions.join(", ")}
             </p>
           </>

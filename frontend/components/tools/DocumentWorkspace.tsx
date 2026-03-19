@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown, ShieldCheck, UserRound } from "lucide-react";
+import { IBM_Plex_Sans, PT_Serif } from "next/font/google";
+import { ChevronDown, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
@@ -43,6 +44,20 @@ const ENCRYPTION_TOOLTIP =
   "Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.";
 const ANONYMIZATION_TOOLTIP =
   "Перед обработкой мы обезличиваем чувствительные данные: имена, контакты, реквизиты и другие идентификаторы скрываются или заменяются нейтральными значениями.";
+const PRIMARY_ANALYZE_BUTTON_CLASS =
+  "w-full min-w-0 rounded-xl bg-[linear-gradient(135deg,#10b981,#14b8a6)] text-white shadow-[0_16px_44px_rgba(20,184,166,0.5)] ring-1 ring-white/35 transition hover:brightness-110 focus:ring-emerald-200 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]";
+
+const displayFont = PT_Serif({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-doc-display",
+  weight: ["400", "700"],
+});
+
+const bodyFont = IBM_Plex_Sans({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-doc-body",
+  weight: ["400", "500", "600"],
+});
 
 function findingToAnnotation(finding: PluginFinding, pluginId: string): AdvancedAnnotation | null {
   const range = finding.anchor?.text_range;
@@ -383,7 +398,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   }, [handlePluginRun]);
 
   return (
-    <div className="relative z-0 space-y-6">
+    <div className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}>
       <LLMSettingsModal
         isOpen={llmModalOpen}
         onClose={() => setLlmModalOpen(false)}
@@ -392,158 +407,223 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       />
 
       {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
           {errorMessage}
         </div>
       ) : null}
 
       {editorData ? (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setDownloadMenuOpen((prev) => !prev)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-              >
-                Скачать
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-              </button>
-              {downloadMenuOpen && (
-                <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 min-w-[180px] rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
-                  {(["txt", "pdf", "docx"] as const).map((fmt) => (
-                    <button
-                      key={fmt}
-                      type="button"
-                      onClick={() => {
-                        setDownloadMenuOpen(false);
-                        const text = editedDocument?.full_text ?? editorData.full_text;
-                        void downloadDocumentFile(text, fmt, "document-analyzer");
-                      }}
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition"
-                    >
-                      Скачать как {fmt.toUpperCase()}
-                    </button>
-                  ))}
+          <section className="relative overflow-visible rounded-[30px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_36%),radial-gradient(circle_at_90%_0%,rgba(56,189,248,0.2),transparent_32%),linear-gradient(160deg,#0b1019,#131c2c_55%,#1b2738)] p-4 text-zinc-100 shadow-[0_30px_110px_rgba(2,6,23,0.45)] sm:p-5">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_34%,rgba(255,255,255,0.02)_68%,transparent)]" />
+            <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200 [font-family:var(--font-doc-body)]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Document Workspace
                 </div>
-              )}
+                <h2 className="mt-3 text-3xl leading-tight tracking-[-0.03em] text-white [font-family:var(--font-doc-display)]">
+                  Редактор готов к проверке
+                </h2>
+                <p className="mt-2 text-sm text-zinc-300 [font-family:var(--font-doc-body)]">
+                  Запускайте плагины, редактируйте формулировки и выгружайте итоговый документ в нужном формате.
+                </p>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-200 [font-family:var(--font-doc-body)]">
+                {state === "ready" ? "Готово" : state === "preparing" ? "Выполняется анализ" : "Черновик"}
+              </div>
             </div>
-            {state === "ready" ? (
-              <>
-                <Button
+
+            <div className="relative mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative">
+                <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm("Запустить анализ заново? Текущие результаты будут заменены.")) {
-                      handleRunAnalysis();
-                    }
-                  }}
-                  className="min-w-[220px]"
+                  onClick={() => setDownloadMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:ring-offset-2 focus:ring-offset-zinc-950 [font-family:var(--font-doc-body)]"
                 >
-                  Анализировать ещё раз
-                </Button>
+                  Скачать
+                  <ChevronDown className="h-3.5 w-3.5 text-zinc-300" />
+                </button>
+                {downloadMenuOpen && (
+                  <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 min-w-[190px] rounded-2xl border border-zinc-700 bg-zinc-900/95 p-2 shadow-xl backdrop-blur">
+                    {(["txt", "pdf", "docx"] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => {
+                          setDownloadMenuOpen(false);
+                          const text = editedDocument?.full_text ?? editorData.full_text;
+                          void downloadDocumentFile(text, fmt, "document-analyzer");
+                        }}
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10 [font-family:var(--font-doc-body)]"
+                      >
+                        Скачать как {fmt.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {state === "ready" ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Запустить анализ заново? Текущие результаты будут заменены.")) {
+                        handleRunAnalysis();
+                      }
+                    }}
+                    className={PRIMARY_ANALYZE_BUTTON_CLASS}
+                  >
+                    Анализировать ещё раз
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Открыть новый документ? Текущий анализ будет потерян.")) {
+                        setFile(null);
+                        setState("idle");
+                        setDocumentId(null);
+                        setEditorData(null);
+                        setEditedDocument(null);
+                        setHasEditorChanges(false);
+                      }
+                    }}
+                    variant="secondary"
+                    className="w-full rounded-xl border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto [font-family:var(--font-doc-body)]"
+                  >
+                    Новый документ
+                  </Button>
+                </>
+              ) : state === "preparing" ? (
                 <Button
                   type="button"
                   onClick={() => {
-                    if (window.confirm("Открыть новый документ? Текущий анализ будет потерян.")) {
-                      setFile(null);
-                      setState("idle");
-                      setDocumentId(null);
-                      setEditorData(null);
-                      setEditedDocument(null);
-                      setHasEditorChanges(false);
-                    }
+                    analysisAbortRef.current?.abort();
+                    analysisAbortRef.current = null;
+                    setState("idle");
+                    setRunningPluginId(null);
+                    setErrorMessage(null);
                   }}
                   variant="secondary"
+                  className="w-full min-w-0 rounded-xl border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]"
                 >
-                  Новый документ
+                  Остановить анализ
                 </Button>
-              </>
-            ) : state === "preparing" ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  analysisAbortRef.current?.abort();
-                  analysisAbortRef.current = null;
-                  setState("idle");
-                  setRunningPluginId(null);
-                  setErrorMessage(null);
-                }}
-                variant="secondary"
-                className="min-w-[220px]"
-              >
-                Остановить анализ
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={handleRunAnalysis}
-                className="min-w-[220px]"
-              >
-                Анализировать документ
-              </Button>
-            )}
-            {encryptionEnabled || anonymizationEnabled ? (
-              <div className="flex items-center gap-2">
-                {encryptionEnabled ? (
-                  <div className="group relative inline-flex items-center">
-                    <button
-                      type="button"
-                      aria-label={ENCRYPTION_TOOLTIP}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm transition hover:bg-emerald-100"
-                    >
-                      <ShieldCheck className="h-[18px] w-[18px]" />
-                    </button>
-                    <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] left-1/2 z-20 invisible w-80 -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100">
-                      {ENCRYPTION_TOOLTIP}
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleRunAnalysis}
+                  className={PRIMARY_ANALYZE_BUTTON_CLASS}
+                >
+                  Анализировать документ
+                </Button>
+              )}
+
+              {encryptionEnabled || anonymizationEnabled ? (
+                <div className="flex items-center gap-2 sm:ml-auto">
+                  {encryptionEnabled ? (
+                    <div className="group relative inline-flex items-center">
+                      <button
+                        type="button"
+                        aria-label={ENCRYPTION_TOOLTIP}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 shadow-sm transition hover:bg-emerald-400/20"
+                      >
+                        <ShieldCheck className="h-[18px] w-[18px]" />
+                      </button>
+                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
+                        {ENCRYPTION_TOOLTIP}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-                {anonymizationEnabled ? (
-                  <div className="group relative inline-flex items-center">
-                    <button
-                      type="button"
-                      aria-label={ANONYMIZATION_TOOLTIP}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm transition hover:bg-emerald-100"
-                    >
-                      <UserRound className="h-[18px] w-[18px]" />
-                    </button>
-                    <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] left-1/2 z-20 invisible w-80 -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100">
-                      {ANONYMIZATION_TOOLTIP}
+                  ) : null}
+                  {anonymizationEnabled ? (
+                    <div className="group relative inline-flex items-center">
+                      <button
+                        type="button"
+                        aria-label={ANONYMIZATION_TOOLTIP}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 shadow-sm transition hover:bg-emerald-400/20"
+                      >
+                        <UserRound className="h-[18px] w-[18px]" />
+                      </button>
+                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
+                        {ANONYMIZATION_TOOLTIP}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </section>
           <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
-          <AdvancedAiEditor
-            data={editorData}
-            selectedAnnotationId={store.active_finding_id}
-            onSelectedAnnotationChange={handleSelectedAnnotationChange}
-            isAnalyzing={runningPluginId !== null}
-            onDocumentChange={handleEditorDocumentChange}
-          />
+          <section className="rounded-[30px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f7f8fa)] p-2 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-3">
+            <AdvancedAiEditor
+              data={editorData}
+              selectedAnnotationId={store.active_finding_id}
+              onSelectedAnnotationChange={handleSelectedAnnotationChange}
+              isAnalyzing={runningPluginId !== null}
+              onDocumentChange={handleEditorDocumentChange}
+            />
+          </section>
           {/* PluginPanels removed */}
         </div>
       ) : (
-        <UploadDropzone
-          acceptedExtensions={accepts}
-          file={file}
-          onFileChange={(nextFile) => {
-            setFile(nextFile);
-            setDocumentId(null);
-            setEditorData(null);
-            setEditedDocument(null);
-            setHasEditorChanges(false);
-            if (nextFile) {
-              void handleUploadDocument(nextFile);
-            } else {
-              setState("idle");
-            }
-          }}
-          compact
-          showFileCard={false}
-        />
+        <section className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_90%_4%,rgba(56,189,248,0.2),transparent_34%),linear-gradient(160deg,#0b1019,#131c2c_55%,#192639)] p-5 text-zinc-100 shadow-[0_34px_120px_rgba(2,6,23,0.46)] sm:p-7">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_34%,rgba(255,255,255,0.02)_72%,transparent)]" />
+          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200 [font-family:var(--font-doc-body)]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Режим загрузки
+              </div>
+              <h2 className="mt-4 text-4xl leading-[1.04] tracking-[-0.03em] text-white [font-family:var(--font-doc-display)]">
+                Загрузите документ
+                <br />
+                и откройте AI-редактор
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base [font-family:var(--font-doc-body)]">
+                После загрузки файл подготавливается для AI-анализа: подключаются плагины, активируется аннотация рисков
+                и становится доступно повторное редактирование с экспортом.
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3 [font-family:var(--font-doc-body)]">
+                {[
+                  ["Форматы", accepts.join(" / ").toUpperCase()],
+                  ["Плагины", "Риски, улучшения, подсветка"],
+                  ["Выгрузка", "TXT, PDF, DOCX"],
+                ].map(([title, value]) => (
+                  <div key={title} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{title}</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[28px] border border-white/15 bg-white/8 p-4 backdrop-blur sm:p-5">
+              <UploadDropzone
+                acceptedExtensions={accepts}
+                file={file}
+                onFileChange={(nextFile) => {
+                  setFile(nextFile);
+                  setDocumentId(null);
+                  setEditorData(null);
+                  setEditedDocument(null);
+                  setHasEditorChanges(false);
+                  if (nextFile) {
+                    void handleUploadDocument(nextFile);
+                  } else {
+                    setState("idle");
+                  }
+                }}
+                compact
+                showFileCard={false}
+                surface="dark"
+              />
+              {state === "preparing" ? (
+                <p className="mt-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200 [font-family:var(--font-doc-body)]">
+                  Подготавливаем документ к анализу…
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   );
