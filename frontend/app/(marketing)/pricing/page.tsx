@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ShieldCheck, UserRound } from "lucide-react";
 import { PricingTable } from "@/components/marketing/PricingTable";
 import { getToken } from "@/lib/auth/token";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
@@ -42,11 +43,10 @@ export default function PricingPage() {
               Планы и лимиты
             </div>
             <h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-[0.96] tracking-[-0.05em] text-stone-900 sm:text-5xl">
-              Выберите тариф под текущую нагрузку и масштаб роста команды.
+              Выберите пакет запросов под реальную частоту работы.
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-8 text-stone-600">
-              Бесплатный план подойдёт для первичного старта, Про закрывает регулярную рабочую нагрузку, а Бизнес рассчитан на
-              корпоративные требования и приватный контур.
+              Тарифы отличаются месячным лимитом запросов: от стартового режима до интенсивной ежедневной работы.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -76,6 +76,24 @@ export default function PricingPage() {
             upgrading={upgrading}
           />
         </div>
+
+        <section className="mt-8 rounded-3xl border border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.9),rgba(255,255,255,0.95))] p-5 shadow-[0_14px_44px_rgba(16,185,129,0.08)] sm:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">Безопасность данных</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm leading-7 text-stone-700">
+              <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <UserRound className="h-5 w-5" />
+              </div>
+              <p>В модель передаются только предварительно обезличенные данные.</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm leading-7 text-stone-700">
+              <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <p>Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.</p>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           {[

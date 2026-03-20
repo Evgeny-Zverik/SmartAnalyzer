@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fraunces, IBM_Plex_Sans } from "next/font/google";
-import { ArrowRight, CheckCircle2, Clock3, Sparkles, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Sparkles, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { tools } from "@/lib/config/tools";
 
@@ -86,6 +86,23 @@ export default function HomePage() {
                   {point}
                 </div>
               ))}
+            </div>
+            <div className="mt-5 rounded-2xl border border-zinc-200 bg-white/85 p-4 [font-family:var(--font-home-body)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Безопасность данных</p>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-zinc-700">
+                <p className="flex items-start gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                  <span>В нейросеть попадают только обезличенные данные.</span>
+                </p>
+                <p className="flex items-start gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+                  <span>Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.</span>
+                </p>
+              </div>
             </div>
           </div>
           <div className="home-glow-shift rounded-[34px] border border-zinc-800/80 bg-[linear-gradient(170deg,rgba(11,14,22,0.96),rgba(7,10,16,0.97))] p-6 text-zinc-100 shadow-[0_35px_110px_rgba(2,6,23,0.46)] [font-family:var(--font-home-body)] md:p-8">

@@ -148,6 +148,8 @@ export default function SettingsPage() {
   const tabs = [...featureTabs, { key: "settings", label: "Настройки анализа" }];
   const selectedParentFeature =
     parentFeatures.find((feature) => feature.key === activeTab) ?? parentFeatures[0] ?? null;
+  const enabledParentFeatures = parentFeatures.filter((feature) => feature.effective_enabled);
+  const disabledParentFeatures = parentFeatures.filter((feature) => !feature.effective_enabled);
 
   useEffect(() => {
     if (activeTab === "settings") return;
@@ -177,6 +179,58 @@ export default function SettingsPage() {
           <p className="mt-2 max-w-3xl text-sm leading-7 text-zinc-600 sm:text-base">
             Включайте и отключайте инструменты, настраивайте поведение анализа и параметры LLM в одном рабочем экране.
           </p>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-zinc-200 bg-white/90 p-5 shadow-[0_14px_50px_rgba(15,23,42,0.07)] sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-600">Сводка модулей</p>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+                Включено: {enabledParentFeatures.length}
+              </span>
+              <span className="rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 font-semibold text-zinc-600">
+                Выключено: {disabledParentFeatures.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/55 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Сейчас включено</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {enabledParentFeatures.length > 0 ? (
+                  enabledParentFeatures.map((feature) => (
+                    <span
+                      key={feature.key}
+                      className="inline-flex items-center rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-800"
+                    >
+                      {featureTabLabels[feature.key] ?? feature.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-emerald-700">Нет включенных модулей</span>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/75 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Сейчас выключено</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {disabledParentFeatures.length > 0 ? (
+                  disabledParentFeatures.map((feature) => (
+                    <span
+                      key={feature.key}
+                      className="inline-flex items-center rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700"
+                    >
+                      {featureTabLabels[feature.key] ?? feature.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-zinc-600">Все модули включены</span>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Tabs */}
