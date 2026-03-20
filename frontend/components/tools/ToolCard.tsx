@@ -27,6 +27,12 @@ type ToolCardProps = {
 
 export function ToolCard({ tool }: ToolCardProps) {
   const Icon = iconMap[tool.icon] ?? FileSearch;
+  const isUnlimited =
+    tool.slug === "legal-document-design-review" ||
+    tool.slug === "legal-style-translator" ||
+    tool.slug === "foreign-language-translator" ||
+    tool.slug === "legal-text-simplifier" ||
+    tool.slug === "spelling-checker";
 
   return (
     <Card className="group relative overflow-hidden rounded-[28px] border-stone-200/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.95),rgba(248,246,241,0.95))] p-0 shadow-[0_18px_50px_rgba(28,25,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(16,185,129,0.14)]">
@@ -40,7 +46,9 @@ export function ToolCard({ tool }: ToolCardProps) {
           </div>
           <div className="flex flex-wrap gap-1">
             <Badge className="border border-stone-200 bg-white/80 text-stone-700">{CATEGORY_LABELS[tool.category] ?? tool.category}</Badge>
-            <Badge className="border border-emerald-200 bg-emerald-100/80 text-emerald-800">MVP</Badge>
+            {isUnlimited && (
+              <Badge className="border border-zinc-700/80 bg-zinc-800/90 text-zinc-100">Безлимит</Badge>
+            )}
           </div>
         </div>
         <h3 className="mt-5 text-xl font-semibold tracking-[-0.03em] text-stone-900">

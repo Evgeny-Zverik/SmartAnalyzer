@@ -163,8 +163,21 @@ export default function HomePage() {
                 className="home-fade-up rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_46px_rgba(15,23,42,0.12)]"
                 style={{ animationDelay: `${0.08 + index * 0.06}s` }}
               >
-                <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 [font-family:var(--font-home-body)]">
-                  {tool.category}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 [font-family:var(--font-home-body)]">
+                    {tool.category}
+                  </div>
+                  {(
+                    tool.slug === "legal-document-design-review" ||
+                    tool.slug === "legal-style-translator" ||
+                    tool.slug === "foreign-language-translator" ||
+                    tool.slug === "legal-text-simplifier" ||
+                    tool.slug === "spelling-checker"
+                  ) && (
+                    <div className="inline-flex rounded-full border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-100 [font-family:var(--font-home-body)]">
+                      Безлимит
+                    </div>
+                  )}
                 </div>
                 <h3 className="mt-4 text-xl leading-tight text-zinc-900 [font-family:var(--font-home-display)]">
                   {tool.title}
