@@ -12,6 +12,8 @@ export type Tool = {
   };
 };
 
+const extendedDocumentFormats = ["txt", "pdf", "doc", "docx", "md", "odt", "rtf"];
+
 export const tools: Tool[] = [
   {
     slug: "document-analyzer",
@@ -21,7 +23,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "FileSearch",
     mvp: {
-      accepts: ["pdf", "docx"],
+      accepts: extendedDocumentFormats,
       output: ["summary", "key points", "risks", "dates"],
     },
   },
@@ -45,7 +47,7 @@ export const tools: Tool[] = [
     category: "Data",
     icon: "GitCompareArrows",
     mvp: {
-      accepts: ["pdf", "docx"],
+      accepts: extendedDocumentFormats,
       output: ["detailed summary", "differences", "relation assessment"],
     },
   },
@@ -81,7 +83,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "Scale",
     mvp: {
-      accepts: ["text"],
+      accepts: extendedDocumentFormats,
       output: ["formal rewrite", "official-business style"],
     },
   },
@@ -93,7 +95,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "FileSearch",
     mvp: {
-      accepts: ["text"],
+      accepts: extendedDocumentFormats,
       output: ["plain-language summary", "key meaning"],
     },
   },
@@ -105,7 +107,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "FileSearch",
     mvp: {
-      accepts: ["text"],
+      accepts: extendedDocumentFormats,
       output: ["spelling fixes", "punctuation fixes"],
     },
   },
@@ -117,7 +119,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "FileSearch",
     mvp: {
-      accepts: ["text"],
+      accepts: extendedDocumentFormats,
       output: ["russian translation"],
     },
   },
@@ -129,7 +131,7 @@ export const tools: Tool[] = [
     category: "Documents",
     icon: "Scale",
     mvp: {
-      accepts: ["text", "pdf", "docx"],
+      accepts: extendedDocumentFormats,
       output: ["structure review", "language review", "legal drafting review"],
     },
   },

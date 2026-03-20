@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { getToken } from "@/lib/auth/token";
 import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
+import { saveFeatureModulesCache } from "@/lib/features/toolFeatureGate";
 import {
   getFeatureModules,
   getSettings,
@@ -75,7 +76,10 @@ export default function SettingsPage() {
         setCompression(s.compression_level ?? "");
         setAnalysisMode(s.analysis_mode === "deep" ? "deep" : "fast");
       }),
-      getFeatureModules().then(setFeatureModules),
+      getFeatureModules().then((modules) => {
+        setFeatureModules(modules);
+        saveFeatureModulesCache(modules);
+      }),
     ])
       .catch((err) => {
         if (isUnauthorized(err)) {
@@ -115,6 +119,7 @@ export default function SettingsPage() {
     try {
       const updated = await updateFeatureModule(featureKey, enabled);
       setFeatureModules(updated);
+      saveFeatureModulesCache(updated);
       clearDocumentAnalyzerEncryptionCache();
     } catch (error) {
       if (isUnauthorized(error)) {
