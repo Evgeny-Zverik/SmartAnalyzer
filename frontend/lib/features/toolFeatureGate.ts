@@ -7,6 +7,11 @@ const TOOL_FEATURE_KEYS: Record<string, string> = {
   "tender-analyzer": "tender_analyzer",
   "handwriting-recognition": "handwriting_recognition",
   "risk-analyzer": "risk_analyzer",
+  "legal-style-translator": "legal_style_translator",
+  "legal-text-simplifier": "legal_text_simplifier",
+  "spelling-checker": "spelling_checker",
+  "foreign-language-translator": "foreign_language_translator",
+  "legal-document-design-review": "legal_document_design_review",
 };
 
 export function getFeatureKeyForTool(toolSlug: string): string | null {

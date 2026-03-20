@@ -73,6 +73,66 @@ export const tools: Tool[] = [
       output: ["recognized text", "structured fields", "editable document"],
     },
   },
+  {
+    slug: "legal-style-translator",
+    title: "Перевод на юридический",
+    description:
+      "Приводит текст сообщения без вложений к официально-деловому стилю.",
+    category: "Documents",
+    icon: "Scale",
+    mvp: {
+      accepts: ["text"],
+      output: ["formal rewrite", "official-business style"],
+    },
+  },
+  {
+    slug: "legal-text-simplifier",
+    title: "Пересказ юридического текста",
+    description:
+      "Передаёт смысл юридических текстов более простым языком.",
+    category: "Documents",
+    icon: "FileSearch",
+    mvp: {
+      accepts: ["text"],
+      output: ["plain-language summary", "key meaning"],
+    },
+  },
+  {
+    slug: "spelling-checker",
+    title: "Проверка правописания",
+    description:
+      "Исправляет ошибки в орфографии и пунктуации в тексте.",
+    category: "Documents",
+    icon: "FileSearch",
+    mvp: {
+      accepts: ["text"],
+      output: ["spelling fixes", "punctuation fixes"],
+    },
+  },
+  {
+    slug: "foreign-language-translator",
+    title: "Перевод с иностранного языка",
+    description:
+      "Переводит сообщения без вложений на русский язык.",
+    category: "Documents",
+    icon: "FileSearch",
+    mvp: {
+      accepts: ["text"],
+      output: ["russian translation"],
+    },
+  },
+  {
+    slug: "legal-document-design-review",
+    title: "Дизайн юридических документов",
+    description:
+      "Проверяет структуру, язык и технику юридических документов.",
+    category: "Documents",
+    icon: "Scale",
+    mvp: {
+      accepts: ["text", "pdf", "docx"],
+      output: ["structure review", "language review", "legal drafting review"],
+    },
+  },
 ];
 
 export type ToolSlug = (typeof tools)[number]["slug"];
@@ -83,6 +143,11 @@ export const TOOL_SLUGS = [
   "data-extractor",
   "tender-analyzer",
   "handwriting-recognition",
+  "legal-style-translator",
+  "legal-text-simplifier",
+  "spelling-checker",
+  "foreign-language-translator",
+  "legal-document-design-review",
 ] as const;
 
 export function getToolBySlug(slug: string): Tool | undefined {

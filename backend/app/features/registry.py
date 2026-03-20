@@ -141,6 +141,56 @@ generate_recommendations()''',
         kind="feature",
         sort_order=240,
     ),
+    FeatureModuleDefinition(
+        key="legal_style_translator",
+        name="Перевод на юридический",
+        description="Приводит текст сообщения без вложений к официально-деловому стилю.",
+        example='''input("Просьба оплатить до пятницы")
+rewrite_legal_style()
+return_formal_message()''',
+        kind="feature",
+        sort_order=250,
+    ),
+    FeatureModuleDefinition(
+        key="legal_text_simplifier",
+        name="Пересказ юридического текста",
+        description="Передаёт смысл юридических текстов более простым языком.",
+        example='''input("Сторона обязуется...")
+simplify_legal_text()
+return_plain_explanation()''',
+        kind="feature",
+        sort_order=260,
+    ),
+    FeatureModuleDefinition(
+        key="spelling_checker",
+        name="Проверка правописания",
+        description="Исправляет ошибки в орфографии и пунктуации в тексте.",
+        example='''input("Прошу вас рассматреть...")
+check_spelling()
+return_corrected_text()''',
+        kind="feature",
+        sort_order=270,
+    ),
+    FeatureModuleDefinition(
+        key="foreign_language_translator",
+        name="Перевод с иностранного языка",
+        description="Переводит сообщения без вложений на русский язык.",
+        example='''input("Please provide payment details")
+translate_to_ru()
+return_translated_text()''',
+        kind="feature",
+        sort_order=280,
+    ),
+    FeatureModuleDefinition(
+        key="legal_document_design_review",
+        name="Дизайн юридических документов",
+        description="Проверяет структуру, язык и технику юридических документов.",
+        example='''input("draft agreement text")
+review_legal_document_design()
+return_structural_feedback()''',
+        kind="feature",
+        sort_order=290,
+    ),
 ]
 
 FEATURES_BY_KEY = {definition.key: definition for definition in FEATURE_DEFINITIONS}
