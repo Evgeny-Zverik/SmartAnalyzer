@@ -241,7 +241,7 @@ export function UploadDropzone({
                 isComparison ? "text-stone-400" : surface === "dark" ? "text-zinc-400" : "text-gray-500"
               }`}
             >
-              {acceptedExtensions.join(", ")}
+              {file ? `.${getExtension(file.name) || "file"}` : acceptedExtensions.join(", ")}
             </p>
           </>
         )}

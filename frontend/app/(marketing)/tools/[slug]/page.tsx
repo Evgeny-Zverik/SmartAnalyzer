@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { FileText, GitCompareArrows, ScanSearch, Sparkles } from "lucide-react";
+import { FileText, GitCompareArrows, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
 import {
   prepareDocumentAnalyzer,
@@ -22,6 +22,7 @@ import { ResultsPanel } from "@/components/tools/ResultsPanel";
 import { AdvancedAiEditor } from "@/components/tools/AdvancedAiEditor";
 import { CaseLawChatWorkspace } from "@/components/tools/CaseLawChatWorkspace";
 import { DocumentWorkspace } from "@/components/tools/DocumentWorkspace";
+import { SecureUploadHero } from "@/components/tools/SecureUploadHero";
 import {
   getStoredLLMConfig,
   getLLMConfigForRequest,
@@ -31,14 +32,63 @@ import { Button } from "@/components/ui/Button";
 import { getFeatureModules } from "@/lib/api/settings";
 import { getFeatureKeyForTool, isToolEnabled } from "@/lib/features/toolFeatureGate";
 import { downloadDocumentFile, type DownloadDocumentFormat } from "@/lib/utils/downloadDocumentFile";
+import { requestReauth } from "@/lib/auth/session";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 type DocumentTab = "summary" | "advanced";
+const SECURE_HERO_TOOL_SLUGS = new Set([
+  "legal-text-simplifier",
+  "spelling-checker",
+  "foreign-language-translator",
+  "legal-document-design-review",
+  "legal-style-translator",
+]);
+const SECURE_HERO_HEADINGS: Record<string, ReactNode> = {
+  "legal-text-simplifier": (
+    <>
+      Загрузите документ
+      <br />и запустите пересказ
+    </>
+  ),
+  "spelling-checker": (
+    <>
+      Загрузите документ
+      <br />и запустите проверку
+    </>
+  ),
+  "foreign-language-translator": (
+    <>
+      Загрузите документ
+      <br />и запустите перевод
+    </>
+  ),
+  "legal-document-design-review": (
+    <>
+      Загрузите документ
+      <br />и запустите дизайн-проверку
+    </>
+  ),
+  "legal-style-translator": (
+    <>
+      Загрузите документ
+      <br />и запустите перевод на юридический
+    </>
+  ),
+};
+const ENCRYPTION_TOOLTIP =
+  "Все ваши диалоги полностью зашифрованы и недоступны даже для нас. Мы используем алгоритм шифрования AES-GCM для максимальной защиты данных.";
+const ANONYMIZATION_TOOLTIP =
+  "Перед обработкой мы обезличиваем чувствительные данные: имена, контакты, реквизиты и другие идентификаторы скрываются или заменяются нейтральными значениями.";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileExtension(name: string): string {
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index + 1).toLowerCase() : "";
 }
 
 function getHelpfulLlmMessage(parsed: { error: string; message: string; details: unknown }): string {
@@ -213,7 +263,8 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       : (!!file || !!compareFile) && (state === "loading" || state === "success" || state === "error");
   const analysisAbortRef = useRef<AbortController | null>(null);
   const isSpellingCheckerPage = tool.slug === "spelling-checker";
-  const isSpellingCheckerLanding = isSpellingCheckerPage && !file && state === "idle";
+  const isSecureHeroTool = SECURE_HERO_TOOL_SLUGS.has(tool.slug);
+  const isSecureHeroLanding = isSecureHeroTool && (state === "idle" || state === "ready");
   const actionHint = isCompareTool
     ? file && compareFile
       ? state === "loading"
@@ -273,7 +324,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         if (cancelled) return;
         if (isUnauthorized(error)) {
           logout();
-          router.replace("/login");
+          requestReauth({ reason: "feature_access" });
           return;
         }
         setFeatureAllowed(true);
@@ -469,7 +520,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       }
       if (isUnauthorized(e)) {
         logout();
-        router.replace("/login");
+        requestReauth({ reason: "tool_analysis" });
         return;
       }
       const limitReached = isLimitReached(e);
@@ -598,7 +649,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                         {file ? file.name : "Файл не выбран"}
                       </p>
                       <p className="mt-1 text-xs text-stone-500">
-                        {file ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}` : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                        {file
+                          ? `${formatSize(file.size)} · .${getFileExtension(file.name) || "file"}`
+                          : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
                       </p>
                     </div>
 
@@ -632,7 +685,9 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                         {compareFile ? compareFile.name : "Файл не выбран"}
                       </p>
                       <p className="mt-1 text-xs text-stone-500">
-                        {compareFile ? `${formatSize(compareFile.size)} · ${tool.mvp.accepts.join(", ")}` : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
+                        {compareFile
+                          ? `${formatSize(compareFile.size)} · .${getFileExtension(compareFile.name) || "file"}`
+                          : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
                       </p>
                     </div>
                   </div>
@@ -783,116 +838,40 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
               </div>
             </section>
             )
-          ) : isSpellingCheckerLanding ? (
-            <section className="relative overflow-hidden rounded-[36px] border border-stone-300 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(238,248,245,0.96)_38%,_rgba(232,243,252,0.94)_72%,_rgba(255,255,255,0.98))] p-5 shadow-[0_30px_120px_rgba(15,23,42,0.10)] sm:p-7">
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(15,23,42,0.02),transparent_30%,rgba(16,185,129,0.08)_66%,rgba(14,165,233,0.06))]" />
-              <div className="pointer-events-none absolute -left-10 top-10 h-40 w-40 rounded-full border border-emerald-200/70 opacity-70" />
-              <div className="pointer-events-none absolute left-8 top-8 h-64 w-64 rounded-full border border-sky-200/50 opacity-60" />
-              <div className="pointer-events-none absolute -right-10 bottom-0 h-44 w-44 rounded-full bg-emerald-200/25 blur-3xl" />
-
-              <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_430px] xl:items-start">
-                <div className="space-y-6">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/70 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Copy Desk
-                    </span>
-                    <span className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-stone-100">
-                      <FileText className="h-3.5 w-3.5" />
-                      Один документ
-                    </span>
-                  </div>
-
-                  <div className="max-w-3xl">
-                    <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-[-0.05em] text-stone-950 sm:text-5xl">
-                      Один экран для загрузки, вычитки и старта.
-                    </h2>
-                    <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-700 sm:text-base">
-                      Убрали повторяющиеся панели. Здесь загружается файл, здесь же запускается проверка, а результат появляется
-                      только после начала работы.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {[
-                      ["01", "Загрузка", "Перетащите договор, письмо или заметку. Поддерживаем все форматы этой страницы."],
-                      ["02", "Вычитка", "Инструмент ищет орфографию, пунктуацию и языковые шероховатости без лишнего переписывания."],
-                      ["03", "Правки", "Потом можно пройтись по подчёркнутым местам и применять исправления точечно."],
-                    ].map(([step, title, text]) => (
-                      <div
-                        key={step}
-                        className="rounded-[28px] border border-white/80 bg-white/70 p-5 backdrop-blur-sm shadow-[0_10px_30px_rgba(15,23,42,0.05)]"
-                      >
-                        <div className="mb-4 inline-flex h-10 min-w-10 items-center justify-center rounded-full bg-stone-900 px-3 text-xs font-semibold tracking-[0.2em] text-white">
-                          {step}
-                        </div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-stone-500">{title}</p>
-                        <p className="mt-3 text-sm leading-6 text-stone-700">{text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="relative overflow-hidden rounded-[30px] border border-stone-800/80 bg-[#111716] p-4 text-stone-50 shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:p-5">
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.18),transparent_34%)]" />
-                  <div className="pointer-events-none absolute inset-x-8 top-20 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-                  <div className="relative space-y-5">
-                    <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/90">Proof Intake</p>
-                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">Загрузите текст на проверку</h3>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-emerald-300">
-                        <ScanSearch className="h-6 w-6" />
-                      </div>
-                    </div>
-
-                    <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-2">
-                      <UploadDropzone
-                        acceptedExtensions={tool.mvp.accepts}
-                        file={file}
-                        onFileChange={handleFileChange}
-                        compact
-                        showFileCard={false}
-                        surface="dark"
-                      />
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Форматы</p>
-                        <p className="mt-2 text-sm text-stone-100">{tool.mvp.accepts.join(" / ").toUpperCase()}</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Режим</p>
-                        <p className="mt-2 text-sm text-stone-100">Орфография, пунктуация, точечные замены</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-400/10 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.24em] text-emerald-100/80">
-                        <span>Поток проверки</span>
-                        <span>ready</span>
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full w-2/3 animate-[pulse_2.4s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-emerald-300 via-teal-300 to-sky-300" />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="primary"
-                      disabled={!file}
-                      onClick={handleAnalyze}
-                      className="w-full bg-emerald-400 text-stone-950 hover:bg-emerald-300 disabled:bg-white/10 disabled:text-stone-500"
-                    >
-                      Запустить анализ
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </section>
+          ) : isSecureHeroLanding ? (
+            <SecureUploadHero
+              heading={SECURE_HERO_HEADINGS[tool.slug] ?? (
+                <>
+                  Загрузите документ
+                  <br />и запустите анализ
+                </>
+              )}
+              description="Файл обрабатывается в защищенном контуре: чувствительные данные могут быть обезличены перед анализом, а передача и хранение выполняются с шифрованием."
+              acceptedExtensions={tool.mvp.accepts}
+              file={file}
+              onFileChange={handleFileChange}
+              onAnalyze={handleAnalyze}
+              analyzeDisabled={!file}
+              securityChips={[
+                {
+                  title: "Обезличивание",
+                  subtitle: "Персональные данные",
+                  tooltip: ANONYMIZATION_TOOLTIP,
+                  icon: UserRound,
+                },
+                {
+                  title: "Шифрование",
+                  subtitle: "AES-GCM защита",
+                  tooltip: ENCRYPTION_TOOLTIP,
+                  icon: ShieldCheck,
+                },
+              ]}
+              infoCards={[
+                { title: "Форматы", value: tool.mvp.accepts.join(" / ").toUpperCase() },
+                { title: "Обезличивание", value: "Имена, контакты, реквизиты" },
+                { title: "Шифрование", value: "AES-GCM при передаче и хранении" },
+              ]}
+            />
           ) : (
             <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-4">
@@ -943,7 +922,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           )
         )}
 
-        {!isDataExtractorPage && !isSpellingCheckerLanding && (
+        {!isDataExtractorPage && !isSecureHeroLanding && (
           <div className="sticky top-4 z-30">
             <div className="rounded-3xl border border-gray-200 bg-white/95 p-3 shadow-lg shadow-gray-200/60 backdrop-blur sm:p-4">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
@@ -964,7 +943,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                           </p>
                           <p className="text-xs text-gray-500">
                             {item.currentFile
-                              ? `${formatSize(item.currentFile.size)} · ${tool.mvp.accepts.join(", ")}`
+                              ? `${formatSize(item.currentFile.size)} · .${getFileExtension(item.currentFile.name) || "file"}`
                               : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
                           </p>
                         </div>
@@ -985,7 +964,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                       </p>
                       <p className="text-xs text-gray-500">
                         {file
-                          ? `${formatSize(file.size)} · ${tool.mvp.accepts.join(", ")}`
+                          ? `${formatSize(file.size)} · .${getFileExtension(file.name) || "file"}`
                           : `Поддерживаются: ${tool.mvp.accepts.join(", ")}`}
                       </p>
                     </div>
@@ -1060,7 +1039,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           </div>
         )}
 
-        {!isSpellingCheckerLanding && (
+        {!isSecureHeroLanding && (
         <section>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
