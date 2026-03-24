@@ -18,6 +18,8 @@ export type DownloadDocumentOptions = {
   alignment?: DownloadTextAlignment;
 };
 
+export type DownloadDocumentFormat = "txt" | "md" | "rtf" | "doc" | "docx" | "pdf" | "odt";
+
 function asBlobPart(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
@@ -287,6 +289,128 @@ function createDocxBytes(text: string, options: DownloadDocumentOptions): Uint8A
   return createStoredZip(files);
 }
 
+function createRtfContent(text: string, options: DownloadDocumentOptions): string {
+  const preset = getPresetConfig(options.preset ?? "document");
+  const fontTable = `{\\fonttbl{\\f0 ${preset.fontFamily};}}`;
+  const fontSize = Math.round(preset.fontSize * 2);
+  const alignment =
+    options.alignment === "center"
+      ? "\\qc"
+      : options.alignment === "right"
+        ? "\\qr"
+        : options.alignment === "justify"
+          ? "\\qj"
+          : "\\ql";
+  const escaped = text
+    .replace(/\\/g, "\\\\")
+    .replace(/{/g, "\\{")
+    .replace(/}/g, "\\}")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n/g, "\\par\n");
+  return `{\\rtf1\\ansi\\deff0${fontTable}\n${alignment}\\f0\\fs${fontSize}\n${escaped}\n}`;
+}
+
+function createDocHtmlContent(text: string, options: DownloadDocumentOptions): string {
+  const preset = getPresetConfig(options.preset ?? "document");
+  const alignment = options.alignment ?? "justify";
+  const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
+  const htmlBody = paragraphs
+    .map((paragraph) =>
+      paragraph.trim()
+        ? `<p style="margin:0 0 12pt 0;text-align:${alignment};">${xmlEscape(paragraph)}</p>`
+        : `<p style="margin:0 0 12pt 0;">&nbsp;</p>`
+    )
+    .join("");
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "${preset.fontFamily}", serif;
+        font-size: ${Math.max(12, Math.round(preset.fontSize * 0.7))}pt;
+        line-height: 1.45;
+        margin: 1in;
+        color: #111827;
+      }
+    </style>
+  </head>
+  <body>${htmlBody}</body>
+</html>`;
+}
+
+function createOdtBytes(text: string, options: DownloadDocumentOptions): Uint8Array {
+  const encoder = new TextEncoder();
+  const preset = getPresetConfig(options.preset ?? "document");
+  const alignment =
+    options.alignment === "center"
+      ? "center"
+      : options.alignment === "right"
+        ? "end"
+        : options.alignment === "justify"
+          ? "justify"
+          : "start";
+  const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
+  const paragraphXml = paragraphs
+    .map((paragraph) =>
+      paragraph.trim()
+        ? `<text:p text:style-name="P1">${xmlEscape(paragraph)}</text:p>`
+        : `<text:p text:style-name="P1"/>`
+    )
+    .join("");
+
+  const files = [
+    {
+      name: "mimetype",
+      data: encoder.encode("application/vnd.oasis.opendocument.text"),
+    },
+    {
+      name: "content.xml",
+      data: encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
+<office:document-content
+  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+  xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+  office:version="1.2">
+  <office:automatic-styles>
+    <style:style style:name="P1" style:family="paragraph">
+      <style:paragraph-properties fo:text-align="${alignment}" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"/>
+      <style:text-properties style:font-name="${xmlEscape(preset.fontFamily)}" fo:font-size="${Math.max(12, Math.round(preset.fontSize * 0.7))}pt" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"/>
+    </style:style>
+  </office:automatic-styles>
+  <office:body>
+    <office:text>
+      ${paragraphXml}
+    </office:text>
+  </office:body>
+</office:document-content>`),
+    },
+    {
+      name: "styles.xml",
+      data: encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
+<office:document-styles
+  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+  office:version="1.2">
+  <office:styles/>
+</office:document-styles>`),
+    },
+    {
+      name: "META-INF/manifest.xml",
+      data: encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
+<manifest:manifest
+  xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
+  manifest:version="1.2">
+  <manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.text"/>
+  <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
+  <manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>
+</manifest:manifest>`),
+    },
+  ];
+
+  return createStoredZip(files);
+}
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -422,12 +546,27 @@ async function createPdfBytes(text: string, options: DownloadDocumentOptions): P
 
 export async function downloadDocumentFile(
   text: string,
-  format: "txt" | "pdf" | "docx",
+  format: DownloadDocumentFormat,
   baseName = "document-analyzer-edited",
   options: DownloadDocumentOptions = {}
 ): Promise<void> {
   if (format === "txt") {
     saveBlob([text], "text/plain;charset=utf-8", normalizeFilename(baseName, "txt"));
+    return;
+  }
+
+  if (format === "md") {
+    saveBlob([text], "text/markdown;charset=utf-8", normalizeFilename(baseName, "md"));
+    return;
+  }
+
+  if (format === "rtf") {
+    saveBlob([createRtfContent(text, options)], "application/rtf", normalizeFilename(baseName, "rtf"));
+    return;
+  }
+
+  if (format === "doc") {
+    saveBlob([createDocHtmlContent(text, options)], "application/msword", normalizeFilename(baseName, "doc"));
     return;
   }
 
@@ -437,6 +576,16 @@ export async function downloadDocumentFile(
       [asBlobPart(bytes)],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       normalizeFilename(baseName, "docx")
+    );
+    return;
+  }
+
+  if (format === "odt") {
+    const bytes = createOdtBytes(text, options);
+    saveBlob(
+      [asBlobPart(bytes)],
+      "application/vnd.oasis.opendocument.text",
+      normalizeFilename(baseName, "odt")
     );
     return;
   }

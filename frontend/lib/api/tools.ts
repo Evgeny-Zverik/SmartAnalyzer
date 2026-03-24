@@ -150,6 +150,31 @@ export type TenderAnalyzerChatResponse = {
   result: TenderAnalyzerRunResponse["result"];
 };
 
+export type LegalTextSimplifierRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    summary: string;
+    plain_language_text: string;
+    key_points: string[];
+  };
+};
+
+export type SpellingCheckerRunResponse = {
+  analysis_id: number;
+  tool_slug: string;
+  result: {
+    summary: string;
+    original_text: string;
+    corrected_text: string;
+    corrections: Array<{
+      original: string;
+      corrected: string;
+      reason: string;
+    }>;
+  };
+};
+
 export type LLMConfigRequest = {
   base_url?: string;
   api_key?: string;
@@ -246,6 +271,44 @@ export async function runTenderAnalyzer(
   return apiFetch<TenderAnalyzerRunResponse>("/api/v1/tools/tender-analyzer/run", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
+    signal,
+  });
+}
+
+export async function runLegalTextSimplifier(
+  documentId: number,
+  llmConfig?: LLMConfigRequest | null,
+  signal?: AbortSignal
+): Promise<LegalTextSimplifierRunResponse> {
+  const body: {
+    document_id: number;
+    llm_config?: LLMConfigRequest;
+  } = { document_id: documentId };
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
+    body.llm_config = llmConfig;
+  }
+  return apiFetch<LegalTextSimplifierRunResponse>("/api/v1/tools/legal-text-simplifier/run", {
+    method: "POST",
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
+export async function runSpellingChecker(
+  documentId: number,
+  llmConfig?: LLMConfigRequest | null,
+  signal?: AbortSignal
+): Promise<SpellingCheckerRunResponse> {
+  const body: {
+    document_id: number;
+    llm_config?: LLMConfigRequest;
+  } = { document_id: documentId };
+  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
+    body.llm_config = llmConfig;
+  }
+  return apiFetch<SpellingCheckerRunResponse>("/api/v1/tools/spelling-checker/run", {
+    method: "POST",
+    body: JSON.stringify(body),
     signal,
   });
 }
@@ -446,6 +509,8 @@ export async function runToolAnalysis(
     toolSlug === "document-analyzer" ||
     toolSlug === "contract-checker" ||
     toolSlug === "data-extractor" ||
+    toolSlug === "legal-text-simplifier" ||
+    toolSlug === "spelling-checker" ||
     toolSlug === "handwriting-recognition" ||
     toolSlug === "tender-analyzer"
   ) {
@@ -476,6 +541,12 @@ export async function runToolAnalysis(
         throw new Error("Second document is required for comparison.");
       }
       const runRes = await runDataExtractor(documentId, options.compareDocumentId, llmConfig, signal);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else if (toolSlug === "legal-text-simplifier") {
+      const runRes = await runLegalTextSimplifier(documentId, llmConfig, signal);
+      result = runRes.result as unknown as Record<string, unknown>;
+    } else if (toolSlug === "spelling-checker") {
+      const runRes = await runSpellingChecker(documentId, llmConfig, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "tender-analyzer") {
       const runRes = await runTenderAnalyzer(documentId, signal);

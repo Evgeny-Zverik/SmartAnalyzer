@@ -263,6 +263,46 @@ def _split_context_blocks(text: str) -> list[str]:
     return blocks
 
 
+def _split_text_for_copyedit(text: str, max_chars: int = 3500) -> list[str]:
+    normalized = re.sub(r"\r\n?", "\n", text).strip()
+    if not normalized:
+        return []
+
+    paragraphs = re.split(r"\n{2,}", normalized)
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for paragraph in paragraphs:
+        piece = paragraph.strip()
+        if not piece:
+            continue
+
+        if len(piece) > max_chars:
+            if current:
+                chunks.append("\n\n".join(current))
+                current = []
+                current_len = 0
+            for start in range(0, len(piece), max_chars):
+                part = piece[start : start + max_chars].strip()
+                if part:
+                    chunks.append(part)
+            continue
+
+        extra = len(piece) + (2 if current else 0)
+        if current and current_len + extra > max_chars:
+            chunks.append("\n\n".join(current))
+            current = [piece]
+            current_len = len(piece)
+        else:
+            current.append(piece)
+            current_len += extra
+
+    if current:
+        chunks.append("\n\n".join(current))
+    return chunks
+
+
 def _tokenize_for_retrieval(text: str) -> list[str]:
     return re.findall(r"[a-zA-Zа-яА-Я0-9_]{2,}", text.lower())
 
@@ -556,6 +596,8 @@ def _create_completion(
     attempts = max(1, int(opts.get("max_retries") or app_settings.llm_max_retries))
     timeout = max(1, int(opts.get("timeout") or app_settings.llm_timeout_seconds))
     last_error: Exception | None = None
+    if client is None or not model:
+        client, model = _build_openai_client(opts)
 
     for attempt in range(1, attempts + 1):
         if cancelled is not None and cancelled.is_set():
@@ -567,6 +609,9 @@ def _create_completion(
                 "temperature": 0,
                 "timeout": timeout,
             }
+            max_tokens = opts.get("max_tokens")
+            if isinstance(max_tokens, int) and max_tokens > 0:
+                request_kwargs["max_tokens"] = max_tokens
             response = client.chat.completions.create(**request_kwargs)
             if cancelled is not None and cancelled.is_set():
                 raise CancelledException("LLM request cancelled by client")
@@ -982,6 +1027,142 @@ Contract text:
         data["checklist"] = out_check
 
     return data
+
+
+def simplify_legal_text(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    opts = overrides or {}
+    client, model = _build_openai_client(opts)
+    source_text = text[:MAX_SOURCE_CONTEXT_CHARS]
+    context_bundle = _prepare_context_bundle(
+        source_text,
+        "analysis",
+        _normalize_compression_level(opts),
+        include_verbatim=False,
+    )
+    simplification_context = context_bundle["context"]
+    language_rule = _language_requirement(source_text)
+    prompt = f"""Simplify the legal document for a non-lawyer reader and return a JSON object with exactly these keys:
+- "summary": string, a short plain-language summary in 2-4 sentences
+- "plain_language_text": string, a readable retelling of the document in simple language without legal jargon where possible
+- "key_points": array of 3 to 8 short strings with the main ideas, obligations, risks, deadlines, or consequences
+
+{language_rule}
+IMPORTANT: Keep the meaning of the source text. Do not invent facts that are missing from the document.
+IMPORTANT: Explain legal terms in simpler words instead of copying complex wording when possible.
+IMPORTANT: Return only valid JSON, no markdown or explanation.
+
+Document:
+---
+{simplification_context}
+---"""
+
+    content = _create_completion(client, model, prompt, opts, "legal text simplification")
+
+    try:
+        data = json.loads(_coerce_json_payload(content))
+    except json.JSONDecodeError as e:
+        raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
+
+    if not isinstance(data, dict):
+        raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
+
+    data["summary"] = str(data.get("summary") or "").strip()
+    data["plain_language_text"] = str(data.get("plain_language_text") or "").strip()
+    key_points = data.get("key_points")
+    data["key_points"] = [str(x).strip() for x in key_points[:8] if str(x).strip()] if isinstance(key_points, list) else []
+    return data
+
+
+def check_spelling(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    opts = overrides or {}
+    source_text = text[:MAX_SOURCE_CONTEXT_CHARS]
+    language = _detect_document_language(source_text)
+    language_rule = _language_requirement(source_text)
+    chunks = _split_text_for_copyedit(source_text, max_chars=3200)
+    if not chunks:
+        return {
+            "summary": "Текст пустой или не содержит читаемых фрагментов." if language == "ru" else "The text is empty or has no readable content.",
+            "original_text": source_text.strip(),
+            "corrected_text": "",
+            "corrections": [],
+        }
+
+    corrected_chunks: list[str] = []
+    all_corrections: list[dict[str, str]] = []
+
+    for index, chunk in enumerate(chunks, start=1):
+        chunk_opts = dict(opts)
+        chunk_opts["compression_level"] = "off"
+        chunk_opts["max_tokens"] = max(700, min(2200, len(chunk) // 2 + 280))
+        prompt = f"""Proofread this text fragment and return a JSON object with exactly these keys:
+- "corrected_text": string, the corrected version of the fragment
+- "corrections": array of 0 to 3 objects, each with:
+  - "original": string
+  - "corrected": string
+  - "reason": string
+
+{language_rule}
+IMPORTANT: Preserve wording and structure where possible.
+IMPORTANT: Fix spelling, punctuation, obvious grammar and typography mistakes only.
+IMPORTANT: Do not rewrite the style aggressively.
+IMPORTANT: Return only valid JSON, no markdown or explanation.
+IMPORTANT: This is fragment {index} of {len(chunks)}.
+
+Fragment:
+---
+{chunk}
+---"""
+
+        content = _create_completion(None, "", prompt, chunk_opts, f"spelling check chunk {index}")
+
+        try:
+            data = json.loads(_coerce_json_payload(content))
+        except json.JSONDecodeError as e:
+            raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
+
+        if not isinstance(data, dict):
+            raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
+
+        corrected_text = str(data.get("corrected_text") or "").strip()
+        corrected_chunks.append(corrected_text or chunk)
+
+        corrections = data.get("corrections")
+        if isinstance(corrections, list):
+            for item in corrections:
+                if not isinstance(item, dict):
+                    continue
+                corrected = str(item.get("corrected") or "").strip()
+                original = str(item.get("original") or "").strip()
+                reason = str(item.get("reason") or "").strip()
+                if corrected and len(all_corrections) < 12:
+                    all_corrections.append(
+                        {
+                            "original": original,
+                            "corrected": corrected,
+                            "reason": reason,
+                        }
+                    )
+
+    changed_count = len(all_corrections)
+    if language == "en":
+        summary = (
+            "The text was proofread. No significant spelling or punctuation issues were found."
+            if changed_count == 0
+            else f"The text was proofread and cleaned up. {changed_count} key spelling or punctuation fixes were highlighted."
+        )
+    else:
+        summary = (
+            "Текст проверен. Существенных орфографических и пунктуационных ошибок не найдено."
+            if changed_count == 0
+            else f"Текст проверен и очищен. Выделено {changed_count} ключевых орфографических или пунктуационных исправлений."
+        )
+
+    return {
+        "summary": summary,
+        "original_text": source_text.strip(),
+        "corrected_text": "\n\n".join(corrected_chunks).strip(),
+        "corrections": all_corrections,
+    }
 
 
 def extract_structured_data(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:

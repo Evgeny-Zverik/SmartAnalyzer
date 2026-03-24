@@ -180,6 +180,25 @@ class RiskAnalyzerResult(BaseModel):
     recommendations: list[RecommendationItem]
 
 
+class LegalTextSimplifierResult(BaseModel):
+    summary: str
+    plain_language_text: str
+    key_points: list[str]
+
+
+class SpellingCorrectionItem(BaseModel):
+    original: str
+    corrected: str
+    reason: str
+
+
+class SpellingCheckerResult(BaseModel):
+    summary: str
+    original_text: str
+    corrected_text: str
+    corrections: list[SpellingCorrectionItem]
+
+
 class LlmConfigOptional(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
@@ -252,3 +271,15 @@ class RiskAnalyzerRunResponse(BaseModel):
     analysis_id: int
     tool_slug: str
     result: RiskAnalyzerResult
+
+
+class LegalTextSimplifierRunResponse(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    result: LegalTextSimplifierResult
+
+
+class SpellingCheckerRunResponse(BaseModel):
+    analysis_id: int
+    tool_slug: str
+    result: SpellingCheckerResult

@@ -20,9 +20,11 @@ from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
     analyze_document_fast,
+    check_spelling,
     check_contract,
     compare_documents_detailed,
     extract_structured_data,
+    simplify_legal_text,
     stream_document_analysis_events,
 )
 from app.utils.errors import raise_error
@@ -42,6 +44,8 @@ from app.schemas.tools import (
     FieldItem,
     HandwritingRecognitionRunResponse,
     HandwritingRecognitionResult,
+    LegalTextSimplifierRunResponse,
+    LegalTextSimplifierResult,
     ObligationItem,
     PenaltyItem,
     RecommendationItem,
@@ -55,6 +59,8 @@ from app.schemas.tools import (
     TenderAnalyzerChatResponse,
     TenderAnalyzerRunResponse,
     TenderAnalyzerResult,
+    SpellingCheckerRunResponse,
+    SpellingCheckerResult,
     ToolRunRequest,
 )
 
@@ -449,6 +455,88 @@ def run_handwriting_recognition(
     return HandwritingRecognitionRunResponse(
         analysis_id=analysis_id,
         tool_slug="handwriting-recognition",
+        result=result,
+    )
+
+
+@router.post("/legal-text-simplifier/run", response_model=LegalTextSimplifierRunResponse)
+def run_legal_text_simplifier(
+    body: ToolRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _assert_feature_enabled(db, current_user, "legal_text_simplifier")
+    ensure_user_system_folders(db, current_user.id)
+    assert_can_run(db, current_user, "legal-text-simplifier")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    text = extract_text(doc.storage_path, doc.mime_type)
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    raw_result = simplify_legal_text(text, overrides=overrides)
+    try:
+        result = LegalTextSimplifierResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "LLM_INVALID_RESPONSE", "Simplified text result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="legal-text-simplifier",
+        fallback_folder_id=doc.folder_id,
+    )
+    analysis_id = _save_analysis(
+        db,
+        current_user,
+        current_user.id,
+        body.document_id,
+        "legal-text-simplifier",
+        result.model_dump(),
+        folder.id,
+    )
+    log_run(db, current_user.id, "legal-text-simplifier")
+    return LegalTextSimplifierRunResponse(
+        analysis_id=analysis_id,
+        tool_slug="legal-text-simplifier",
+        result=result,
+    )
+
+
+@router.post("/spelling-checker/run", response_model=SpellingCheckerRunResponse)
+def run_spelling_checker(
+    body: ToolRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _assert_feature_enabled(db, current_user, "spelling_checker")
+    ensure_user_system_folders(db, current_user.id)
+    assert_can_run(db, current_user, "spelling-checker")
+    doc = _get_document_for_user(db, body.document_id, current_user.id)
+    text = extract_text(doc.storage_path, doc.mime_type)
+    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    raw_result = check_spelling(text, overrides=overrides)
+    try:
+        result = SpellingCheckerResult.model_validate(raw_result)
+    except ValidationError:
+        raise_error(500, "LLM_INVALID_RESPONSE", "Spelling check result format invalid. Try again.", {})
+    folder = resolve_analysis_folder(
+        db,
+        current_user.id,
+        body.folder_id,
+        tool_slug="spelling-checker",
+        fallback_folder_id=doc.folder_id,
+    )
+    analysis_id = _save_analysis(
+        db,
+        current_user,
+        current_user.id,
+        body.document_id,
+        "spelling-checker",
+        result.model_dump(),
+        folder.id,
+    )
+    log_run(db, current_user.id, "spelling-checker")
+    return SpellingCheckerRunResponse(
+        analysis_id=analysis_id,
+        tool_slug="spelling-checker",
         result=result,
     )
 
