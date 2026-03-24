@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { logout as authLogout } from "@/lib/api/auth";
+import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { getToken, onAuthChange } from "@/lib/auth/token";
 
 export function Header() {
@@ -84,7 +85,7 @@ export function Header() {
           ) : (
             <>
               <Link
-                href="/login"
+                href={buildLoginRedirectHref(pathname)}
                 className="inline-flex items-center rounded-full px-3 py-2 text-sm font-medium text-stone-600 transition hover:bg-white/70 hover:text-stone-900"
               >
                 Войти

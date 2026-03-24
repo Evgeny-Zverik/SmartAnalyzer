@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { FileText, GitCompareArrows, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { FileText, GitCompareArrows, ScanSearch, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { getToolBySlug } from "@/lib/config/tools";
 import {
   prepareDocumentAnalyzer,

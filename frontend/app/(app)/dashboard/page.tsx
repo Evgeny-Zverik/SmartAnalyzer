@@ -13,6 +13,8 @@ import { AnalysisModal } from "@/components/analyses/AnalysisModal";
 import { getToken } from "@/lib/auth/token";
 import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout, me, type User } from "@/lib/api/auth";
+import { buildLoginRedirectHref } from "@/lib/auth/redirect";
+import { requestReauth } from "@/lib/auth/session";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
 import {
   listFolders,
@@ -88,7 +90,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      router.replace("/login");
+      router.replace(buildLoginRedirectHref());
       return;
     }
     me()
@@ -98,8 +100,12 @@ export default function DashboardPage() {
       })
       .then(loadFolders)
       .catch((err) => {
-        if (isUnauthorized(err)) authLogout();
-        router.replace("/login");
+        if (isUnauthorized(err)) {
+          authLogout();
+          requestReauth({ reason: "dashboard" });
+          return;
+        }
+        router.replace(buildLoginRedirectHref());
       })
       .finally(() => setChecking(false));
   }, [router, loadFolders]);

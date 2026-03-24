@@ -23,6 +23,7 @@ import { uploadDocument } from "@/lib/api/documents";
 import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
+import { requestReauth } from "@/lib/auth/session";
 import { isDocumentAnalyzerAnonymizationEnabled } from "@/lib/features/documentAnalyzerAnonymization";
 import { isDocumentAnalyzerEncryptionEnabled } from "@/lib/features/documentAnalyzerEncryption";
 import {
@@ -186,7 +187,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setErrorMessage(parsed.message || "Plugin run failed.");
         if (isUnauthorized(error)) {
           logout();
-          router.replace("/login");
+          requestReauth({ reason: "workspace_plugin" });
         }
       } finally {
         setRunningPluginId(null);
@@ -236,7 +237,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setErrorMessage(parsed.message || "Plugin batch run failed.");
         if (isUnauthorized(error)) {
           logout();
-          router.replace("/login");
+          requestReauth({ reason: "workspace_batch" });
         }
       } finally {
         setRunningPluginId(null);
@@ -261,7 +262,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       setState("error");
       if (isUnauthorized(error)) {
         logout();
-        router.replace("/login");
+        requestReauth({ reason: "workspace_upload" });
       }
     }
   }, [hydratePlugins, router]);
@@ -286,7 +287,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       setState("error");
       if (isUnauthorized(error)) {
         logout();
-        router.replace("/login");
+        requestReauth({ reason: "workspace_analysis" });
       }
     }
   }, [documentId, hydratePlugins, autoRunEnabledPlugins, router]);

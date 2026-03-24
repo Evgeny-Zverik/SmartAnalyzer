@@ -17,6 +17,7 @@ import type { Tool } from "@/lib/config/tools";
 import { runTenderAnalyzerChat, type TenderAnalyzerChatResponse } from "@/lib/api/tools";
 import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
+import { requestReauth } from "@/lib/auth/session";
 import { Button } from "@/components/ui/Button";
 
 const displayFont = PT_Serif({
@@ -252,7 +253,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       }
       if (isUnauthorized(error)) {
         logout();
-        window.location.href = "/login";
+        requestReauth({ reason: "case_law_chat" });
         return;
       }
       const parsed = parseApiError(error);

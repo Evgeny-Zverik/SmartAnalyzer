@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { logout as authLogout } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
+import { buildLoginRedirectHref } from "@/lib/auth/redirect";
+import { requestReauth } from "@/lib/auth/session";
 import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
 import { saveFeatureModulesCache } from "@/lib/features/toolFeatureGate";
 import {
@@ -65,7 +68,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!getToken()) {
-      router.replace("/login");
+      router.replace(buildLoginRedirectHref());
       return;
     }
     Promise.all([
@@ -83,7 +86,8 @@ export default function SettingsPage() {
     ])
       .catch((err) => {
         if (isUnauthorized(err)) {
-          router.replace("/login");
+          authLogout();
+          requestReauth({ reason: "settings_load" });
           return;
         }
         toast.error("Не удалось загрузить настройки");
@@ -123,7 +127,8 @@ export default function SettingsPage() {
       clearDocumentAnalyzerEncryptionCache();
     } catch (error) {
       if (isUnauthorized(error)) {
-        router.replace("/login");
+        authLogout();
+        requestReauth({ reason: "settings_save" });
         return;
       }
       toast.error("Не удалось обновить модуль");

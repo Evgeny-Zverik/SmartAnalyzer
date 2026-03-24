@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -9,9 +9,11 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { parseApiError } from "@/lib/api/errors";
 import { login } from "@/lib/api/auth";
+import { getSafeReturnTo } from "@/lib/auth/redirect";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push("/dashboard");
+      const returnTo = getSafeReturnTo(searchParams.get("returnTo"));
+      router.replace(returnTo ?? "/dashboard");
       router.refresh();
     } catch (err) {
       const parsed = parseApiError(err);
