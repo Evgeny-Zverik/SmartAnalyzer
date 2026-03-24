@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { SeverityBadge } from "@/components/tools/SeverityBadge";
 import { ChecklistView } from "@/components/tools/ChecklistView";
 import { JsonActions } from "@/components/tools/JsonActions";
+import { LlmWaitingState } from "@/components/tools/LlmWaitingState";
 
 type AnalysisStage = "upload" | "analyze" | "review" | "done";
 type DocumentViewMode = "summary" | "advanced";
@@ -1421,13 +1422,14 @@ export function ResultsPanel({
   }
 
   if (status === "loading") {
-    if (toolSlug === "data-extractor") {
-      return <DataExtractorLoadingState stage={stage} elapsedSec={elapsedSec} />;
-    }
-    if (toolSlug === "spelling-checker") {
-      return <SpellingCheckerLoadingState stage={stage} elapsedSec={elapsedSec} />;
-    }
-    return <AnalysisProgress stage={stage} elapsedSec={elapsedSec} toolSlug={toolSlug} documentView={documentView} />;
+    return (
+      <LlmWaitingState
+        stage={stage}
+        elapsedSec={elapsedSec}
+        toolSlug={toolSlug}
+        documentView={documentView}
+      />
+    );
   }
 
   if (status === "error") {
