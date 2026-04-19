@@ -38,3 +38,6 @@ data/
 # TS incremental build cache
 frontend/tsconfig.tsbuildinfo
 
+# Claude Code skills lockfile
+skills-lock.json
+
