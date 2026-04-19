@@ -351,90 +351,74 @@ _REGION_ALIASES: list[tuple[tuple[str, ...], str, str]] = [
 
 
 def build_case_law_stub_result(query: str) -> TenderAnalyzerResult:
+    """Честный «пустой» результат, когда источники поиска недоступны.
+
+    Не генерирует выдуманных карточек дел, позиций судов или темы спора. Содержит
+    только нормы права (эвристика по ключевым словам) и прямые ссылки на открытые
+    поисковики, чтобы юрист мог продолжить поиск вручную.
+    """
     normalized = query.strip()
     query_lower = normalized.lower()
 
     matched_regions = [
-        (label, prefix)
-        for aliases, label, prefix in _REGION_ALIASES
+        label
+        for aliases, label, _prefix in _REGION_ALIASES
         if any(alias in query_lower for alias in aliases)
     ]
-
     if not matched_regions:
         extracted = _extract_region_hints(query)
         if extracted:
-            matched_regions = [(hint.title(), "А40") for hint in extracted]
-
-    if not matched_regions:
-        matched_regions = [("Москва", "А40")]
-
-    regions = [label for label, _ in matched_regions]
-    case_prefix = matched_regions[0][1]
-
-    court_label = "арбитражных судов"
-    if "област" in query_lower or "суд общей юрисдикции" in query_lower:
-        court_label = "судов общей юрисдикции"
-    elif "арбитраж" in query_lower:
-        court_label = "арбитражных судов"
-
-    subject_match = re.search(r"(?:по|о)\s+(.+)", normalized, flags=re.IGNORECASE)
-    subject = subject_match.group(1).strip() if subject_match else "аналогичному спору"
-    subject = subject.rstrip(".")
+            matched_regions = [hint.title() for hint in extracted]
 
     return TenderAnalyzerResult(
         query=normalized,
         summary=(
-            f"По запросу «{normalized}» собрана подборка практики {court_label} по региону "
-            f"{', '.join(regions)} с акцентом на {subject}."
+            f"Поиск судебной практики по запросу «{normalized}» не выполнен: внешние "
+            "источники (kad.arbitr.ru, sudrf.ru, sudact.ru) сейчас недоступны или не "
+            "настроены. Мы ничего не нашли — и не выдумываем дел."
         ),
         search_scope=(
-            f"Регион: {', '.join(regions)}. Контур поиска: {court_label}. "
-            "Если настроен внешний retrieval API, результаты будут приходить из него."
+            "Источники поиска не отработали. Ниже — только применимые нормы права "
+            "и прямые ссылки на открытые базы для ручного поиска."
         ),
         dispute_overview=(
-            f"Запрос ориентирован на споры о {subject}. Для таких дел суды обычно смотрят на договор, переписку, "
-            "первичные документы, подтверждение фактического исполнения и причинную связь между нарушением и последствиями."
+            "Автоматическая подборка практики недоступна. Откройте источники ниже "
+            "и введите запрос вручную — там вы найдёте актуальные акты."
         ),
-        regions=regions,
-        court_positions=[
-            CourtPositionItem(
-                court=f"Практика {regions[0]}",
-                position=(
-                    "Суды придают значение не только тексту договора, но и переписке, актам, платежным документам "
-                    "и последующему поведению сторон."
-                ),
-                relevance="Полезно, если спор строится на фактическом исполнении или принятии результата работ.",
-            ),
-            CourtPositionItem(
-                court=f"Апелляционная инстанция {regions[0]}",
-                position=(
-                    "Для взыскания убытков и санкций требуется отдельно показать состав нарушения, расчет требований "
-                    "и доказанность причинной связи."
-                ),
-                relevance="Важно для оценки перспектив и структуры доказательственной базы.",
-            ),
-        ],
+        regions=matched_regions,
+        court_positions=[],
         cited_cases=[
             CaseLawReferenceItem(
-                title=f"Карточка дела по спору о {subject}",
-                citation=f"{case_prefix}-12345/2025",
+                title="Картотека арбитражных дел",
+                citation="kad.arbitr.ru",
                 url="https://kad.arbitr.ru/",
-                takeaway="Используйте карточку дела для перехода к судебным актам, движению дела и процессуальным документам.",
+                takeaway="Официальный поиск по делам арбитражных судов РФ.",
             ),
             CaseLawReferenceItem(
-                title="Поиск актов через ГАС Правосудие",
-                citation="ГАС Правосудие",
+                title="ГАС «Правосудие»",
+                citation="sudrf.ru",
                 url="https://sudrf.ru/",
-                takeaway="Удобен для расширения выдачи по региону, типу суда и ключевым словам запроса.",
+                takeaway="Поиск актов судов общей юрисдикции по региону и типу суда.",
+            ),
+            CaseLawReferenceItem(
+                title="СудАкт",
+                citation="sudact.ru",
+                url="https://sudact.ru/",
+                takeaway="Агрегатор судебных актов с полнотекстовым поиском.",
             ),
         ],
         legal_basis=_derive_legal_basis(normalized),
         practical_takeaways=[
-            "Сужайте запрос по региону, периоду, инстанции и предмету спора, чтобы подборка была точнее.",
-            "Сразу собирайте ссылки на акты, карточки дел, переписку и первичные документы под вашу позицию.",
-            "Сверяйте найденную практику с вашей фактической моделью спора: предмет, нарушение, доказательства и итог.",
+            "Откройте источники выше и повторите запрос вручную — мы не хотим "
+            "подставлять вам несуществующие дела.",
+            "Сужайте запрос по региону, периоду, инстанции и предмету спора.",
+            "Сверяйте найденную практику с фактурой спора: предмет, нарушение, "
+            "доказательства, итог.",
         ],
-        follow_up_prompt="Можно уточнить период, инстанцию, вид суда или категорию спора для более точной подборки.",
+        follow_up_prompt=(
+            "Как только поисковые источники заработают, автоматическая подборка "
+            "актов и позиций судов появится в этом же окне."
+        ),
         data_source="stub",
     )
 
@@ -642,6 +626,58 @@ def _extract_topic_terms(query: str) -> list[str]:
     return [token for token in tokens if token not in SEARCH_STOP_WORDS]
 
 
+ARBITRAZH_COURT_BY_PREFIX: dict[str, str] = {
+    label[1]: label[0]  # reverse map: prefix → full region label
+    for label in [(label, prefix) for aliases, label, prefix in _REGION_ALIASES if prefix]
+}
+
+
+def _court_name_from_item(item: dict[str, str]) -> str | None:
+    """Попытаться извлечь нормальное название суда из item."""
+    title = item.get("title", "").strip()
+    if title and "суд" in title.lower() and len(title) < 160:
+        return title
+    source = item.get("source", "").strip()
+    if source and "суд" in source.lower():
+        return source
+    url = item.get("url", "").strip().lower()
+    if "kad.arbitr.ru" in url:
+        prefix = _arbitrazh_case_prefix(item)
+        if prefix:
+            for aliases, label, pref in _REGION_ALIASES:
+                if pref and pref.upper() == prefix.upper():
+                    return _region_to_arbitrazh_court(label)
+        return "Картотека арбитражных дел"
+    return None
+
+
+def _case_number_from_item(item: dict[str, str]) -> str | None:
+    """Извлечь номер дела (А40-123/2024) или citation."""
+    citation = item.get("citation", "").strip()
+    if citation:
+        return citation
+    prefix = _arbitrazh_case_prefix(item)
+    if prefix:
+        haystack = " ".join([item.get("title", ""), item.get("snippet", ""), item.get("url", "")])
+        match = re.search(r"\b([аa]\d{2,3}-\d+/\d{4})\b", haystack, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).upper().replace("A", "А")
+    return None
+
+
+def _build_cited_title(item: dict[str, str]) -> str:
+    """Строит читаемый заголовок для карточки: «Название суда (номер дела)»."""
+    court = _court_name_from_item(item)
+    case = _case_number_from_item(item)
+    if court and case:
+        return f"{court} ({case})"
+    if court:
+        return court
+    if case:
+        return case
+    return _normalize_source_label(item)
+
+
 def _normalize_source_label(item: dict[str, str]) -> str:
     title = item.get("title", "").strip()
     if title and "суд" in title.lower() and len(title) < 140:
@@ -659,6 +695,52 @@ def _normalize_source_label(item: dict[str, str]) -> str:
     if source:
         return source
     return "Найденный источник"
+
+
+_AMOUNT_PATTERN = re.compile(
+    r"(\d{1,3}(?:[\s\u00a0]\d{3})+|\d+)(?:[.,](\d+))?"
+    r"\s*(тыс\.?|млн\.?|млрд\.?)?"
+    r"\s*(?:руб(?:\.|лей|ля|\b)|₽|р\.)",
+    flags=re.IGNORECASE,
+)
+
+_MULTIPLIERS = {"тыс": 1_000, "млн": 1_000_000, "млрд": 1_000_000_000}
+
+
+def _extract_max_amount_rub(*texts: str) -> int | None:
+    """Вытащить максимальную сумму в рублях из переданных текстов.
+
+    Считает только числа, у которых рядом маркер «руб»/«₽»/«р.», опционально
+    умножая на «тыс./млн./млрд.». Защищает от ложных срабатываний на номерах
+    дел (А40-264737/2024) и годах — там нет маркера рубля.
+    """
+    best: int | None = None
+    for text in texts:
+        if not text:
+            continue
+        for match in _AMOUNT_PATTERN.finditer(text):
+            int_part = match.group(1).replace("\u00a0", "").replace(" ", "")
+            if not int_part.isdigit():
+                continue
+            try:
+                value = int(int_part)
+            except ValueError:
+                continue
+            frac = match.group(2)
+            multiplier_key = (match.group(3) or "").rstrip(".").lower()
+            if multiplier_key in _MULTIPLIERS:
+                mult = _MULTIPLIERS[multiplier_key]
+                if frac:
+                    value = int(value * mult + int(frac.ljust(len(frac), "0")) * mult // (10 ** len(frac)))
+                else:
+                    value *= mult
+            # Отсекаем очевидно мелкие шумы вроде «1 руб.» в юридическом контексте —
+            # такие суммы не про размер иска, а про номинальную компенсацию.
+            if value < 100:
+                continue
+            if best is None or value > best:
+                best = value
+    return best
 
 
 def _item_region_match(query: str, item: dict[str, str]) -> str:
@@ -708,16 +790,18 @@ def _build_no_exact_matches_result(query: str, requested_regions: list[str]) -> 
     return base.model_copy(
         update={
             "summary": (
-                f"По запросу «{query}» в поисковой выдаче не нашлось точных актов для региона {region_label}. "
-                "Уточните период, инстанцию, номер суда или номер дела."
+                f"В открытых источниках (kad.arbitr.ru, sudrf.ru, sudact.ru) по запросу «{query}» "
+                f"нет актов для региона {region_label}. Это значит, что мы ничего не нашли — "
+                "и не выдумываем несуществующих дел."
             ),
-            "search_scope": f"Точный поиск по региону: {region_label}.",
+            "search_scope": f"Точный поиск по региону: {region_label}. Источники: kad.arbitr.ru, sudrf.ru, sudact.ru.",
             "regions": requested_regions or base.regions,
             "court_positions": [],
             "cited_cases": [],
             "follow_up_prompt": (
-                "Попробуйте сузить запрос: добавьте период, инстанцию, номер суда или номер дела. "
-                "Если нужен поиск по аналогам из других регионов, это можно будет включить отдельно."
+                "Попробуйте сформулировать иначе: добавьте период, инстанцию, номер суда, "
+                "номер дела или уточните предмет спора другими ключевыми словами. "
+                "Отсутствие практики — это тоже полезный ответ: возможно, в открытом доступе дел нет."
             ),
             "data_source": "no_results",
         }
@@ -742,11 +826,22 @@ def _score_search_result(query: str, item: dict[str, str]) -> int:
     )
     score = 0
     url = item.get("url", "").strip().lower()
+    # kad.arbitr.ru — основной источник для юристов (sudrf.ru часто лагает),
+    # поэтому даём базовый приоритет ему вне зависимости от слова "арбитраж" в запросе.
+    if "kad.arbitr.ru" in haystack:
+        score += 4
     if "арбитраж" in query.lower():
         if "kad.arbitr.ru" in haystack:
-            score += 6
+            score += 4
         if "судрф" in haystack or "sudrf.ru" in haystack:
-            score -= 1
+            score -= 2
+    # Для Верховного суда и высоких инстанций
+    if "vsrf.ru" in haystack or "верховн" in haystack:
+        score += 3
+    if re.search(r"\b[1-9]kas\.sudrf\.ru\b", url):
+        score += 2
+    if re.search(r"\b[1-5]ap\.sudrf\.ru\b", url):
+        score += 1
     if url.rstrip("/") == "https://kad.arbitr.ru":
         score -= 8
     if "sudrf.ru/modules.php?name=sud_delo" in url and "number=" not in url and "case_id=" not in url:
@@ -994,17 +1089,18 @@ def _build_web_search_fallback(
 
     cited_cases = [
         CaseLawReferenceItem(
-            title=item["title"],
-            citation=item["citation"] or _normalize_source_label(item),
+            title=_build_cited_title(item),
+            citation=_case_number_from_item(item) or _normalize_source_label(item),
             url=item["url"],
             takeaway=item["snippet"] or "Откройте источник для просмотра карточки дела и судебных актов.",
             region_match=_item_region_match(query, item),
+            amount_rub=_extract_max_amount_rub(item.get("title", ""), item.get("snippet", "")),
         )
         for item in filtered[:10]
     ]
     positions = [
         CourtPositionItem(
-            court=_normalize_source_label(item),
+            court=_court_name_from_item(item) or _normalize_source_label(item),
             position=item["snippet"] or "Найден релевантный акт по запросу.",
             relevance="Материал отобран из поисковой выдачи по совпадению с предметом спора, регионом и типом суда.",
             region_match=_item_region_match(query, item),
@@ -1121,29 +1217,14 @@ def _summarize_web_results_with_llm(
     enriched_cases = []
     for case in normalized.cited_cases:
         item = url_to_item.get(case.url, {"url": case.url, "title": case.title, "snippet": case.takeaway})
-        update: dict[str, object] = {"region_match": _item_region_match(query, item)}
-        title_empty = not case.title or case.title.strip().lower() in {"n/a", "без названия"}
-        citation_empty = not case.citation or case.citation.strip().lower() == "n/a"
-        if title_empty:
-            update["title"] = item.get("title") or _normalize_source_label(item)
-        if citation_empty:
-            item_citation = (item.get("citation") or "").strip()
-            if item_citation:
-                update["citation"] = item_citation
-            else:
-                try:
-                    host = re.search(r"https?://([^/]+)", item.get("url", ""))
-                    update["citation"] = host.group(1) if host else ""
-                except Exception:
-                    update["citation"] = ""
-        final_title = str(update.get("title", case.title)).strip()
-        final_citation = str(update.get("citation", case.citation)).strip()
-        if final_title and final_citation and final_title == final_citation:
-            try:
-                host = re.search(r"https?://([^/]+)", item.get("url", ""))
-                update["citation"] = host.group(1) if host else ""
-            except Exception:
-                update["citation"] = ""
+        update: dict[str, object] = {
+            "region_match": _item_region_match(query, item),
+            "title": _build_cited_title(item),
+            "citation": _case_number_from_item(item) or _normalize_source_label(item),
+            "amount_rub": _extract_max_amount_rub(
+                item.get("title", ""), item.get("snippet", ""), case.takeaway or ""
+            ),
+        }
         enriched_cases.append(case.model_copy(update=update))
     enriched_positions = []
     for pos in normalized.court_positions:
@@ -1186,6 +1267,114 @@ def _summarize_web_results_with_llm(
     )
 
 
+def _expand_query_with_llm(query: str) -> list[str]:
+    """Сгенерировать альтернативные «судейские» формулировки для поиска.
+
+    Возвращает список, всегда начинающийся с исходного запроса. При ошибке/недоступности LLM —
+    просто `[query]`, и поиск работает как раньше.
+    """
+    prompt = f"""Ты помощник юриста. Пользователь описывает правовую ситуацию обычными словами.
+Твоя задача — предложить 4 альтернативные поисковые формулировки так, как суд мог бы написать
+эту же мысль в мотивировочной части судебного акта. Эти формулировки будут отправлены в
+поисковую систему (сайты kad.arbitr.ru, sudrf.ru, sudact.ru).
+
+Жёсткие правила:
+1. Длина каждой фразы — 3–12 слов.
+2. Канцелярский стиль: «о взыскании», «о признании», «об обязании», «о расторжении» и т. п.
+3. Если в запросе названы **регион** (Москва, СПб, область, край) или **инстанция**
+   (арбитраж, общей юрисдикции, апелляция, кассация, ВС РФ) — обязательно сохрани этот
+   маркер хотя бы в 2 из 4 вариантов. Это нужно, чтобы Yandex выдавал акты нужных судов.
+   **Инстанцию заменять запрещено.** Если указан «арбитраж» — не пиши «суд общей
+   юрисдикции». Если указана «общая юрисдикция» — не пиши «арбитражный суд»: это
+   разные ветви, и запрос попадёт не туда.
+   **Если инстанция не указана — не придумывай её.** Просто опусти слово «суд»,
+   это безопаснее, чем угадать не ту ветвь (например, спор между компаниями —
+   арбитраж, трудовой спор или заливы соседей — общая юрисдикция).
+4. Номера статей (ГК/ТК/АПК/ГПК/КоАП РФ) указывай ТОЛЬКО если ты уверен, что статья
+   действительно применяется к этой ситуации. Лучше без статьи, чем с неподходящей.
+5. Не изобретай юридические термины. Используй только те, что реально встречаются в
+   судебных актах.
+
+Примеры (для запроса «поставщик не отгрузил товар, хочу взыскать пени, Москва, арбитраж»):
+
+ПЛОХО:
+- "Признание должника бездействием и взыскание пени" — нет такого термина «признание бездействием».
+- "Взыскание пени" — слишком коротко, нет контекста и региона.
+- "Иск по ст. 15 ГК РФ о пенях" — ст. 15 ГК про убытки, не про пени, статья подставлена наугад.
+
+ХОРОШО:
+- "О взыскании неустойки по договору поставки, Арбитражный суд г. Москвы"
+- "Неисполнение обязательств по поставке товара, взыскание неустойки"
+- "Ст. 330 ГК РФ взыскание неустойки за просрочку поставки"
+- "Договор поставки просрочка передачи товара неустойка арбитраж"
+
+Запрос пользователя: {query}
+
+Верни строго JSON-массив из 4 строк, без пояснений, без markdown:
+["формулировка 1", "формулировка 2", "формулировка 3", "формулировка 4"]
+"""
+    try:
+        client, model = _build_openai_client({})
+        content = _create_completion(client, model, prompt, {}, "case law query expansion")
+        payload = json.loads(_coerce_json_payload(content))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("case_law query expansion failed: %s", exc)
+        return [query]
+    phrases: list[str] = []
+    if isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, str) and item.strip():
+                phrases.append(item.strip())
+    if not phrases:
+        return [query]
+    lower_query = query.lower()
+    wants_arbitrazh = "арбитраж" in lower_query
+    wants_ojur = "общ" in lower_query and "юрисдикц" in lower_query
+    seen: set[str] = set()
+    unique: list[str] = [query]
+    seen.add(query.strip().lower())
+    dropped_instance = 0
+    for phrase in phrases[:4]:
+        key = phrase.strip().lower()
+        if not key or key in seen:
+            continue
+        has_arb = "арбитраж" in key
+        has_ojur = "общ" in key and "юрисдикц" in key
+        if wants_arbitrazh and has_ojur and not has_arb:
+            dropped_instance += 1
+            continue
+        if wants_ojur and has_arb and not has_ojur:
+            dropped_instance += 1
+            continue
+        seen.add(key)
+        unique.append(phrase)
+    if dropped_instance:
+        logger.info("case_law query expansion dropped %d variants with wrong instance", dropped_instance)
+    logger.info("case_law query expansion produced %d variants", len(unique) - 1)
+    return unique
+
+
+def _merge_yandex_results(batches: list[list[dict[str, str]]]) -> list[dict[str, str]]:
+    """Объединить несколько батчей из Yandex с дедупом по URL. Item, встречающийся
+    в нескольких батчах, ранжируется выше (count_hits помечается в source)."""
+    by_url: dict[str, dict[str, str]] = {}
+    hits: dict[str, int] = {}
+    first_seen: dict[str, int] = {}
+    for batch in batches:
+        for item in batch:
+            url = item.get("url", "").strip()
+            if not url:
+                continue
+            if url not in by_url:
+                by_url[url] = item
+                first_seen[url] = len(first_seen)
+            hits[url] = hits.get(url, 0) + 1
+    # Сортировка: сначала те, что встретились в нескольких батчах,
+    # при равенстве — сохраняем порядок первого появления.
+    ordered = sorted(by_url.keys(), key=lambda u: (-hits[u], first_seen[u]))
+    return [by_url[u] for u in ordered]
+
+
 def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAnalyzerResult:
     endpoint = settings.case_law_search_url.strip()
     if endpoint:
@@ -1203,7 +1392,17 @@ def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAn
         except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
             logger.warning("Case law provider failed, trying web search fallback: %s", exc)
     try:
-        yandex_results = _search_case_law_yandex_api(query)
+        expanded_queries = _expand_query_with_llm(query)
+        batches: list[list[dict[str, str]]] = []
+        for variant in expanded_queries:
+            try:
+                batch = _search_case_law_yandex_api(variant)
+            except (error.URLError, TimeoutError, ValueError, ET.ParseError) as exc:
+                logger.warning("Yandex variant '%s' failed: %s", variant[:60], exc)
+                continue
+            if batch:
+                batches.append(batch)
+        yandex_results = _merge_yandex_results(batches)
         region_hints = _extract_region_hints(query)
         if yandex_results and region_hints:
             strict_matches = [

@@ -132,7 +132,14 @@ export type TenderAnalyzerRunResponse = {
     dispute_overview: string;
     regions: string[];
     court_positions: Array<{ court: string; position: string; relevance: string }>;
-    cited_cases: Array<{ title: string; citation: string; url: string; takeaway: string }>;
+    cited_cases: Array<{
+      title: string;
+      citation: string;
+      url: string;
+      takeaway: string;
+      region_match?: string;
+      amount_rub?: number | null;
+    }>;
     legal_basis: string[];
     practical_takeaways: string[];
     follow_up_prompt: string;

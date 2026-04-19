@@ -72,10 +72,12 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         </div>
       )}
       {(result as Record<string, unknown>).data_source === "no_results" && (
-        <div className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3">
-          <p className="text-sm font-semibold text-gray-700">Результаты не найдены</p>
-          <p className="mt-1 text-xs text-gray-600">
-            По вашему запросу не удалось найти точных совпадений. Попробуйте уточнить запрос.
+        <div className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-3">
+          <p className="text-sm font-semibold text-sky-800">Практика не найдена — и это тоже ответ</p>
+          <p className="mt-1 text-xs text-sky-700">
+            Мы не выдумываем акты. Если по вашему запросу в открытых источниках
+            (kad.arbitr.ru, sudrf.ru, sudact.ru) ничего нет — показываем это честно.
+            Попробуйте переформулировать, добавить период, инстанцию, номер суда или ключевые слова из возможного судебного акта.
           </p>
         </div>
       )}
@@ -159,6 +161,11 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         <div className="mt-4 space-y-3">
           {result.cited_cases.map((item, index) => {
             const regionMatch = (item as Record<string, unknown>).region_match;
+            const amount = (item as { amount_rub?: number | null }).amount_rub;
+            const amountLabel =
+              typeof amount === "number" && amount > 0
+                ? new Intl.NumberFormat("ru-RU").format(amount) + " ₽"
+                : null;
             return (
               <div
                 key={`${index}-${item.citation}`}
@@ -168,6 +175,14 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-stone-900">{item.title}</p>
+                      {amountLabel && (
+                        <span
+                          title="Максимальная сумма, обнаруженная в снипете — обычно итоговое взыскание"
+                          className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700"
+                        >
+                          {amountLabel}
+                        </span>
+                      )}
                       {regionMatch === "other" && (
                         <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
                           Другой регион
@@ -224,6 +239,25 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
             {result.follow_up_prompt}
           </p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+        <p className="text-xs leading-5 text-stone-600">
+          <span className="font-semibold text-stone-800">Источники:</span>{" "}
+          <a href="https://kad.arbitr.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+            kad.arbitr.ru
+          </a>
+          ,{" "}
+          <a href="https://sudrf.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+            sudrf.ru
+          </a>
+          ,{" "}
+          <a href="https://sudact.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+            sudact.ru
+          </a>
+          . Мы не выдумываем акты: показываются только ссылки, реально найденные в открытых источниках.
+          Если практики нет — пишем об этом прямо.
+        </p>
       </div>
     </div>
   );

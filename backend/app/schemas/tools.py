@@ -148,6 +148,7 @@ class CaseLawReferenceItem(BaseModel):
     url: str
     takeaway: str
     region_match: str = "unknown"  # "match" | "other" | "unknown"
+    amount_rub: int | None = None  # максимальная сумма в рублях, обнаруженная в снипете
 
 
 class TenderAnalyzerResult(BaseModel):
