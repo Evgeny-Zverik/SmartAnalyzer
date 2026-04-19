@@ -102,16 +102,6 @@ export_editable_text()''',
         sort_order=200,
     ),
     FeatureModuleDefinition(
-        key="contract_checker",
-        name="AI Юрист",
-        description="Юридическая проверка договоров, поиск рисков и проблемных формулировок.",
-        example='''upload("agreement.docx")
-check_contract()
-review_risky_clauses()''',
-        kind="feature",
-        sort_order=210,
-    ),
-    FeatureModuleDefinition(
         key="data_extractor",
         name="Сравнение документов",
         description="Сопоставление версий документа и извлечение отличий по тексту, срокам и обязательствам.",

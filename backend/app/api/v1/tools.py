@@ -21,7 +21,6 @@ from app.services.text_extraction import extract_advanced_editor_payload, extrac
 from app.services.llm_client import (
     analyze_document_fast,
     check_spelling,
-    check_contract,
     compare_documents_detailed,
     extract_structured_data,
     simplify_legal_text,
@@ -30,9 +29,6 @@ from app.services.llm_client import (
 from app.utils.errors import raise_error
 from app.utils.errors import ApiError
 from app.schemas.tools import (
-    ChecklistItem,
-    ContractCheckerRunResponse,
-    ContractCheckerResult,
     DataExtractorRunResponse,
     DataExtractorResult,
     DateItem,
@@ -46,14 +42,11 @@ from app.schemas.tools import (
     HandwritingRecognitionResult,
     LegalTextSimplifierRunResponse,
     LegalTextSimplifierResult,
-    ObligationItem,
-    PenaltyItem,
     RecommendationItem,
     RiskAnalyzerRunResponse,
     RiskAnalyzerResult,
     RiskDriverItem,
     RiskItem,
-    RiskyClauseItem,
     TableItem,
     TenderAnalyzerChatRequest,
     TenderAnalyzerChatResponse,
@@ -138,20 +131,6 @@ def _stub_document_analyzer(analysis_id: int) -> DocumentAnalyzerRunResponse:
         ),
     )
 
-
-def _stub_contract_checker(analysis_id: int) -> ContractCheckerRunResponse:
-    return ContractCheckerRunResponse(
-        analysis_id=analysis_id,
-        tool_slug="contract-checker",
-        result=ContractCheckerResult(
-            summary="Stub summary",
-            risky_clauses=[RiskyClauseItem(title="Stub", reason="Stub", severity="low")],
-            penalties=[PenaltyItem(trigger="Stub", amount_or_formula="Stub")],
-            obligations=[ObligationItem(party="buyer", text="Stub")],
-            deadlines=[DateItem(date="2026-03-05", description="Stub")],
-            checklist=[ChecklistItem(item="Stub", status="ok", note="")],
-        ),
-    )
 
 
 def _stub_data_extractor(analysis_id: int) -> DataExtractorRunResponse:
@@ -340,42 +319,6 @@ def stream_document_analyzer(
         },
     )
 
-
-@router.post("/contract-checker/run", response_model=ContractCheckerRunResponse)
-def run_contract_checker(
-    body: ToolRunRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _assert_feature_enabled(db, current_user, "contract_checker")
-    ensure_user_system_folders(db, current_user.id)
-    assert_can_run(db, current_user, "contract-checker")
-    doc = _get_document_for_user(db, body.document_id, current_user.id)
-    text = extract_text(doc.storage_path, doc.mime_type)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
-    raw_result = check_contract(text, overrides=overrides)
-    try:
-        result = ContractCheckerResult.model_validate(raw_result)
-    except ValidationError:
-        raise_error(500, "LLM_INVALID_RESPONSE", "Contract analysis result format invalid. Try again.", {})
-    folder = resolve_analysis_folder(
-        db,
-        current_user.id,
-        body.folder_id,
-        tool_slug="contract-checker",
-        fallback_folder_id=doc.folder_id,
-    )
-    analysis_id = _save_analysis(
-        db,
-        current_user,
-        current_user.id,
-        body.document_id,
-        "contract-checker",
-        result.model_dump(),
-        folder.id,
-    )
-    log_run(db, current_user.id, "contract-checker")
-    return ContractCheckerRunResponse(analysis_id=analysis_id, tool_slug="contract-checker", result=result)
 
 
 @router.post("/data-extractor/run", response_model=DataExtractorRunResponse)

@@ -526,6 +526,82 @@ def _language_requirement(text: str) -> str:
     )
 
 
+def _normalize_legal_fields(data: dict[str, Any]) -> None:
+    """Normalize optional legal fields returned by the LLM for contract/legal documents."""
+    risky = data.get("risky_clauses")
+    if not isinstance(risky, list):
+        data["risky_clauses"] = []
+    else:
+        out = []
+        for item in risky[:30]:
+            if isinstance(item, dict) and "title" in item and "reason" in item:
+                sev = (item.get("severity") or "medium").lower()
+                if sev not in ("low", "medium", "high"):
+                    sev = "medium"
+                source_st = (item.get("source_status") or "unconfirmed").lower()
+                if source_st not in ("confirmed", "partial", "unconfirmed"):
+                    source_st = "unconfirmed"
+                out.append({
+                    "title": str(item["title"]),
+                    "reason": str(item["reason"]),
+                    "severity": sev,
+                    "legal_basis": str(item.get("legal_basis") or ""),
+                    "evidence_quote": str(item.get("evidence_quote") or "")[:200],
+                    "source_status": source_st,
+                })
+        data["risky_clauses"] = out
+
+    penalties = data.get("penalties")
+    if not isinstance(penalties, list):
+        data["penalties"] = []
+    else:
+        data["penalties"] = [
+            {"trigger": str(p.get("trigger", "")), "amount_or_formula": str(p.get("amount_or_formula", ""))}
+            for p in penalties[:30]
+            if isinstance(p, dict)
+        ]
+
+    obligations = data.get("obligations")
+    if not isinstance(obligations, list):
+        data["obligations"] = []
+    else:
+        parties = ("buyer", "seller", "client", "contractor", "other")
+        out_obl = []
+        for item in obligations[:30]:
+            if isinstance(item, dict) and "text" in item:
+                party = (item.get("party") or "other").lower()
+                if party not in parties:
+                    party = "other"
+                out_obl.append({"party": party, "text": str(item["text"])})
+        data["obligations"] = out_obl
+
+    checklist = data.get("checklist")
+    if not isinstance(checklist, list):
+        data["checklist"] = []
+    else:
+        statuses = ("ok", "warn", "missing")
+        out_check = []
+        for item in checklist[:12]:
+            if isinstance(item, dict) and "item" in item:
+                st = (item.get("status") or "missing").lower()
+                if st not in statuses:
+                    st = "missing"
+                out_check.append({"item": str(item["item"]), "status": st, "note": str(item.get("note") or "")})
+        data["checklist"] = out_check
+
+    legal_basis = data.get("legal_basis")
+    if not isinstance(legal_basis, list):
+        data["legal_basis"] = []
+    else:
+        data["legal_basis"] = [str(item) for item in legal_basis[:20] if isinstance(item, str)]
+
+    risk_score = data.get("overall_risk_score")
+    if isinstance(risk_score, (int, float)):
+        data["overall_risk_score"] = max(0, min(100, int(risk_score)))
+    else:
+        data["overall_risk_score"] = 0
+
+
 def analyze_document_fast(
     text: str,
     overrides: dict[str, Any] | None = None,
@@ -546,10 +622,24 @@ def analyze_document_fast(
     prompt = f"""Analyze the document. Return JSON only, no markdown.
 {language_rule}
 
-Keys: "summary" (2-4 sentences), "key_points" (3-8 strings), "risks" (5-12 strings), "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description").
-"advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
+ALWAYS return these keys:
+- "summary" (2-4 sentences)
+- "key_points" (3-8 strings)
+- "risks" (5-12 strings, brief risk descriptions)
+- "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description")
+- "advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
 
-"exact_quote" must be copied verbatim from the document. Find as many risky clauses as possible.
+"exact_quote" must be copied verbatim from the document.
+
+If the document is a contract, agreement, or legal document, ALSO return these keys (otherwise omit them or return empty arrays):
+- "risky_clauses": array of objects with "title", "reason", "severity" (low|medium|high), "legal_basis" (specific law article, e.g. "ст. 450.1 ГК РФ" — use "" if unknown), "evidence_quote" (verbatim quote, max 150 chars), "source_status" ("confirmed"|"partial"|"unconfirmed")
+- "penalties": array of objects with "trigger", "amount_or_formula"
+- "obligations": array of objects with "party" (buyer|seller|client|contractor|other), "text"
+- "checklist": 5-12 objects with "item", "status" (ok|warn|missing), "note". Typical checks: signatures, dates, parties, liability limits, termination, governing law, etc.
+- "legal_basis": array of strings listing applicable laws and regulations (e.g. ["ст. 309 ГК РФ — надлежащее исполнение обязательств"])
+- "overall_risk_score": integer 0-100
+
+CRITICAL: For risky_clauses, every clause MUST include a legal_basis reference to a specific law article when possible. If you cannot cite a specific article, set source_status to "unconfirmed".
 
 Document:
 ---
@@ -578,6 +668,7 @@ Document:
             if isinstance(item, dict)
         ]
     data["advanced_editor"] = _normalize_advanced_editor(data.get("advanced_editor"), raw_text)
+    _normalize_legal_fields(data)
     return data
 
 
@@ -656,10 +747,24 @@ def stream_document_analysis_events(text: str, overrides: dict[str, Any] | None 
     prompt = f"""Analyze the document. Return JSON only, no markdown.
 {language_rule}
 
-Keys: "summary" (2-4 sentences), "key_points" (3-8 strings), "risks" (5-12 strings), "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description").
-"advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
+ALWAYS return these keys:
+- "summary" (2-4 sentences)
+- "key_points" (3-8 strings)
+- "risks" (5-12 strings, brief risk descriptions)
+- "important_dates" (0-8 objects with "date" YYYY-MM-DD and "description")
+- "advanced_editor": {{"annotations": [4-12 objects with "type" ("risk"|"improvement"), "severity" ("low"|"medium"|"high"), "title", "reason", "suggested_rewrite", "exact_quote"]}}
 
-"exact_quote" must be copied verbatim from the document. Find as many risky clauses as possible.
+"exact_quote" must be copied verbatim from the document.
+
+If the document is a contract, agreement, or legal document, ALSO return these keys (otherwise omit them or return empty arrays):
+- "risky_clauses": array of objects with "title", "reason", "severity" (low|medium|high), "legal_basis" (specific law article, e.g. "ст. 450.1 ГК РФ" — use "" if unknown), "evidence_quote" (verbatim quote, max 150 chars), "source_status" ("confirmed"|"partial"|"unconfirmed")
+- "penalties": array of objects with "trigger", "amount_or_formula"
+- "obligations": array of objects with "party" (buyer|seller|client|contractor|other), "text"
+- "checklist": 5-12 objects with "item", "status" (ok|warn|missing), "note". Typical checks: signatures, dates, parties, liability limits, termination, governing law, etc.
+- "legal_basis": array of strings listing applicable laws and regulations (e.g. ["ст. 309 ГК РФ — надлежащее исполнение обязательств"])
+- "overall_risk_score": integer 0-100
+
+CRITICAL: For risky_clauses, every clause MUST include a legal_basis reference to a specific law article when possible. If you cannot cite a specific article, set source_status to "unconfirmed".
 
 Document:
 ---
@@ -719,6 +824,7 @@ Document:
             if isinstance(item, dict) and ("date" in item or "description" in item)
         ]
     data["advanced_editor"] = _normalize_advanced_editor(data.get("advanced_editor"), raw_text)
+    _normalize_legal_fields(data)
 
     yield {"type": "final", "result": data}
 
@@ -922,111 +1028,6 @@ def _ranges_overlap(candidate: tuple[int, int], existing: list[tuple[int, int]])
         if candidate[0] < end and candidate[1] > start:
             return True
     return False
-
-
-def check_contract(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
-    opts = overrides or {}
-    client, model = _build_openai_client(opts)
-    contract_bundle = _prepare_context_bundle(
-        text[:MAX_SOURCE_CONTEXT_CHARS],
-        "contract",
-        _normalize_compression_level(opts),
-        include_verbatim=False,
-    )
-    contract_context = contract_bundle["context"]
-    language_rule = _language_requirement(text)
-    prompt = f"""Analyze the contract text and return a JSON object with exactly these keys:
-- "summary": string, brief summary of the contract (2-5 sentences)
-- "risky_clauses": array of objects, each with "title" (string), "reason" (string), "severity" (exactly one of: low, medium, high). Use low/medium/high only.
-- "penalties": array of objects, each with "trigger" (string), "amount_or_formula" (string)
-- "obligations": array of objects, each with "party" (exactly one of: buyer, seller, client, contractor, other), "text" (string)
-- "deadlines": array of objects, each with "date" (YYYY-MM-DD), "description" (string). If no dates, use []
-- "checklist": array of 5 to 12 objects, each with "item" (string), "status" (exactly one of: ok, warn, missing), "note" (string). Checklist items are typical contract checks (signatures, dates, parties, liability limits, termination, etc.)
-
-{language_rule}
-IMPORTANT: Follow the language requirement strictly for all generated string values in the JSON response.
-
-Return only valid JSON, no markdown or explanation.
-
-Contract text:
----
-{contract_context}
----"""
-
-    content = _create_completion(client, model, prompt, opts, "contract analysis")
-
-    try:
-        data = json.loads(_coerce_json_payload(content))
-    except json.JSONDecodeError as e:
-        raise_error(500, "LLM_ERROR", "Invalid JSON from analysis service.", {"detail": str(e)})
-
-    if not isinstance(data, dict):
-        raise_error(500, "LLM_ERROR", "Analysis result must be an object.", {})
-
-    data["summary"] = str(data.get("summary") or "").strip() or ""
-
-    risky = data.get("risky_clauses")
-    if not isinstance(risky, list):
-        data["risky_clauses"] = []
-    else:
-        out_risky = []
-        for item in risky[:30]:
-            if isinstance(item, dict) and "title" in item and "reason" in item:
-                sev = (item.get("severity") or "medium").lower()
-                if sev not in ("low", "medium", "high"):
-                    sev = "medium"
-                out_risky.append({"title": str(item["title"]), "reason": str(item["reason"]), "severity": sev})
-        data["risky_clauses"] = out_risky
-
-    penalties = data.get("penalties")
-    if not isinstance(penalties, list):
-        data["penalties"] = []
-    else:
-        data["penalties"] = [
-            {"trigger": str(p.get("trigger", "")), "amount_or_formula": str(p.get("amount_or_formula", ""))}
-            for p in penalties[:30]
-            if isinstance(p, dict)
-        ]
-
-    obligations = data.get("obligations")
-    if not isinstance(obligations, list):
-        data["obligations"] = []
-    else:
-        parties = ("buyer", "seller", "client", "contractor", "other")
-        out_obl = []
-        for item in obligations[:30]:
-            if isinstance(item, dict) and "text" in item:
-                party = (item.get("party") or "other").lower()
-                if party not in parties:
-                    party = "other"
-                out_obl.append({"party": party, "text": str(item["text"])})
-        data["obligations"] = out_obl
-
-    deadlines = data.get("deadlines")
-    if not isinstance(deadlines, list):
-        data["deadlines"] = []
-    else:
-        out_dates = []
-        for item in deadlines[:20]:
-            if isinstance(item, dict) and "date" in item and "description" in item:
-                out_dates.append({"date": str(item["date"])[:10], "description": str(item["description"])})
-        data["deadlines"] = out_dates
-
-    checklist = data.get("checklist")
-    if not isinstance(checklist, list):
-        data["checklist"] = []
-    else:
-        statuses = ("ok", "warn", "missing")
-        out_check = []
-        for item in checklist[:12]:
-            if isinstance(item, dict) and "item" in item:
-                st = (item.get("status") or "missing").lower()
-                if st not in statuses:
-                    st = "missing"
-                out_check.append({"item": str(item["item"]), "status": st, "note": str(item.get("note") or "")})
-        data["checklist"] = out_check
-
-    return data
 
 
 def simplify_legal_text(text: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:

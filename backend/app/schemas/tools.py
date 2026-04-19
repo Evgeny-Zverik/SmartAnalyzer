@@ -35,12 +35,21 @@ class DocumentAnalyzerResult(BaseModel):
     risks: list[str]
     important_dates: list[DateItem]
     advanced_editor: DocumentAdvancedEditorResult
+    risky_clauses: list["RiskyClauseItem"] = []
+    penalties: list["PenaltyItem"] = []
+    obligations: list["ObligationItem"] = []
+    checklist: list["ChecklistItem"] = []
+    legal_basis: list[str] = []
+    overall_risk_score: int = 0
 
 
 class RiskyClauseItem(BaseModel):
     title: str
     reason: str
     severity: str
+    legal_basis: str = ""
+    evidence_quote: str = ""
+    source_status: str = "unconfirmed"
 
 
 class PenaltyItem(BaseModel):
@@ -58,14 +67,6 @@ class ChecklistItem(BaseModel):
     status: str
     note: str
 
-
-class ContractCheckerResult(BaseModel):
-    summary: str
-    risky_clauses: list[RiskyClauseItem]
-    penalties: list[PenaltyItem]
-    obligations: list[ObligationItem]
-    deadlines: list[DateItem]
-    checklist: list[ChecklistItem]
 
 
 class FieldItem(BaseModel):
@@ -158,6 +159,7 @@ class TenderAnalyzerResult(BaseModel):
     legal_basis: list[str]
     practical_takeaways: list[str]
     follow_up_prompt: str
+    data_source: str = "live"
 
 
 class RiskDriverItem(BaseModel):
@@ -237,11 +239,6 @@ class DocumentAnalyzerPrepareResponse(BaseModel):
     tool_slug: str
     advanced_editor: DocumentAdvancedEditorResult
 
-
-class ContractCheckerRunResponse(BaseModel):
-    analysis_id: int
-    tool_slug: str
-    result: ContractCheckerResult
 
 
 class DataExtractorRunResponse(BaseModel):

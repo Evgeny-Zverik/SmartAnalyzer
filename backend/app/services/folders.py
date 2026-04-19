@@ -26,11 +26,6 @@ SYSTEM_FOLDER_DEFINITIONS: tuple[SystemFolderDefinition, ...] = (
         tool_slug="document-analyzer",
     ),
     SystemFolderDefinition(
-        system_key="tool_contract_checker",
-        name="Проверка договоров",
-        tool_slug="contract-checker",
-    ),
-    SystemFolderDefinition(
         system_key="tool_data_extractor",
         name="Извлечение данных",
         tool_slug="data-extractor",
