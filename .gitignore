@@ -25,3 +25,16 @@ htmlcov/
 *.db
 storage/documents/*
 !storage/documents/.gitkeep
+
+# Claude Code local state
+.claude/worktrees/
+.claude/settings.local.json
+.claude/skills/
+.agents/
+
+# Local data / ML artefacts
+data/
+
+# TS incremental build cache
+frontend/tsconfig.tsbuildinfo
+
