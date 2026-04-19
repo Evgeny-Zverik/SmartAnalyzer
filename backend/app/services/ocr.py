@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import io
+import json
+import mimetypes
 import re
 import threading
 import unicodedata
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 import cv2
 import fitz
@@ -46,6 +51,7 @@ _MODEL_LOCK = threading.Lock()
 _OCR_MODELS: dict[str, tuple["TrOCRProcessor", "VisionEncoderDecoderModel"]] = {}
 _OCR_DEVICE: str | None = None
 _OCR_MODEL_ID_IN_USE: str | None = None
+_SERVICE_MODEL_ID = "trocr-service"
 
 
 @dataclass(slots=True)
@@ -62,6 +68,69 @@ def _read_decrypted_bytes(path: str) -> bytes:
     if not file_path.exists():
         raise_error(400, "BAD_REQUEST", "File not found", {"path": path})
     return decrypt(file_path.read_bytes())
+
+
+def _normalize_ocr_backend() -> str:
+    backend = str(settings.ocr_backend or "local").strip().lower()
+    return backend if backend in {"local", "service"} else "local"
+
+
+def _encode_png_bytes(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _build_multipart_body(file_bytes: bytes, mime_type: str, field_name: str = "file") -> tuple[bytes, str]:
+    boundary = f"codex-{uuid.uuid4().hex}"
+    filename = f"upload{mimetypes.guess_extension(mime_type or '') or '.bin'}"
+    lines = [
+        f"--{boundary}".encode(),
+        f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'.encode(),
+        f"Content-Type: {mime_type or 'application/octet-stream'}".encode(),
+        b"",
+        file_bytes,
+        f"--{boundary}--".encode(),
+        b"",
+    ]
+    return b"\r\n".join(lines), boundary
+
+
+def _call_ocr_service(file_bytes: bytes, mime_type: str) -> dict[str, Any]:
+    endpoint = str(settings.ocr_service_url or "").strip()
+    if not endpoint:
+        raise_error(500, "OCR_SERVICE_CONFIG_ERROR", "OCR service URL is not configured.", {})
+
+    payload, boundary = _build_multipart_body(file_bytes, mime_type)
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    api_key = str(settings.ocr_service_api_key or "").strip()
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    req = urllib_request.Request(endpoint, data=payload, headers=headers, method="POST")
+    timeout = max(1, int(settings.ocr_service_timeout_seconds))
+    try:
+        with urllib_request.urlopen(req, timeout=timeout) as response:
+            raw_body = response.read().decode("utf-8")
+    except urllib_error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore").strip()
+        raise_error(
+            502,
+            "OCR_SERVICE_HTTP_ERROR",
+            "OCR service returned an error.",
+            {"status_code": exc.code, "detail": detail or str(exc)},
+        )
+    except Exception as exc:
+        raise_error(502, "OCR_SERVICE_UNAVAILABLE", "Cannot reach OCR service.", {"detail": str(exc)})
+
+    try:
+        body = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise_error(502, "OCR_SERVICE_BAD_RESPONSE", "OCR service returned invalid JSON.", {"detail": str(exc)})
+
+    if not isinstance(body, dict):
+        raise_error(502, "OCR_SERVICE_BAD_RESPONSE", "OCR service returned unsupported payload.", {})
+    return body
 
 
 def _load_pages(content: bytes, mime_type: str) -> list[Image.Image]:
@@ -580,8 +649,13 @@ def _select_generic_crops(page: Image.Image, page_index: int) -> list[OCRCrop]:
 
 
 def _normalize_text(text: str) -> str:
-    text = " ".join(str(text or "").split())
-    return text.strip()
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    normalized = normalized.replace("\\", "/")
+    normalized = re.sub(r"[^0-9А-Яа-яЁё .,:\-/()]+", " ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = re.sub(r"\s+([.,:()/-])", r"\1", normalized)
+    normalized = re.sub(r"([(/-])\s+", r"\1", normalized)
+    return normalized.strip(" .,:\n\t")
 
 
 def _normalize_field_text(field_name: str | None, text: str) -> str:
@@ -765,10 +839,7 @@ def _recognize_crop(image: Image.Image, crop: OCRCrop) -> tuple[str, float, str]
     return best_text, best_confidence, best_model_id
 
 
-def recognize_handwriting(path: str, mime_type: str) -> dict:
-    content = _read_decrypted_bytes(path)
-    pages = _load_pages(content, mime_type)
-
+def _recognize_handwriting_local_from_pages(pages: list[Image.Image]) -> dict[str, Any]:
     template_id = _detect_mvd_template(pages[0]) if pages else None
     all_lines: list[dict[str, Any]] = []
     for page_index, page in enumerate(pages):
@@ -822,3 +893,57 @@ def recognize_handwriting(path: str, mime_type: str) -> dict:
         "needs_review_count": needs_review_count,
         "lines": all_lines,
     }
+
+
+def _recognize_handwriting_local(content: bytes, mime_type: str) -> dict[str, Any]:
+    pages = _load_pages(content, mime_type)
+    return _recognize_handwriting_local_from_pages(pages)
+
+
+def _recognize_handwriting_via_service(content: bytes, mime_type: str) -> dict[str, Any]:
+    pages = _load_pages(content, mime_type)
+    all_lines: list[dict[str, Any]] = []
+
+    for page_index, page in enumerate(pages):
+        page_bytes = content if mime_type in IMAGE_MIME_TYPES and page_index == 0 else _encode_png_bytes(page)
+        page_mime_type = mime_type if mime_type in IMAGE_MIME_TYPES and page_index == 0 else "image/png"
+        raw_response = _call_ocr_service(page_bytes, page_mime_type)
+        page_text = _normalize_text(
+            str(raw_response.get("text") or raw_response.get("recognized_text") or "")
+        )
+        if not page_text:
+            continue
+        all_lines.append(
+            {
+                "text": page_text,
+                "confidence": 1.0,
+                "model_id": _SERVICE_MODEL_ID,
+                "page_index": page_index,
+                "field_name": None,
+                "source": "ocr-service",
+                "needs_review": False,
+                "bbox": _make_bbox(0, 0, page.size[0], page.size[1]),
+            }
+        )
+
+    recognized_text = "\n".join(str(line["text"]) for line in all_lines).strip()
+    return {
+        "recognized_text": recognized_text,
+        "confidence": 1.0 if all_lines else 0.0,
+        "page_count": len(pages),
+        "template_id": None,
+        "ocr_model_id": _SERVICE_MODEL_ID,
+        "needs_review_count": 0,
+        "lines": all_lines,
+    }
+
+
+def recognize_handwriting_bytes(content: bytes, mime_type: str) -> dict[str, Any]:
+    if _normalize_ocr_backend() == "service":
+        return _recognize_handwriting_via_service(content, mime_type)
+    return _recognize_handwriting_local(content, mime_type)
+
+
+def recognize_handwriting(path: str, mime_type: str) -> dict[str, Any]:
+    content = _read_decrypted_bytes(path)
+    return recognize_handwriting_bytes(content, mime_type)
