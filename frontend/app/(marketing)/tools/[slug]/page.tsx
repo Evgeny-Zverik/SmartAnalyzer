@@ -531,9 +531,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
       } else if (parsed.status === 413) {
         message = "File too large. Maximum size 20 MB.";
       } else if (parsed.status === 400 && parsed.error === "BAD_REQUEST") {
-        if (tool.slug === "contract-checker") {
-          message = message || "Cannot extract text from contract.";
-        } else if (tool.slug === "data-extractor") {
+        if (tool.slug === "data-extractor") {
           message = message || "Невозможно прочитать один из документов для сравнения.";
         } else {
           message = message || "Cannot read text from document.";
@@ -548,8 +546,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           parsed.error === "LLM_ERROR"
         ) {
           message = getHelpfulLlmMessage(parsed);
-        } else if (tool.slug === "contract-checker") {
-          message = message || "Contract analysis failed. Try again.";
         } else if (tool.slug === "data-extractor") {
           message = message || "Сравнение документов не удалось. Попробуйте еще раз.";
         } else {

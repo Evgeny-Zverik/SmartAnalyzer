@@ -19,9 +19,19 @@ function renderDocumentAnalyzer(result: Record<string, unknown>) {
   const keyPoints = result.key_points as string[] | undefined;
   const risks = result.risks as string[] | undefined;
   const importantDates = result.important_dates as Array<{ date?: string; description?: string }> | undefined;
+  const riskyClauses = result.risky_clauses as Array<{ title?: string; reason?: string; severity?: string; legal_basis?: string; source_status?: string }> | undefined;
+  const penalties = result.penalties as Array<{ trigger?: string; amount_or_formula?: string }> | undefined;
+  const obligations = result.obligations as Array<{ party?: string; text?: string }> | undefined;
+  const checklist = result.checklist as Array<{ item?: string; status?: string; note?: string }> | undefined;
+  const legalBasis = result.legal_basis as string[] | undefined;
+  const overallRiskScore = result.overall_risk_score as number | undefined;
   return (
     <>
-      {summary != null && <Section title="Резюме">{summary}</Section>}
+      {summary != null && (
+        <Section title={overallRiskScore ? `Резюме (риск: ${overallRiskScore}/100)` : "Резюме"}>
+          {summary}
+        </Section>
+      )}
       {keyPoints?.length ? (
         <Section title="Ключевые пункты">
           <ul className="list-disc pl-4">
@@ -51,26 +61,27 @@ function renderDocumentAnalyzer(result: Record<string, unknown>) {
           </ul>
         </Section>
       ) : null}
-    </>
-  );
-}
-
-function renderContractChecker(result: Record<string, unknown>) {
-  const summary = result.summary as string | undefined;
-  const riskyClauses = result.risky_clauses as Array<{ title?: string; reason?: string; severity?: string }> | undefined;
-  const penalties = result.penalties as Array<{ trigger?: string; amount_or_formula?: string }> | undefined;
-  const obligations = result.obligations as Array<{ party?: string; text?: string }> | undefined;
-  const deadlines = result.deadlines as Array<{ date?: string; description?: string }> | undefined;
-  const checklist = result.checklist as Array<{ item?: string; status?: string; note?: string }> | undefined;
-  return (
-    <>
-      {summary != null && <Section title="Резюме">{summary}</Section>}
+      {legalBasis?.length ? (
+        <Section title="Нормы права">
+          <ul className="list-disc pl-4">
+            {legalBasis.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
       {riskyClauses?.length ? (
         <Section title="Рисковые пункты">
           <ul className="list-disc pl-4">
             {riskyClauses.map((c, i) => (
               <li key={i}>
                 {c.title} — {c.reason} ({c.severity})
+                {c.legal_basis && <span className="ml-1 text-blue-600">[{c.legal_basis}]</span>}
+                {c.source_status && c.source_status !== "confirmed" && (
+                  <span className="ml-1 text-xs text-gray-400">
+                    ({c.source_status === "partial" ? "частично подтверждено" : "не подтверждено"})
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -98,17 +109,6 @@ function renderContractChecker(result: Record<string, unknown>) {
           </ul>
         </Section>
       ) : null}
-      {deadlines?.length ? (
-        <Section title="Сроки">
-          <ul className="list-disc pl-4">
-            {deadlines.map((d, i) => (
-              <li key={i}>
-                {d.date} — {d.description}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      ) : null}
       {checklist?.length ? (
         <Section title="Чеклист">
           <ul className="list-disc pl-4">
@@ -123,6 +123,7 @@ function renderContractChecker(result: Record<string, unknown>) {
     </>
   );
 }
+
 
 function renderDataExtractor(result: Record<string, unknown>) {
   const summary = result.summary as string | undefined;
@@ -280,9 +281,8 @@ function renderRiskAnalyzer(result: Record<string, unknown>) {
 export function AnalysisRenderer({ toolSlug, result }: AnalysisRendererProps) {
   switch (toolSlug) {
     case "document-analyzer":
-      return renderDocumentAnalyzer(result);
     case "contract-checker":
-      return renderContractChecker(result);
+      return renderDocumentAnalyzer(result);
     case "data-extractor":
       return renderDataExtractor(result);
     case "tender-analyzer":

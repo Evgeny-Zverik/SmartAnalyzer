@@ -38,6 +38,9 @@ const KEY_LABELS: Record<string, string> = {
   fields: "Поля",
   tables: "Таблицы",
   confidence: "Уверенность",
+  legal_basis: "Нормы права",
+  overall_risk_score: "Общий балл риска",
+  data_source: "Источник данных",
   risk_score: "Балл риска",
   key_risks: "Ключевые риски",
   risk_drivers: "Драйверы риска",
@@ -46,7 +49,6 @@ const KEY_LABELS: Record<string, string> = {
   regions: "Регионы",
   court_positions: "Подходы судов",
   cited_cases: "Судебные акты",
-  legal_basis: "Нормы права",
   practical_takeaways: "Практические выводы",
 };
 
@@ -142,23 +144,6 @@ function buildSpellingCorrectionMatches(
   return matches.sort((a, b) => a.start - b.start);
 }
 
-function isContractCheckerResult(r: Record<string, unknown>): r is {
-  summary: string;
-  risky_clauses: Array<{ title: string; reason: string; severity: string }>;
-  penalties: Array<{ trigger: string; amount_or_formula: string }>;
-  obligations: Array<{ party: string; text: string }>;
-  deadlines: Array<{ date: string; description: string }>;
-  checklist: Array<{ item: string; status: string; note: string }>;
-} {
-  return (
-    typeof r.summary === "string" &&
-    Array.isArray(r.risky_clauses) &&
-    Array.isArray(r.penalties) &&
-    Array.isArray(r.obligations) &&
-    Array.isArray(r.deadlines) &&
-    Array.isArray(r.checklist)
-  );
-}
 
 function isDataExtractorResult(r: Record<string, unknown>): r is {
   summary: string;
@@ -915,100 +900,12 @@ function SpellingCheckerResultView({
   );
 }
 
-function ContractCheckerResultView({
-  result,
-}: {
-  result: {
-    summary: string;
-    risky_clauses: Array<{ title: string; reason: string; severity: string }>;
-    penalties: Array<{ trigger: string; amount_or_formula: string }>;
-    obligations: Array<{ party: string; text: string }>;
-    deadlines: Array<{ date: string; description: string }>;
-    checklist: Array<{ item: string; status: string; note: string }>;
-  };
-}) {
-  const byParty = result.obligations.reduce<Record<string, Array<{ party: string; text: string }>>>(
-    (acc, o) => {
-      const p = o.party || "other";
-      if (!acc[p]) acc[p] = [];
-      acc[p].push(o);
-      return acc;
-    },
-    {}
-  );
-  const emptyNote = <span className="text-sm text-gray-400">Не найдено</span>;
-  return (
-    <div className="space-y-6">
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700">Резюме</h3>
-        <p className="mt-2 text-sm text-gray-600">{result.summary || emptyNote}</p>
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Рисковые пункты</h3>
-        {result.risky_clauses.length > 0 ? (
-          <ul className="space-y-3">
-            {result.risky_clauses.map((c, i) => (
-              <li key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-gray-900">{c.title}</span>
-                  <SeverityBadge severity={c.severity} />
-                </div>
-                <p className="mt-1 text-sm text-gray-600">{c.reason}</p>
-              </li>
-            ))}
-          </ul>
-        ) : emptyNote}
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Штрафы</h3>
-        {result.penalties.length > 0 ? (
-          <ul className="list-inside list-disc space-y-1 text-sm text-gray-600">
-            {result.penalties.map((p, i) => (
-              <li key={i}>
-                {p.trigger} — {p.amount_or_formula}
-              </li>
-            ))}
-          </ul>
-        ) : emptyNote}
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Обязательства</h3>
-        {result.obligations.length > 0 ? (
-          <div className="space-y-4">
-            {Object.entries(byParty).map(([party, list]) => (
-              <div key={party}>
-                <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {party}
-                </h4>
-                <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-gray-600">
-                  {list.map((o, i) => (
-                    <li key={i}>{o.text}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ) : emptyNote}
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Сроки</h3>
-        {result.deadlines.length > 0 ? (
-          <ul className="space-y-2 text-sm text-gray-600">
-            {result.deadlines.map((d, i) => (
-              <li key={i}>
-                <span className="font-medium text-gray-700">{d.date}</span> — {d.description}
-              </li>
-            ))}
-          </ul>
-        ) : emptyNote}
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Чеклист</h3>
-        <ChecklistView items={result.checklist} />
-      </Card>
-    </div>
-  );
-}
+const SOURCE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  confirmed: { label: "Подтверждено", color: "bg-green-100 text-green-700" },
+  partial: { label: "Частично", color: "bg-yellow-100 text-yellow-700" },
+  unconfirmed: { label: "Не подтверждено", color: "bg-gray-100 text-gray-500" },
+};
+
 
 function isDocumentAnalyzerResult(r: Record<string, unknown>): r is {
   summary: string;
@@ -1032,12 +929,39 @@ function DocumentAnalyzerSummaryView({
     key_points: string[];
     risks: string[];
     important_dates: Array<{ date: string; description: string }>;
+    risky_clauses?: Array<{ title: string; reason: string; severity: string; legal_basis?: string; evidence_quote?: string; source_status?: string }>;
+    penalties?: Array<{ trigger: string; amount_or_formula: string }>;
+    obligations?: Array<{ party: string; text: string }>;
+    checklist?: Array<{ item: string; status: string; note: string }>;
+    legal_basis?: string[];
+    overall_risk_score?: number;
   };
 }) {
+  const byParty = (result.obligations ?? []).reduce<Record<string, Array<{ party: string; text: string }>>>(
+    (acc, o) => {
+      const p = o.party || "other";
+      if (!acc[p]) acc[p] = [];
+      acc[p].push(o);
+      return acc;
+    },
+    {}
+  );
+  const emptyNote = <span className="text-sm text-gray-400">Не найдено</span>;
   return (
     <div className="space-y-4">
       <Card>
-        <h3 className="text-sm font-semibold text-gray-700">Резюме</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">Резюме</h3>
+          {typeof result.overall_risk_score === "number" && result.overall_risk_score > 0 && (
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              result.overall_risk_score >= 70 ? "bg-red-100 text-red-700" :
+              result.overall_risk_score >= 40 ? "bg-yellow-100 text-yellow-700" :
+              "bg-green-100 text-green-700"
+            }`}>
+              Риск: {result.overall_risk_score}/100
+            </span>
+          )}
+        </div>
         <div className="mt-2 text-sm text-gray-600">{renderValue(result.summary)}</div>
       </Card>
       <Card>
@@ -1052,6 +976,81 @@ function DocumentAnalyzerSummaryView({
         <h3 className="text-sm font-semibold text-gray-700">Важные даты</h3>
         <div className="mt-2 text-sm text-gray-600">{renderValue(result.important_dates)}</div>
       </Card>
+      {result.legal_basis && result.legal_basis.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Нормы права</h3>
+          <ul className="list-inside list-disc space-y-1 text-sm text-gray-600">
+            {result.legal_basis.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {result.risky_clauses && result.risky_clauses.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Рисковые пункты</h3>
+          <ul className="space-y-3">
+            {result.risky_clauses.map((c, i) => {
+              const status = SOURCE_STATUS_LABELS[c.source_status || "unconfirmed"] || SOURCE_STATUS_LABELS.unconfirmed;
+              return (
+                <li key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-gray-900">{c.title}</span>
+                    <SeverityBadge severity={c.severity} />
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${status.color}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">{c.reason}</p>
+                  {c.legal_basis && (
+                    <p className="mt-1 text-xs font-medium text-blue-700">{c.legal_basis}</p>
+                  )}
+                  {c.evidence_quote && (
+                    <p className="mt-1 text-xs italic text-gray-500">&laquo;{c.evidence_quote}&raquo;</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+      {result.penalties && result.penalties.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Штрафы</h3>
+          <ul className="list-inside list-disc space-y-1 text-sm text-gray-600">
+            {result.penalties.map((p, i) => (
+              <li key={i}>
+                {p.trigger} — {p.amount_or_formula}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {result.obligations && result.obligations.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Обязательства</h3>
+          <div className="space-y-4">
+            {Object.entries(byParty).map(([party, list]) => (
+              <div key={party}>
+                <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  {party}
+                </h4>
+                <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-gray-600">
+                  {list.map((o, i) => (
+                    <li key={i}>{o.text}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {result.checklist && result.checklist.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Чеклист</h3>
+          <ChecklistView items={result.checklist} />
+        </Card>
+      )}
     </div>
   );
 }
@@ -1455,10 +1454,7 @@ export function ResultsPanel({
     if (toolSlug === "document-analyzer" && isDocumentAnalyzerResult(result)) {
       return <DocumentAnalyzerSummaryView result={result} />;
     }
-    if (toolSlug === "contract-checker" && isContractCheckerResult(result)) {
-      return <ContractCheckerResultView result={result} />;
-    }
-    if (toolSlug === "data-extractor" && isDataExtractorResult(result)) {
+if (toolSlug === "data-extractor" && isDataExtractorResult(result)) {
       return <DataExtractorResultView result={result} />;
     }
     if (toolSlug === "legal-text-simplifier" && isLegalTextSimplifierResult(result)) {

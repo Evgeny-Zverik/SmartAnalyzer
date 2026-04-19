@@ -141,7 +141,6 @@ export default function SettingsPage() {
   const featureTabLabels: Record<string, string> = {
     document_analyzer: "Плагины Анализатора документов",
     handwriting_recognition: "Распознавание рукописных документов",
-    contract_checker: "AI Юрист",
     data_extractor: "Сравнение документов",
     tender_analyzer: "Обзор судебной практики",
     risk_analyzer: "Анализатор рисков",

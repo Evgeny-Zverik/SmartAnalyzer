@@ -63,6 +63,22 @@ function formatTime(sec: number): string {
 function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["result"] }) {
   return (
     <div className="space-y-4 [font-family:var(--font-case-body)]">
+      {(result as Record<string, unknown>).data_source === "stub" && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-800">Ориентировочная сводка</p>
+          <p className="mt-1 text-xs text-amber-700">
+            Источники поиска недоступны. Результаты ниже носят справочный характер и не основаны на реальной поисковой выдаче. Не используйте их как подтверждённую судебную практику.
+          </p>
+        </div>
+      )}
+      {(result as Record<string, unknown>).data_source === "no_results" && (
+        <div className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3">
+          <p className="text-sm font-semibold text-gray-700">Результаты не найдены</p>
+          <p className="mt-1 text-xs text-gray-600">
+            По вашему запросу не удалось найти точных совпадений. Попробуйте уточнить запрос.
+          </p>
+        </div>
+      )}
       <div className="rounded-[24px] border border-emerald-200/70 bg-[linear-gradient(135deg,#f1fbf6,#ecfdf5_48%,#f8fffc)] p-4">
         <p className="text-sm font-semibold text-emerald-900">{result.summary}</p>
         <p className="mt-2 text-sm leading-6 text-emerald-800/90">{result.search_scope}</p>

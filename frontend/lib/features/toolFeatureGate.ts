@@ -2,7 +2,6 @@ import { getFeatureModules, type FeatureModuleState } from "@/lib/api/settings";
 
 const TOOL_FEATURE_KEYS: Record<string, string> = {
   "document-analyzer": "document_analyzer",
-  "contract-checker": "contract_checker",
   "data-extractor": "data_extractor",
   "tender-analyzer": "tender_analyzer",
   "handwriting-recognition": "handwriting_recognition",

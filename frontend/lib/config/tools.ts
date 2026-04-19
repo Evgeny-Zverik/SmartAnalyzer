@@ -19,24 +19,12 @@ export const tools: Tool[] = [
     slug: "document-analyzer",
     title: "Анализатор документов",
     description:
-      "Загрузите документ и получите структурированные выводы, риски и ключевые даты.",
+      "Загрузите документ и получите структурированные выводы, риски и ключевые даты. Для договоров — юридический анализ с нормами права, штрафами и чеклистом.",
     category: "Documents",
     icon: "FileSearch",
     mvp: {
       accepts: extendedDocumentFormats,
-      output: ["summary", "key points", "risks", "dates"],
-    },
-  },
-  {
-    slug: "contract-checker",
-    title: "AI Юрист",
-    description:
-      "AI Юрист анализирует договор, подсвечивает риски, предлагает правки и поддерживает интеграцию с Гарант для проверки норм и формулировок.",
-    category: "Documents",
-    icon: "Scale",
-    mvp: {
-      accepts: ["pdf", "docx"],
-      output: ["risky clauses", "penalties", "obligations", "deadlines"],
+      output: ["summary", "key points", "risks", "dates", "legal analysis"],
     },
   },
   {
@@ -141,7 +129,6 @@ export type ToolSlug = (typeof tools)[number]["slug"];
 
 export const TOOL_SLUGS = [
   "document-analyzer",
-  "contract-checker",
   "data-extractor",
   "tender-analyzer",
   "handwriting-recognition",

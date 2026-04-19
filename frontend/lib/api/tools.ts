@@ -54,6 +54,12 @@ export type DocumentAnalyzerRunResponse = {
         suggested_rewrite: string;
       }>;
     };
+    risky_clauses?: Array<{ title: string; reason: string; severity: string; legal_basis?: string; evidence_quote?: string; source_status?: string }>;
+    penalties?: Array<{ trigger: string; amount_or_formula: string }>;
+    obligations?: Array<{ party: string; text: string }>;
+    checklist?: Array<{ item: string; status: string; note: string }>;
+    legal_basis?: string[];
+    overall_risk_score?: number;
   };
 };
 
@@ -78,18 +84,6 @@ export type DocumentAnalyzerPrepareResponse = {
   };
 };
 
-export type ContractCheckerRunResponse = {
-  analysis_id: number;
-  tool_slug: string;
-  result: {
-    summary: string;
-    risky_clauses: Array<{ title: string; reason: string; severity: string }>;
-    penalties: Array<{ trigger: string; amount_or_formula: string }>;
-    obligations: Array<{ party: string; text: string }>;
-    deadlines: Array<{ date: string; description: string }>;
-    checklist: Array<{ item: string; status: string; note: string }>;
-  };
-};
 
 export type DataExtractorRunResponse = {
   analysis_id: number;
@@ -142,6 +136,7 @@ export type TenderAnalyzerRunResponse = {
     legal_basis: string[];
     practical_takeaways: string[];
     follow_up_prompt: string;
+    data_source?: "live" | "web_search" | "stub" | "no_results";
   };
 };
 
@@ -224,13 +219,6 @@ export async function prepareDocumentAnalyzer(
   });
 }
 
-export async function runContractChecker(documentId: number, signal?: AbortSignal): Promise<ContractCheckerRunResponse> {
-  return apiFetch<ContractCheckerRunResponse>("/api/v1/tools/contract-checker/run", {
-    method: "POST",
-    body: JSON.stringify({ document_id: documentId }),
-    signal,
-  });
-}
 
 export async function runDataExtractor(
   documentId: number,
@@ -326,12 +314,6 @@ export async function runTenderAnalyzerChat(
 }
 
 const mockBySlug: Record<string, Record<string, unknown>> = {
-  "contract-checker": {
-    riskyClauses: ["П. 4.2 — неограниченная ответственность"],
-    penalties: ["Штраф за просрочку 0.1% в день"],
-    obligations: ["Поставка до 30 дней", "Оплата в течение 14 дней"],
-    deadlines: ["Подписание до 01.03.2025"],
-  },
   "data-extractor": {
     summary: "Документы описывают один и тот же предмет, но расходятся по срокам и распределению обязанностей.",
     left_document_summary: "Первый документ фиксирует базовые условия и общий предмет договоренности.",
@@ -507,7 +489,6 @@ export async function runToolAnalysis(
 
   if (
     toolSlug === "document-analyzer" ||
-    toolSlug === "contract-checker" ||
     toolSlug === "data-extractor" ||
     toolSlug === "legal-text-simplifier" ||
     toolSlug === "spelling-checker" ||
@@ -532,9 +513,6 @@ export async function runToolAnalysis(
         options?.editedDocument
       );
       onProgress?.("review", elapsed());
-      result = runRes.result as unknown as Record<string, unknown>;
-    } else if (toolSlug === "contract-checker") {
-      const runRes = await runContractChecker(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "data-extractor") {
       if (!options?.compareDocumentId) {

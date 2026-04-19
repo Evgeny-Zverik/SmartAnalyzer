@@ -12,11 +12,18 @@ type LlmWaitingStateProps = {
   documentView?: DocumentViewMode;
 };
 
-const STAGE_TITLES: Record<AnalysisStage, string> = {
+const DEFAULT_STAGE_TITLES: Record<AnalysisStage, string> = {
   upload: "Загрузка и подготовка файла",
   analyze: "Анализ LLM",
   review: "Разметка и сборка результата",
   done: "Финализация ответа",
+};
+
+const OCR_STAGE_TITLES: Record<AnalysisStage, string> = {
+  upload: "Загрузка и подготовка изображения",
+  analyze: "Распознавание текста",
+  review: "Очистка и проверка результата",
+  done: "Сборка ответа",
 };
 
 const BASE_STEPS: AnalysisStage[] = ["upload", "analyze", "done"];
@@ -30,6 +37,13 @@ function formatTime(sec: number): string {
 }
 
 function getLoaderCopy(toolSlug?: string): { eyebrow: string; title: string; subtitle: string } {
+  if (toolSlug === "handwriting-recognition") {
+    return {
+      eyebrow: "OCR Loop",
+      title: "Распознаем рукописный текст",
+      subtitle: "OCR-модель обрабатывает изображение, извлекает строки и подготавливает текст в JSON-ответ.",
+    };
+  }
   if (toolSlug === "data-extractor") {
     return {
       eyebrow: "Comparison Loop",
@@ -79,6 +93,21 @@ function getLoaderCopy(toolSlug?: string): { eyebrow: string; title: string; sub
   };
 }
 
+function getStageTitles(toolSlug?: string): Record<AnalysisStage, string> {
+  return toolSlug === "handwriting-recognition" ? OCR_STAGE_TITLES : DEFAULT_STAGE_TITLES;
+}
+
+function getEngineLabel(toolSlug?: string): string {
+  return toolSlug === "handwriting-recognition" ? "OCR pipeline active" : "LLM pipeline active";
+}
+
+function getStatusLines(toolSlug?: string): string[] {
+  if (toolSlug === "handwriting-recognition") {
+    return ["Подготовка изображения", "OCR-распознавание", "Очистка текста"];
+  }
+  return ["Чтение контекста", "LLM-обработка", "Формирование ответа"];
+}
+
 export function LlmWaitingState({
   stage,
   elapsedSec,
@@ -102,6 +131,7 @@ export function LlmWaitingState({
   }, []);
 
   const steps = toolSlug === "document-analyzer" ? DOC_STEPS : BASE_STEPS;
+  const stageTitles = getStageTitles(toolSlug);
   const resolvedStage: AnalysisStage = stage ?? "upload";
   const rawIdx = steps.indexOf(resolvedStage);
   const currentIdx = rawIdx >= 0 ? rawIdx : 0;
@@ -111,7 +141,7 @@ export function LlmWaitingState({
   const currentTitle =
     toolSlug === "document-analyzer" && documentView === "advanced" && resolvedStage === "analyze"
       ? "Анализ и подготовка AI-редактора"
-      : STAGE_TITLES[resolvedStage];
+      : stageTitles[resolvedStage];
 
   return (
     <div
@@ -157,7 +187,7 @@ export function LlmWaitingState({
                   style={{ animationDelay: `${0.08 + index * 0.05}s` }}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{STAGE_TITLES[item]}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{stageTitles[item]}</p>
                     <span className="relative inline-flex h-8 w-8 items-center justify-center">
                       <span className={`absolute inset-0 rounded-full border-2 ${isDone ? "border-emerald-300" : isCurrent ? `border-sky-300 border-t-transparent ${isInView ? "animate-spin" : ""} motion-reduce:animate-none` : "border-white/25"}`} />
                       <span className={`relative inline-flex h-5 w-5 rounded-full ${isDone ? "bg-emerald-300" : isCurrent ? `bg-sky-300 ${isInView ? "animate-pulse" : ""} motion-reduce:animate-none` : "bg-white/20"}`} />
@@ -188,7 +218,7 @@ export function LlmWaitingState({
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Engine</p>
             <div className="mt-3 flex items-center justify-between">
-              <p className="text-sm text-zinc-200">LLM pipeline active</p>
+              <p className="text-sm text-zinc-200">{getEngineLabel(toolSlug)}</p>
               <div className="relative h-14 w-14">
                 <span className={`absolute inset-0 rounded-full border-[3px] border-emerald-300 border-t-transparent ${isInView ? "animate-spin" : ""} motion-reduce:animate-none`} />
                 <span className={`absolute inset-[8px] rounded-full border-[3px] border-sky-300 border-t-transparent [animation-direction:reverse] ${isInView ? "animate-spin" : ""} motion-reduce:animate-none`} />
@@ -198,7 +228,7 @@ export function LlmWaitingState({
           </div>
 
           <div className="mt-4 space-y-3">
-            {["Чтение контекста", "LLM-обработка", "Формирование ответа"].map((label, index) => (
+            {getStatusLines(toolSlug).map((label, index) => (
               <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm text-zinc-200">{label}</span>
