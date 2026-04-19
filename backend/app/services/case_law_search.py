@@ -44,6 +44,253 @@ REGION_MENTION_PATTERN = re.compile(
 )
 
 
+# Юрисдикции кассационных судов общей юрисдикции.
+# Ключ — номер КСОЮ (поддомен Nkas.sudrf.ru), значение — списки токенов из _REGION_ALIASES,
+# входящих в округ. Если в запросе регион, то разрешён только его КСОЮ.
+CASSATION_DISTRICTS: dict[int, set[str]] = {
+    1: {"брянск", "белгород", "воронеж", "калуга", "калужск", "курск", "липецк",
+        "московск", "орёл", "орел", "орлов", "рязан", "смолен", "тамбов", "тверск", "тверь", "тульск", "тула"},
+    2: {"москва", "владимир", "ярослав"},
+    3: {"санкт", "петербург", "ленинград", "ленинградск", "архангельск", "вологод",
+        "калининград", "мурманск"},
+    4: {"краснодар", "ставропол", "ростов", "волгоград", "крым", "симферопол", "севастопол",
+        "дагестан", "махачкала", "чечен", "грозн"},
+    6: {"самар", "нижегород", "нижний новгород", "пенз", "оренбург", "саратов", "ульянов",
+        "казан", "татар", "башкир", "башкортостан", "уфа", "удмурт", "ижевск", "чуваш",
+        "чебоксар", "марий", "йошкар", "мордов", "саранск", "пермск", "пермь", "кировск", "киров"},
+    7: {"свердлов", "екатеринбург", "тюмен", "челябинск"},
+    8: {"алтайск", "барнаул", "кемеров", "кузбасс", "новосибирск", "омск", "красноярск", "иркутск"},
+    9: {"приморск", "владивосток", "хабаров"},
+}
+
+# Поддомены апелляционных судов общей юрисдикции (1ap..5ap.sudrf.ru).
+APPEAL_DOMAIN_PATTERN = re.compile(r"\b([1-5])ap\.sudrf\.ru\b", flags=re.IGNORECASE)
+CASSATION_DOMAIN_PATTERN = re.compile(r"\b([1-9])kas\.sudrf\.ru\b", flags=re.IGNORECASE)
+
+# Поддомены sudrf.ru, сопоставленные с токенами регионов из _REGION_ALIASES.
+# Ключ — латинский код региона (вторая часть хоста типа `bgvs.amr.sudrf.ru`),
+# значение — токен, который также присутствует в _REGION_ALIASES.
+SUDRF_REGION_CODES: dict[str, str] = {
+    "msk": "москва",
+    "mos": "московск",
+    "spb": "санкт",
+    "lo": "ленинградск",
+    "krd": "краснодар",
+    "stv": "ставропол",
+    "ros": "ростов",
+    "vol": "волгоград",
+    "ast": "астрахан",
+    "amr": "амур",
+    "chel": "челябинск",
+    "svd": "свердлов",
+    "sam": "самар",
+    "sar": "саратов",
+    "pnz": "пенз",
+    "nnov": "нижегород",
+    "nsk": "новосибирск",
+    "oms": "омск",
+    "tum": "тюмен",
+    "krk": "красноярск",
+    "alt": "алтайск",
+    "kem": "кемеров",
+    "irk": "иркутск",
+    "hab": "хабаров",
+    "prm": "пермск",
+    "bel": "белгород",
+    "brj": "брянск",
+    "vrn": "воронеж",
+    "klg": "калужск",
+    "kln": "калининград",
+    "krs": "курск",
+    "lip": "липецк",
+    "orl": "орлов",
+    "rzn": "рязан",
+    "smol": "смолен",
+    "tmb": "тамбов",
+    "tvr": "тверск",
+    "tul": "тульск",
+    "vld": "владимир",
+    "yar": "ярослав",
+    "ivn": "иваново",
+    "vlg": "вологод",
+    "mrm": "мурманск",
+    "ark": "архангельск",
+    "uln": "ульянов",
+    "kir": "киров",
+    "udm": "удмурт",
+    "tat": "татар",
+    "bkr": "башкир",
+    "chv": "чуваш",
+    "mel": "марий",
+    "mor": "мордов",
+    "oren": "оренбург",
+    "krm": "крым",
+    "sev": "севастопол",
+    "dag": "дагестан",
+    "che": "чечен",
+    "vs": "приморск",
+}
+
+SUDRF_HOST_PATTERN = re.compile(r"([a-z]{2,5})\.sudrf\.ru\b", flags=re.IGNORECASE)
+
+
+def _sudrf_region_token(url: str) -> str | None:
+    match = SUDRF_HOST_PATTERN.search(url.lower())
+    if not match:
+        return None
+    return SUDRF_REGION_CODES.get(match.group(1).lower())
+
+
+ARBITRAZH_CASE_PATTERN = re.compile(r"\b[аa](\d{2,3})-\d+/\d{4}\b", flags=re.IGNORECASE)
+
+
+def _arbitrazh_case_prefix(item: dict[str, str]) -> str | None:
+    haystack = " ".join(
+        [
+            item.get("title", ""),
+            item.get("snippet", ""),
+            item.get("citation", ""),
+            item.get("url", ""),
+        ]
+    )
+    match = ARBITRAZH_CASE_PATTERN.search(haystack)
+    if not match:
+        return None
+    return f"А{match.group(1)}"
+
+
+INSTANCE_HINTS: dict[str, tuple[str, ...]] = {
+    "cassation": ("кассац",),
+    "appeal": ("апелляц",),
+    "first": ("первой инстанции", "первая инстанция", "районный суд", "районного суда",
+              "мировой судья", "городской суд", "городского суда"),
+    "supreme": ("верховный суд", "верховного суда"),
+}
+
+# Тематические нормы: по ключевым словам запроса добавляются релевантные статьи.
+TOPIC_ARTICLES: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    (
+        ("неустойк", "пеня", "пени"),
+        (
+            "Статья 330 ГК РФ — понятие неустойки и условия её взыскания.",
+            "Статья 331 ГК РФ — форма соглашения о неустойке.",
+            "Статья 333 ГК РФ — снижение неустойки при явной несоразмерности.",
+            "Статья 395 ГК РФ — ответственность за неисполнение денежного обязательства.",
+            "Статья 401 ГК РФ — основания ответственности за нарушение обязательства.",
+        ),
+    ),
+    (
+        ("просрочк", "задержк"),
+        (
+            "Статья 405 ГК РФ — просрочка должника.",
+            "Статья 406 ГК РФ — просрочка кредитора.",
+            "Статья 395 ГК РФ — проценты за пользование чужими денежными средствами.",
+        ),
+    ),
+    (
+        ("поставк", "поставщик", "покупател"),
+        (
+            "Статья 506 ГК РФ — договор поставки.",
+            "Статья 513 ГК РФ — принятие товаров покупателем.",
+            "Статья 518 ГК РФ — последствия поставки товаров ненадлежащего качества.",
+            "Статья 520 ГК РФ — права покупателя при нарушении сроков поставки.",
+            "Статья 521 ГК РФ — неустойка за недопоставку или просрочку поставки.",
+            "Статья 523 ГК РФ — односторонний отказ от исполнения договора поставки.",
+        ),
+    ),
+    (
+        ("подряд", "подрядчик", "заказчик работ"),
+        (
+            "Статья 702 ГК РФ — договор подряда.",
+            "Статья 708 ГК РФ — сроки выполнения работ.",
+            "Статья 715 ГК РФ — права заказчика во время выполнения работы.",
+            "Статья 723 ГК РФ — ответственность подрядчика за ненадлежащее качество.",
+        ),
+    ),
+    (
+        ("аренд", "арендодател", "арендатор"),
+        (
+            "Статья 606 ГК РФ — договор аренды.",
+            "Статья 614 ГК РФ — арендная плата.",
+            "Статья 619 ГК РФ — досрочное расторжение по требованию арендодателя.",
+            "Статья 622 ГК РФ — возврат арендованного имущества.",
+        ),
+    ),
+    (
+        ("заем", "займ", "кредит"),
+        (
+            "Статья 807 ГК РФ — договор займа.",
+            "Статья 809 ГК РФ — проценты по договору займа.",
+            "Статья 811 ГК РФ — последствия нарушения заёмщиком договора займа.",
+        ),
+    ),
+    (
+        ("неоснователь", "обогащен"),
+        (
+            "Статья 1102 ГК РФ — обязанность возвратить неосновательное обогащение.",
+            "Статья 1107 ГК РФ — возмещение доходов от неосновательного обогащения.",
+        ),
+    ),
+    (
+        ("убытк", "возмещен"),
+        (
+            "Статья 15 ГК РФ — возмещение убытков.",
+            "Статья 393 ГК РФ — обязанность должника возместить убытки.",
+        ),
+    ),
+    (
+        ("труд", "работник", "работодател", "увольнен", "восстановлен"),
+        (
+            "Статья 77 ТК РФ — общие основания прекращения трудового договора.",
+            "Статья 81 ТК РФ — расторжение по инициативе работодателя.",
+            "Статья 394 ТК РФ — вынесение решений по трудовым спорам об увольнении.",
+        ),
+    ),
+]
+
+BASE_LEGAL_ARTICLES = (
+    "Статьи 309 и 310 ГК РФ — надлежащее исполнение обязательств и недопустимость одностороннего отказа.",
+    "Статья 431 ГК РФ — толкование условий договора с учётом буквального смысла и поведения сторон.",
+)
+
+
+def _detect_instance(query: str) -> str | None:
+    q = query.lower()
+    for instance, hints in INSTANCE_HINTS.items():
+        if any(hint in q for hint in hints):
+            return instance
+    return None
+
+
+def _cassation_district_for_region(region_label: str) -> int | None:
+    lower = region_label.lower()
+    for number, tokens in CASSATION_DISTRICTS.items():
+        if any(token in lower for token in tokens):
+            return number
+    return None
+
+
+def _derive_legal_basis(query: str) -> list[str]:
+    q = query.lower()
+    articles: list[str] = []
+    seen: set[str] = set()
+    for keywords, items in TOPIC_ARTICLES:
+        if any(kw in q for kw in keywords):
+            for item in items:
+                if item not in seen:
+                    seen.add(item)
+                    articles.append(item)
+    if not articles:
+        return list(BASE_LEGAL_ARTICLES) + [
+            "Статья 65 АПК РФ или статья 56 ГПК РФ — бремя доказывания в зависимости от вида суда.",
+        ]
+    for item in BASE_LEGAL_ARTICLES:
+        if item not in seen:
+            articles.append(item)
+    articles.append("Статья 65 АПК РФ или статья 56 ГПК РФ — бремя доказывания в зависимости от вида суда.")
+    return articles
+
+
 _REGION_ALIASES: list[tuple[tuple[str, ...], str, str]] = [
     (("брянск", "брянской", "брянская"), "Брянская область", "А09"),
     (("москва",), "Москва", "А40"),
@@ -181,11 +428,7 @@ def build_case_law_stub_result(query: str) -> TenderAnalyzerResult:
                 takeaway="Удобен для расширения выдачи по региону, типу суда и ключевым словам запроса.",
             ),
         ],
-        legal_basis=[
-            "Статьи 309 и 310 ГК РФ о надлежащем исполнении обязательств и недопустимости одностороннего отказа.",
-            "Статья 431 ГК РФ о толковании условий договора с учетом буквального смысла и поведения сторон.",
-            "Статья 65 АПК РФ или статья 56 ГПК РФ о бремени доказывания в зависимости от вида суда.",
-        ],
+        legal_basis=_derive_legal_basis(normalized),
         practical_takeaways=[
             "Сужайте запрос по региону, периоду, инстанции и предмету спора, чтобы подборка была точнее.",
             "Сразу собирайте ссылки на акты, карточки дел, переписку и первичные документы под вашу позицию.",
@@ -292,15 +535,73 @@ def _extract_region_mentions(text: str) -> list[str]:
     return [match.group(0).strip() for match in REGION_MENTION_PATTERN.finditer(normalized)]
 
 
-def _matches_requested_region(query: str, item: dict[str, str]) -> bool:
+def _matches_instance(query: str, url: str) -> bool:
+    requested = _detect_instance(query)
+    if not requested:
+        return True
+    url_lower = url.lower()
+    is_cassation = bool(CASSATION_DOMAIN_PATTERN.search(url_lower)) or "верховн" in url_lower
+    is_appeal = bool(APPEAL_DOMAIN_PATTERN.search(url_lower))
+    if requested == "appeal":
+        if is_cassation:
+            return False
+    elif requested == "cassation":
+        if is_appeal:
+            return False
+    elif requested == "first":
+        if is_cassation or is_appeal:
+            return False
+    return True
+
+
+def _matches_cassation_district(query: str, url: str) -> bool:
+    match = CASSATION_DOMAIN_PATTERN.search(url.lower())
+    if not match:
+        return True
     requested_regions = _extract_region_hints(query)
     if not requested_regions:
         return True
+    expected_numbers = {
+        num for region in requested_regions
+        for num in (_cassation_district_for_region(region),) if num is not None
+    }
+    if not expected_numbers:
+        return True
+    return int(match.group(1)) in expected_numbers
+
+
+def _matches_requested_region(query: str, item: dict[str, str]) -> bool:
+    requested_regions = _extract_region_hints(query)
+    url = item.get("url", "")
+    if not _matches_cassation_district(query, url):
+        return False
+    if not _matches_instance(query, url):
+        return False
+    if not requested_regions:
+        return True
+    requested_lower_set = {r.lower() for r in requested_regions}
+    requested_tokens: set[str] = set()
+    requested_prefixes: set[str] = set()
+    for aliases, label, prefix in _REGION_ALIASES:
+        if label.lower() in requested_lower_set:
+            requested_tokens.update(aliases)
+            if prefix:
+                requested_prefixes.add(prefix.upper())
+    sudrf_token = _sudrf_region_token(url)
+    if sudrf_token:
+        if requested_tokens and sudrf_token not in requested_tokens:
+            return False
+    case_prefix = _arbitrazh_case_prefix(item)
+    if case_prefix:
+        if requested_prefixes and case_prefix.upper() in requested_prefixes:
+            return True
+        if requested_prefixes:
+            return False
     haystack = " ".join(
         [
             item.get("title", "").lower(),
             item.get("snippet", "").lower(),
-            item.get("url", "").lower(),
+            url.lower(),
             item.get("source", "").lower(),
         ]
     )
@@ -312,8 +613,8 @@ def _matches_requested_region(query: str, item: dict[str, str]) -> bool:
     region_mentions = _extract_region_mentions(haystack)
     if region_mentions and not any(region in mention for mention in region_mentions for region in requested_regions):
         return False
-    if requested_courts and "kad.arbitr.ru" in haystack:
-        return False
+    # Ссылки на kad.arbitr.ru оставляем: если префикс номера дела был бы не из запрошенного региона,
+    # фильтр по _arbitrazh_case_prefix уже вернул бы False выше. Если префикса нет вообще — пропускаем.
     return not region_mentions
 
 
@@ -342,9 +643,12 @@ def _extract_topic_terms(query: str) -> list[str]:
 
 
 def _normalize_source_label(item: dict[str, str]) -> str:
+    title = item.get("title", "").strip()
+    if title and "суд" in title.lower() and len(title) < 140:
+        return title
     source = item.get("source", "").strip()
     url = item.get("url", "").strip().lower()
-    if source:
+    if source and "суд" in source.lower():
         return source
     if "kad.arbitr.ru" in url:
         return "КАД Арбитр"
@@ -352,7 +656,50 @@ def _normalize_source_label(item: dict[str, str]) -> str:
         return "ГАС Правосудие"
     if "sudact.ru" in url:
         return "СудАкт"
+    if source:
+        return source
     return "Найденный источник"
+
+
+def _item_region_match(query: str, item: dict[str, str]) -> str:
+    requested_regions = _extract_region_hints(query)
+    if not requested_regions:
+        return "unknown"
+    url = item.get("url", "").lower()
+    if not _matches_cassation_district(query, url):
+        return "other"
+    requested_lower = [region.lower() for region in requested_regions]
+    requested_tokens: set[str] = set()
+    requested_prefixes: set[str] = set()
+    for aliases, label, prefix in _REGION_ALIASES:
+        if label.lower() in requested_lower:
+            requested_tokens.update(aliases)
+            if prefix:
+                requested_prefixes.add(prefix.upper())
+    sudrf_token = _sudrf_region_token(url)
+    if sudrf_token:
+        if requested_tokens and sudrf_token in requested_tokens:
+            return "match"
+        return "other"
+    case_prefix = _arbitrazh_case_prefix(item)
+    if case_prefix and requested_prefixes:
+        return "match" if case_prefix.upper() in requested_prefixes else "other"
+    haystack = " ".join(
+        [
+            item.get("title", "").lower(),
+            item.get("snippet", "").lower(),
+            url,
+            item.get("source", "").lower(),
+        ]
+    )
+    if any(region in haystack for region in requested_lower):
+        return "match"
+    if requested_tokens and any(token in haystack for token in requested_tokens):
+        return "match"
+    mentions = _extract_region_mentions(haystack)
+    if mentions and not any(region in mention for mention in mentions for region in requested_lower):
+        return "other"
+    return "unknown"
 
 
 def _build_no_exact_matches_result(query: str, requested_regions: list[str]) -> TenderAnalyzerResult:
@@ -440,12 +787,20 @@ def _is_direct_case_link(item: dict[str, str]) -> bool:
 def _filter_and_rank_results(query: str, results: list[dict[str, str]], strict_region: bool = True) -> list[dict[str, str]]:
     ranked: list[tuple[int, dict[str, str]]] = []
     seen_urls: set[str] = set()
+    rejected: list[str] = []
     for item in results:
         url = item.get("url", "").strip()
         if not url or url in seen_urls:
             continue
         seen_urls.add(url)
+        url_lower = url.lower().rstrip("/")
+        if url_lower in {"https://kad.arbitr.ru", "http://kad.arbitr.ru",
+                         "https://m.kad.arbitr.ru", "http://m.kad.arbitr.ru",
+                         "https://sudrf.ru", "http://sudrf.ru",
+                         "https://sudact.ru", "http://sudact.ru"}:
+            continue
         if strict_region and not _matches_requested_region(query, item):
+            rejected.append(url)
             continue
         score = _score_search_result(query, item)
         if not strict_region and _matches_requested_region(query, item):
@@ -456,9 +811,11 @@ def _filter_and_rank_results(query: str, results: list[dict[str, str]], strict_r
 
     ranked.sort(key=lambda pair: pair[0], reverse=True)
     filtered = [item for score, item in ranked if score > 0]
+    if strict_region and rejected:
+        logger.info("case_law strict filter rejected %d/%d: %s", len(rejected), len(results), rejected[:8])
     if filtered:
-        return filtered[:8]
-    return [item for _, item in ranked[:8]]
+        return filtered[:12]
+    return [item for _, item in ranked[:12]]
 
 
 def _build_related_case_results(query: str, results: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -507,17 +864,21 @@ def _parse_yandex_search_xml(raw: str) -> list[dict[str, str]]:
     return results
 
 
-def _search_case_law_yandex_api(query: str) -> list[dict[str, str]]:
+def _search_case_law_yandex_api(query: str, extra_terms: list[str] | None = None) -> list[dict[str, str]]:
     api_key = settings.yandex_search_api_key.strip()
     folder_id = settings.yandex_search_folder_id.strip()
     endpoint = settings.yandex_search_api_url.strip()
     if not api_key or not folder_id or not endpoint:
         return []
 
+    query_text = _build_site_limited_query(query)
+    if extra_terms:
+        query_text = " ".join([query_text, *[f'+"{term}"' for term in extra_terms]]).strip()
+
     body = {
         "query": {
             "searchType": "SEARCH_TYPE_RU",
-            "queryText": _build_site_limited_query(query),
+            "queryText": query_text,
         },
         "groupSpec": {
             "groupMode": "GROUP_MODE_FLAT",
@@ -637,16 +998,18 @@ def _build_web_search_fallback(
             citation=item["citation"] or _normalize_source_label(item),
             url=item["url"],
             takeaway=item["snippet"] or "Откройте источник для просмотра карточки дела и судебных актов.",
+            region_match=_item_region_match(query, item),
         )
-        for item in filtered[:5]
+        for item in filtered[:10]
     ]
     positions = [
         CourtPositionItem(
             court=_normalize_source_label(item),
             position=item["snippet"] or "Найден релевантный акт по запросу.",
             relevance="Материал отобран из поисковой выдачи по совпадению с предметом спора, регионом и типом суда.",
+            region_match=_item_region_match(query, item),
         )
-        for item in filtered[:3]
+        for item in filtered[:6]
     ]
     search_scope = f"Интернет-поиск по доменам: {', '.join(_get_web_search_domains())}."
     if region_hints:
@@ -662,15 +1025,24 @@ def _build_web_search_fallback(
             "Уточните период, инстанцию или номер суда. Если нужен только выбранный регион, лучше сузить запрос "
             "до конкретного суда или номера дела."
         )
+    related_notice = ""
+    if used_related_matches and region_hints:
+        related_notice = (
+            f"По региону {', '.join(region_hints)} точных актов не найдено. "
+            "Ниже — ближайшие по теме дела из других регионов. Для той же темы позиции судов, как правило, сходятся."
+        )
     return base.model_copy(
         update={
             "summary": summary,
             "search_scope": search_scope,
             "regions": region_hints or base.regions,
+            "requested_regions": region_hints,
             "court_positions": positions,
             "cited_cases": cited_cases,
+            "legal_basis": _derive_legal_basis(query),
             "follow_up_prompt": follow_up_prompt,
             "data_source": "web_search",
+            "related_region_notice": related_notice,
         }
     )
 
@@ -708,7 +1080,10 @@ def _summarize_web_results_with_llm(
 
 Используй только предоставленные результаты поиска.
 Не выдумывай дела, суды, номера, даты, регионы и URL.
-Если детали нет, формулируй осторожно.
+В поле court указывай ровно то наименование суда, которое присутствует в поле Source/Court или Title конкретного источника — не сокращай, не придумывай название, не подставляй суды, не упомянутые в результатах.
+Не используй значения "n/a", "без названия", пустые строки и прочерки в полях title, citation, court. Если подходящего значения нет в источниках — не добавляй такой элемент вовсе.
+В объектах court_positions используй строго ключи court, position, relevance — никаких severity, score, priority и прочих.
+В объектах cited_cases используй строго ключи title, citation, url, takeaway.
 Все текстовые поля верни на русском языке.
 Если в выдаче есть конфликт между арбитражными судами и судами общей юрисдикции, при слове "арбитраж" в запросе отдавай приоритет арбитражным материалам.
 
@@ -741,7 +1116,74 @@ def _summarize_web_results_with_llm(
         raise ValueError("LLM summary omitted cited cases.")
     if any(case.url not in allowed_urls for case in normalized.cited_cases):
         raise ValueError("LLM summary introduced URLs outside the search results.")
-    return normalized
+    url_to_item = {item["url"]: item for item in filtered}
+    source_labels_lower = {_normalize_source_label(item).lower() for item in filtered}
+    enriched_cases = []
+    for case in normalized.cited_cases:
+        item = url_to_item.get(case.url, {"url": case.url, "title": case.title, "snippet": case.takeaway})
+        update: dict[str, object] = {"region_match": _item_region_match(query, item)}
+        title_empty = not case.title or case.title.strip().lower() in {"n/a", "без названия"}
+        citation_empty = not case.citation or case.citation.strip().lower() == "n/a"
+        if title_empty:
+            update["title"] = item.get("title") or _normalize_source_label(item)
+        if citation_empty:
+            item_citation = (item.get("citation") or "").strip()
+            if item_citation:
+                update["citation"] = item_citation
+            else:
+                try:
+                    host = re.search(r"https?://([^/]+)", item.get("url", ""))
+                    update["citation"] = host.group(1) if host else ""
+                except Exception:
+                    update["citation"] = ""
+        final_title = str(update.get("title", case.title)).strip()
+        final_citation = str(update.get("citation", case.citation)).strip()
+        if final_title and final_citation and final_title == final_citation:
+            try:
+                host = re.search(r"https?://([^/]+)", item.get("url", ""))
+                update["citation"] = host.group(1) if host else ""
+            except Exception:
+                update["citation"] = ""
+        enriched_cases.append(case.model_copy(update=update))
+    enriched_positions = []
+    for pos in normalized.court_positions:
+        court_lower = pos.court.strip().lower()
+        best_match = None
+        for item in filtered:
+            label = _normalize_source_label(item).lower()
+            if label and label in court_lower:
+                best_match = item
+                break
+        update = {"region_match": _item_region_match(query, best_match) if best_match else "unknown"}
+        enriched_positions.append(pos.model_copy(update=update))
+    region_hints_norm = _extract_region_hints(query)
+    has_other = any(case.region_match == "other" for case in enriched_cases) or any(
+        pos.region_match == "other" for pos in enriched_positions
+    )
+    related_notice = ""
+    if has_other and region_hints_norm:
+        related_notice = (
+            f"Часть результатов не из региона {', '.join(region_hints_norm)}. "
+            "Они оставлены как ближайшие по теме из других регионов."
+        )
+    derived_basis = _derive_legal_basis(query)
+    seen_basis: set[str] = set()
+    merged_basis: list[str] = []
+    for item in list(normalized.legal_basis) + derived_basis:
+        key = re.sub(r"\s+", " ", item.strip().lower())
+        if not key or key in seen_basis:
+            continue
+        seen_basis.add(key)
+        merged_basis.append(item)
+    return normalized.model_copy(
+        update={
+            "cited_cases": enriched_cases,
+            "court_positions": enriched_positions,
+            "legal_basis": merged_basis,
+            "requested_regions": region_hints_norm,
+            "related_region_notice": related_notice,
+        }
+    )
 
 
 def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAnalyzerResult:
@@ -762,6 +1204,24 @@ def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAn
             logger.warning("Case law provider failed, trying web search fallback: %s", exc)
     try:
         yandex_results = _search_case_law_yandex_api(query)
+        region_hints = _extract_region_hints(query)
+        if yandex_results and region_hints:
+            strict_matches = [
+                item for item in yandex_results if _matches_requested_region(query, item)
+            ]
+            if len(strict_matches) < 3:
+                court_phrases = _requested_court_phrases(query)
+                extra_terms = list(region_hints) + court_phrases
+                try:
+                    forced = _search_case_law_yandex_api(query, extra_terms=extra_terms)
+                except (error.URLError, TimeoutError, ValueError, ET.ParseError) as exc:
+                    logger.warning("Forced-region Yandex retry failed: %s", exc)
+                    forced = []
+                if forced:
+                    forced_urls = {item.get("url") for item in forced}
+                    extra = [item for item in yandex_results if item.get("url") not in forced_urls]
+                    yandex_results = list(forced) + extra
+                    logger.info("case_law forced-region retry: merged %d new + %d existing", len(forced), len(extra))
         if yandex_results:
             try:
                 return _summarize_web_results_with_llm(

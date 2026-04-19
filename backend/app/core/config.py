@@ -31,11 +31,11 @@ class Settings(BaseSettings):
     yandex_search_folder_id: str = ""
     yandex_search_api_url: str = "https://searchapi.api.cloud.yandex.net/v2/web/search"
     yandex_search_region: int = 225
-    yandex_search_groups_on_page: int = 8
+    yandex_search_groups_on_page: int = 20
     yandex_search_docs_in_group: int = 1
     case_law_web_search_url: str = ""
     case_law_web_search_api_key: str = ""
-    case_law_web_search_domains: str = "kad.arbitr.ru,sudrf.ru"
+    case_law_web_search_domains: str = "kad.arbitr.ru,sudrf.ru,sudact.ru"
     encryption_key: str = ""
 
     class Config:

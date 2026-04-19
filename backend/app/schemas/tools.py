@@ -139,6 +139,7 @@ class CourtPositionItem(BaseModel):
     court: str
     position: str
     relevance: str
+    region_match: str = "unknown"  # "match" | "other" | "unknown"
 
 
 class CaseLawReferenceItem(BaseModel):
@@ -146,6 +147,7 @@ class CaseLawReferenceItem(BaseModel):
     citation: str
     url: str
     takeaway: str
+    region_match: str = "unknown"  # "match" | "other" | "unknown"
 
 
 class TenderAnalyzerResult(BaseModel):
@@ -160,6 +162,8 @@ class TenderAnalyzerResult(BaseModel):
     practical_takeaways: list[str]
     follow_up_prompt: str
     data_source: str = "live"
+    related_region_notice: str = ""
+    requested_regions: list[str] = []
 
 
 class RiskDriverItem(BaseModel):

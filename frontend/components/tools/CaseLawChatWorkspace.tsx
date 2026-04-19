@@ -79,6 +79,15 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
           </p>
         </div>
       )}
+      {typeof (result as Record<string, unknown>).related_region_notice === "string" &&
+        (result as Record<string, unknown>).related_region_notice && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-semibold text-amber-800">Другие регионы</p>
+            <p className="mt-1 text-xs text-amber-700">
+              {String((result as Record<string, unknown>).related_region_notice)}
+            </p>
+          </div>
+        )}
       <div className="rounded-[24px] border border-emerald-200/70 bg-[linear-gradient(135deg,#f1fbf6,#ecfdf5_48%,#f8fffc)] p-4">
         <p className="text-sm font-semibold text-emerald-900">{result.summary}</p>
         <p className="mt-2 text-sm leading-6 text-emerald-800/90">{result.search_scope}</p>
@@ -110,56 +119,80 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         </div>
       </div>
 
+      {result.court_positions.length > 0 && (
       <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
           <Scale className="h-4 w-4 text-emerald-700" />
           Подходы судов
         </h3>
         <div className="mt-4 space-y-3">
-          {result.court_positions.map((item, index) => (
-            <div
-              key={`${index}-${item.court}`}
-              className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
-            >
-              <p className="text-sm font-semibold text-stone-900">{item.court}</p>
-              <p className="mt-2 text-sm leading-6 text-stone-700">{item.position}</p>
-              <p className="mt-2 text-xs leading-5 text-stone-500">{item.relevance}</p>
-            </div>
-          ))}
+          {result.court_positions.map((item, index) => {
+            const regionMatch = (item as Record<string, unknown>).region_match;
+            return (
+              <div
+                key={`${index}-${item.court}`}
+                className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-stone-900">{item.court}</p>
+                  {regionMatch === "other" && (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                      Другой регион
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-stone-700">{item.position}</p>
+                <p className="mt-2 text-xs leading-5 text-stone-500">{item.relevance}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
+      )}
 
+      {result.cited_cases.length > 0 && (
       <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
           <Link2 className="h-4 w-4 text-emerald-700" />
           Ссылки на акты
         </h3>
         <div className="mt-4 space-y-3">
-          {result.cited_cases.map((item, index) => (
-            <div
-              key={`${index}-${item.citation}`}
-              className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-stone-900">{item.title}</p>
-                  <p className="mt-1 text-xs font-medium text-stone-500">{item.citation}</p>
+          {result.cited_cases.map((item, index) => {
+            const regionMatch = (item as Record<string, unknown>).region_match;
+            return (
+              <div
+                key={`${index}-${item.citation}`}
+                className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-stone-900">{item.title}</p>
+                      {regionMatch === "other" && (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                          Другой регион
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs font-medium text-stone-500">{item.citation}</p>
+                  </div>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100"
+                  >
+                    Открыть
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </a>
                 </div>
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100"
-                >
-                  Открыть
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </a>
+                <p className="mt-3 text-sm leading-6 text-stone-700">{item.takeaway}</p>
               </div>
-              <p className="mt-3 text-sm leading-6 text-stone-700">{item.takeaway}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
@@ -413,6 +446,30 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                 </div>
               </div>
             ))}
+            {status === "loading" && (
+              <div className="flex justify-start">
+                <div className="w-full max-w-6xl rounded-[30px] border border-emerald-200 bg-[linear-gradient(180deg,#ffffff,#f1fbf6)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+                    </span>
+                    <p className="text-sm font-semibold text-emerald-900">Собираем подборку практики…</p>
+                    <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {formatTime(elapsedSec)}
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "80%" }} />
+                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "60%" }} />
+                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "72%" }} />
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-emerald-800/80">
+                    Ищем по kad.arbitr.ru и sudrf.ru, фильтруем по региону и инстанции, проверяем нормы.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
