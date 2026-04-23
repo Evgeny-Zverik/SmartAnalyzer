@@ -190,14 +190,6 @@ export type SpellingCheckerRunResponse = {
   };
 };
 
-export type LLMConfigRequest = {
-  base_url?: string;
-  api_key?: string;
-  model?: string;
-  compression_level?: string;
-  analysis_mode?: string;
-};
-
 export type EditedDocumentRequest = {
   full_text: string;
   rich_content?: Record<string, unknown> | null;
@@ -206,18 +198,13 @@ export type EditedDocumentRequest = {
 
 export async function runDocumentAnalyzer(
   documentId: number,
-  llmConfig?: LLMConfigRequest | null,
   signal?: AbortSignal,
   editedDocument?: EditedDocumentRequest | null
 ): Promise<DocumentAnalyzerRunResponse> {
   const body: {
     document_id: number;
-    llm_config?: LLMConfigRequest;
     edited_document?: EditedDocumentRequest;
   } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
-    body.llm_config = llmConfig;
-  }
   if (editedDocument?.full_text?.trim()) {
     body.edited_document = editedDocument;
   }
@@ -243,17 +230,12 @@ export async function prepareDocumentAnalyzer(
 export async function runDataExtractor(
   documentId: number,
   compareDocumentId: number,
-  llmConfig?: LLMConfigRequest | null,
   signal?: AbortSignal
 ): Promise<DataExtractorRunResponse> {
   const body: {
     document_id: number;
     compare_document_id: number;
-    llm_config?: LLMConfigRequest;
   } = { document_id: documentId, compare_document_id: compareDocumentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
-    body.llm_config = llmConfig;
-  }
   return apiFetch<DataExtractorRunResponse>("/api/v1/tools/data-extractor/run", {
     method: "POST",
     body: JSON.stringify(body),
@@ -285,38 +267,22 @@ export async function runTenderAnalyzer(
 
 export async function runLegalTextSimplifier(
   documentId: number,
-  llmConfig?: LLMConfigRequest | null,
   signal?: AbortSignal
 ): Promise<LegalTextSimplifierRunResponse> {
-  const body: {
-    document_id: number;
-    llm_config?: LLMConfigRequest;
-  } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
-    body.llm_config = llmConfig;
-  }
   return apiFetch<LegalTextSimplifierRunResponse>("/api/v1/tools/legal-text-simplifier/run", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ document_id: documentId }),
     signal,
   });
 }
 
 export async function runSpellingChecker(
   documentId: number,
-  llmConfig?: LLMConfigRequest | null,
   signal?: AbortSignal
 ): Promise<SpellingCheckerRunResponse> {
-  const body: {
-    document_id: number;
-    llm_config?: LLMConfigRequest;
-  } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
-    body.llm_config = llmConfig;
-  }
   return apiFetch<SpellingCheckerRunResponse>("/api/v1/tools/spelling-checker/run", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ document_id: documentId }),
     signal,
   });
 }
@@ -411,7 +377,6 @@ export type DocumentAnalyzerStreamEvent =
 
 export async function streamDocumentAnalyzer(
   documentId: number,
-  llmConfig: LLMConfigRequest | null | undefined,
   signal: AbortSignal | undefined,
   editedDocument: EditedDocumentRequest | null | undefined,
   onEvent: (event: DocumentAnalyzerStreamEvent) => void
@@ -425,12 +390,8 @@ export async function streamDocumentAnalyzer(
 
   const body: {
     document_id: number;
-    llm_config?: LLMConfigRequest;
     edited_document?: EditedDocumentRequest;
   } = { document_id: documentId };
-  if (llmConfig && (llmConfig.base_url || llmConfig.api_key || llmConfig.model || llmConfig.compression_level)) {
-    body.llm_config = llmConfig;
-  }
   if (editedDocument?.full_text?.trim()) {
     body.edited_document = editedDocument;
   }
@@ -495,7 +456,6 @@ export async function streamDocumentAnalyzer(
 export async function runToolAnalysis(
   toolSlug: string,
   file: File,
-  llmConfig?: LLMConfigRequest | null,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   options?: {
@@ -528,7 +488,6 @@ export async function runToolAnalysis(
     if (toolSlug === "document-analyzer") {
       const runRes = await runDocumentAnalyzer(
         documentId,
-        llmConfig,
         signal,
         options?.editedDocument
       );
@@ -538,13 +497,13 @@ export async function runToolAnalysis(
       if (!options?.compareDocumentId) {
         throw new Error("Second document is required for comparison.");
       }
-      const runRes = await runDataExtractor(documentId, options.compareDocumentId, llmConfig, signal);
+      const runRes = await runDataExtractor(documentId, options.compareDocumentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "legal-text-simplifier") {
-      const runRes = await runLegalTextSimplifier(documentId, llmConfig, signal);
+      const runRes = await runLegalTextSimplifier(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "spelling-checker") {
-      const runRes = await runSpellingChecker(documentId, llmConfig, signal);
+      const runRes = await runSpellingChecker(documentId, signal);
       result = runRes.result as unknown as Record<string, unknown>;
     } else if (toolSlug === "tender-analyzer") {
       const runRes = await runTenderAnalyzer(documentId, signal);

@@ -289,7 +289,6 @@ def run_workspace_plugin(
         user=current_user,
         document=doc,
         input_type=input_type,
-        llm_config=body.llm_config,
         edited_document=body.edited_document,
     )
 
@@ -364,7 +363,6 @@ async def run_all_workspace_plugins(
         user=current_user,
         document=doc,
         input_type=input_type,
-        llm_config=body.llm_config,
         edited_document=body.edited_document,
         cancelled=cancelled,
     )

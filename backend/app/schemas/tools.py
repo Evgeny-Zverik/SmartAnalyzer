@@ -223,14 +223,6 @@ class SpellingCheckerResult(BaseModel):
     corrections: list[SpellingCorrectionItem]
 
 
-class LlmConfigOptional(BaseModel):
-    base_url: str | None = None
-    api_key: str | None = None
-    model: str | None = None
-    compression_level: str | None = None
-    analysis_mode: str | None = None
-
-
 class EditedDocumentPayload(BaseModel):
     full_text: str
     rich_content: dict[str, Any] | None = None
@@ -241,7 +233,6 @@ class ToolRunRequest(BaseModel):
     document_id: int
     compare_document_id: int | None = None
     folder_id: int | None = None
-    llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
 
 

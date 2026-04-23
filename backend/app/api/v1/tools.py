@@ -212,7 +212,7 @@ def run_document_analyzer(
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = anonymize_text_for_llm(db=db, user=current_user, text=editor_payload["full_text"])
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = None
     raw_result = analyze_document_fast(text, overrides=overrides)
     raw_advanced = raw_result.get("advanced_editor") if isinstance(raw_result, dict) else None
     if isinstance(raw_advanced, dict):
@@ -261,7 +261,7 @@ def stream_document_analyzer(
     else:
         editor_payload = extract_advanced_editor_payload(doc.storage_path, doc.mime_type)
     text = anonymize_text_for_llm(db=db, user=current_user, text=editor_payload["full_text"])
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = None
     folder = resolve_analysis_folder(
         db,
         current_user.id,
@@ -337,7 +337,7 @@ def run_data_extractor(
     compare_doc = _get_document_for_user(db, compare_doc_id, current_user.id)
     left_text = extract_text(doc.storage_path, doc.mime_type)
     right_text = extract_text(compare_doc.storage_path, compare_doc.mime_type)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = None
     raw_result = compare_documents_detailed(left_text, right_text, overrides=overrides)
     try:
         result = DataExtractorResult.model_validate(raw_result)
@@ -413,7 +413,7 @@ def run_legal_text_simplifier(
     assert_can_run(db, current_user, "legal-text-simplifier")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     text = extract_text(doc.storage_path, doc.mime_type)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = None
     raw_result = simplify_legal_text(text, overrides=overrides)
     try:
         result = LegalTextSimplifierResult.model_validate(raw_result)
@@ -454,7 +454,7 @@ def run_spelling_checker(
     assert_can_run(db, current_user, "spelling-checker")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     text = extract_text(doc.storage_path, doc.mime_type)
-    overrides = body.llm_config.model_dump(exclude_none=True) if body.llm_config else None
+    overrides = None
     raw_result = check_spelling(text, overrides=overrides)
     try:
         result = SpellingCheckerResult.model_validate(raw_result)

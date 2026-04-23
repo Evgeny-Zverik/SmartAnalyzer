@@ -85,8 +85,8 @@ def _is_llm_unavailable_error(e: Exception) -> bool:
 def _summarize_llm_error(e: Exception, opts: dict[str, Any]) -> tuple[str, str]:
     message = str(e).strip()
     normalized = message.lower()
-    model = (opts.get("model") or app_settings.openai_model).strip() or "gpt-4o-mini"
-    base_url = (opts.get("base_url") or app_settings.openai_base_url).strip() or ""
+    model = (app_settings.openai_model or "").strip() or "gpt-4o-mini"
+    base_url = (app_settings.openai_base_url or "").strip() or ""
 
     if _is_llm_unavailable_error(e):
         hint = (
@@ -118,9 +118,11 @@ def _summarize_llm_error(e: Exception, opts: dict[str, Any]) -> tuple[str, str]:
 
 
 def _build_openai_client(opts: dict[str, Any]) -> tuple[OpenAI, str]:
-    base_url = (opts.get("base_url") or app_settings.openai_base_url).strip() or None
-    api_key = (opts.get("api_key") or app_settings.openai_api_key).strip() or None
-    model = (opts.get("model") or app_settings.openai_model).strip() or "gpt-4o-mini"
+    # base_url / api_key / model are taken exclusively from environment settings.
+    # Any user-supplied overrides for these fields are ignored.
+    base_url = (app_settings.openai_base_url or "").strip() or None
+    api_key = (app_settings.openai_api_key or "").strip() or None
+    model = (app_settings.openai_model or "").strip() or "gpt-4o-mini"
 
     if not api_key:
         if base_url:

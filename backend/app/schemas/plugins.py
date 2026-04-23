@@ -9,7 +9,7 @@ from app.plugins.contracts import (
     PluginLifecycleState,
     PluginManifest,
 )
-from app.schemas.tools import EditedDocumentPayload, LlmConfigOptional
+from app.schemas.tools import EditedDocumentPayload
 
 
 class PluginAvailabilityItem(BaseModel):
@@ -37,7 +37,6 @@ class TogglePluginRequest(BaseModel):
 
 
 class RunPluginRequest(BaseModel):
-    llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
 
 
@@ -68,7 +67,6 @@ class WorkspacePluginResultsResponse(BaseModel):
 
 
 class BatchRunPluginRequest(BaseModel):
-    llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
     plugin_ids: list[str] | None = None
 

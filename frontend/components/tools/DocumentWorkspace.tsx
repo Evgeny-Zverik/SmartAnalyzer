@@ -10,13 +10,6 @@ import {
 } from "@/lib/utils/downloadDocumentFile";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
 import { AdvancedAiEditor, type AdvancedAnnotation } from "@/components/tools/AdvancedAiEditor";
-import {
-  LLMSettingsModal,
-  getLLMConfigForRequest,
-  getStoredLLMConfig,
-  getStoredLLMConfigForMode,
-  type LLMConfig,
-} from "@/components/tools/LLMSettingsModal";
 import { PluginToolbar } from "@/components/plugins/PluginToolbar";
 import { PluginPanels } from "@/components/plugins/PluginPanels";
 import { uploadDocument } from "@/lib/api/documents";
@@ -95,18 +88,12 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [state, setState] = useState<"idle" | "preparing" | "ready" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [runningPluginId, setRunningPluginId] = useState<string | null>(null);
-  const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
-  const [llmModalOpen, setLlmModalOpen] = useState(false);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const [anonymizationEnabled, setAnonymizationEnabled] = useState(false);
   const analysisAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    setLlmConfig(getStoredLLMConfig());
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -146,11 +133,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       .catch(() => {});
   }, []);
 
-  const currentMode = llmConfig?.mode ?? "local";
-  const setLlmMode = useCallback((mode: "local" | "api") => {
-    setLlmConfig(getStoredLLMConfigForMode(mode));
-  }, []);
-
   const hydratePlugins = useCallback(async (docId: number) => {
     const items = await getDocumentWorkspacePlugins(docId);
     // Merge pre-upload toggle choices into workspace items
@@ -172,7 +154,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       dispatch({ type: "set_status", pluginId, status: "running" });
       try {
         const response = await runDocumentWorkspacePlugin(documentId, pluginId, {
-          llmConfig: getLLMConfigForRequest(llmConfig),
           editedDocument: hasEditorChanges ? editedDocument : null,
         });
         dispatch({
@@ -193,7 +174,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [documentId, llmConfig, hasEditorChanges, editedDocument, router]
+    [documentId, hasEditorChanges, editedDocument, router]
   );
 
   const autoRunEnabledPlugins = useCallback(
@@ -215,7 +196,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
       try {
         const response = await runAllDocumentWorkspacePlugins(docId, {
-          llmConfig: getLLMConfigForRequest(llmConfig),
           editedDocument: hasEditorChanges ? editedDocument : null,
           pluginIds,
           signal,
@@ -243,7 +223,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [llmConfig, hasEditorChanges, editedDocument, router]
+    [hasEditorChanges, editedDocument, router]
   );
 
   const handleUploadDocument = useCallback(async (fileToUpload: File) => {
@@ -400,13 +380,6 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}>
-      <LLMSettingsModal
-        isOpen={llmModalOpen}
-        onClose={() => setLlmModalOpen(false)}
-        initialConfig={llmConfig}
-        onSave={setLlmConfig}
-      />
-
       {errorMessage ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
           {errorMessage}

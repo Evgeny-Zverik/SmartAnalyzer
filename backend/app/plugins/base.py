@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.models.user import User
 from app.plugins.contracts import InputType, PluginExecutionResult, PluginManifest
-from app.schemas.tools import EditedDocumentPayload, LlmConfigOptional
+from app.schemas.tools import EditedDocumentPayload
 
 
 class CancelledException(Exception):
@@ -22,7 +22,6 @@ class PluginRunContext:
     user: User
     document: Document
     input_type: InputType
-    llm_config: LlmConfigOptional | None = None
     edited_document: EditedDocumentPayload | None = None
     shared_bundle: Any | None = None
     cancelled: threading.Event | None = None

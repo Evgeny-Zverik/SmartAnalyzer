@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
-import type { EditedDocumentRequest, LLMConfigRequest } from "@/lib/api/tools";
+import type { EditedDocumentRequest } from "@/lib/api/tools";
 import type { WorkspacePluginItem, PluginManifest, PluginExecutionResult } from "@/lib/plugins/types";
 
 export type PluginAvailabilityItem = {
@@ -44,7 +44,6 @@ export async function runDocumentWorkspacePlugin(
   documentId: number,
   pluginId: string,
   options?: {
-    llmConfig?: LLMConfigRequest | null;
     editedDocument?: EditedDocumentRequest | null;
   }
 ): Promise<{
@@ -56,7 +55,6 @@ export async function runDocumentWorkspacePlugin(
   return apiFetch(`/api/v1/plugins/workspaces/documents/${documentId}/plugins/${pluginId}/run`, {
     method: "POST",
     body: JSON.stringify({
-      llm_config: options?.llmConfig ?? null,
       edited_document: options?.editedDocument ?? null,
     }),
   });
@@ -73,7 +71,6 @@ export type BatchRunPluginResponseItem = {
 export async function runAllDocumentWorkspacePlugins(
   documentId: number,
   options?: {
-    llmConfig?: LLMConfigRequest | null;
     editedDocument?: EditedDocumentRequest | null;
     pluginIds?: string[] | null;
     signal?: AbortSignal;
@@ -82,7 +79,6 @@ export async function runAllDocumentWorkspacePlugins(
   return apiFetch(`/api/v1/plugins/workspaces/documents/${documentId}/plugins/run-all`, {
     method: "POST",
     body: JSON.stringify({
-      llm_config: options?.llmConfig ?? null,
       edited_document: options?.editedDocument ?? null,
       plugin_ids: options?.pluginIds ?? null,
     }),

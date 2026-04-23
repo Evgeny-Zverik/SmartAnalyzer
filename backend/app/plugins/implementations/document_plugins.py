@@ -31,7 +31,7 @@ def _get_bundle(context: PluginRunContext):
         context.document.mime_type,
         db=context.db,
         user=context.user,
-        overrides=context.llm_config.model_dump(exclude_none=True) if context.llm_config else None,
+        overrides=None,
         edited_document=context.edited_document.model_dump() if context.edited_document else None,
         cached_bundle=context.shared_bundle,
         cancelled=context.cancelled,

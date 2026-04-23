@@ -23,11 +23,6 @@ import { AdvancedAiEditor } from "@/components/tools/AdvancedAiEditor";
 import { CaseLawChatWorkspace } from "@/components/tools/CaseLawChatWorkspace";
 import { DocumentWorkspace } from "@/components/tools/DocumentWorkspace";
 import { SecureUploadHero } from "@/components/tools/SecureUploadHero";
-import {
-  getStoredLLMConfig,
-  getLLMConfigForRequest,
-  type LLMConfig,
-} from "@/components/tools/LLMSettingsModal";
 import { Button } from "@/components/ui/Button";
 import { getFeatureModules } from "@/lib/api/settings";
 import { getFeatureKeyForTool, isToolEnabled } from "@/lib/features/toolFeatureGate";
@@ -220,7 +215,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [showUpgradeCta, setShowUpgradeCta] = useState(false);
   const [spellingExportText, setSpellingExportText] = useState("");
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
-  const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [documentTab, setDocumentTab] = useState<DocumentTab>("summary");
@@ -228,7 +222,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [compareDocumentId, setCompareDocumentId] = useState<number | null>(null);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
-  const isLlmConfigurableTool = tool.slug === "document-analyzer" || tool.slug === "data-extractor";
   const advancedEditorData = useMemo(
     () =>
       ((result?.advanced_editor as {
@@ -282,10 +275,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             ? ""
             : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
       : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку.";
-
-  useEffect(() => {
-    setLlmConfig(getStoredLLMConfig());
-  }, []);
 
   useEffect(() => {
     if (!downloadMenuOpen) return;
@@ -392,7 +381,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     setResult(null);
     setShowUpgradeCta(false);
     try {
-      const requestLlm = isLlmConfigurableTool ? getLLMConfigForRequest(llmConfig) : undefined;
       if (tool.slug === "document-analyzer") {
         let currentDocumentId = documentId;
 
@@ -432,7 +420,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
 
         await streamDocumentAnalyzer(
           currentDocumentId,
-          requestLlm,
           controller.signal,
           hasEditorChanges ? editedDocument : null,
           (event) => {
@@ -481,7 +468,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         const analysis = await runToolAnalysis(
           tool.slug,
           file,
-          requestLlm,
           (s) => {
             setStage(s);
           },
@@ -497,7 +483,6 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         const analysis = await runToolAnalysis(
           tool.slug,
           file,
-          requestLlm,
           (s) => {
             setStage(s);
           },
@@ -560,7 +545,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         analysisAbortRef.current = null;
       }
     }
-  }, [file, compareFile, isCompareTool, isLlmConfigurableTool, tool.slug, router, llmConfig, documentId, compareDocumentId, editedDocument, hasEditorChanges]);
+  }, [file, compareFile, isCompareTool, tool.slug, router, documentId, compareDocumentId, editedDocument, hasEditorChanges]);
 
   const handleAbortAnalysis = useCallback(() => {
     analysisAbortRef.current?.abort();
