@@ -33,40 +33,86 @@ printf "%b==>%b Checking server state\n" "$BLUE" "$RESET"
 REMOTE_SHA=$(ssh "$SERVER" "cd $REMOTE_PATH && git rev-parse HEAD")
 LOCAL_SHA=$(git rev-parse HEAD)
 
-if [ "$REMOTE_SHA" = "$LOCAL_SHA" ]; then
+# --- Env sync: infra/env/*.env.prod → server:infra/env/*.env ---
+ENV_CHANGED=0
+ENV_DIFF_OUTPUT=""
+shopt -s nullglob
+for local_prod in infra/env/*.env.prod; do
+  remote_name="$(basename "${local_prod%.prod}")"
+  remote_path="$REMOTE_PATH/infra/env/$remote_name"
+  remote_content=$(ssh "$SERVER" "cat $remote_path 2>/dev/null || true")
+  local_content=$(cat "$local_prod")
+  if [ "$remote_content" != "$local_content" ]; then
+    ENV_CHANGED=1
+    ENV_DIFF_OUTPUT+="  %b~ $remote_name%b\n"
+    diff_lines=$(diff <(echo "$remote_content") <(echo "$local_content") | grep -E '^[<>]' | head -20 || true)
+    [ -n "$diff_lines" ] && ENV_DIFF_OUTPUT+="$(echo "$diff_lines" | sed 's/^/      /')\n"
+  fi
+done
+shopt -u nullglob
+
+if [ "$REMOTE_SHA" = "$LOCAL_SHA" ] && [ "$ENV_CHANGED" = "0" ]; then
   printf "%bAlready up to date on server (%s).%b\n" "$DIM" "${LOCAL_SHA:0:7}" "$RESET"
   exit 0
 fi
 
-printf "%b==>%b Deploying %s → %s\n" "$BLUE" "$RESET" "${REMOTE_SHA:0:7}" "${LOCAL_SHA:0:7}"
+if [ "$ENV_CHANGED" = "1" ]; then
+  printf "%bEnv changes:%b\n" "$BOLD" "$RESET"
+  printf "$ENV_DIFF_OUTPUT" "$YELLOW" "$RESET"
+  echo
+fi
+
+if [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+  printf "%b==>%b Deploying %s → %s\n" "$BLUE" "$RESET" "${REMOTE_SHA:0:7}" "${LOCAL_SHA:0:7}"
+else
+  printf "%b==>%b Deploying env-only change (git %s)\n" "$BLUE" "$RESET" "${LOCAL_SHA:0:7}"
+fi
 echo
 
-# Show commits being deployed
-printf "%bCommits:%b\n" "$BOLD" "$RESET"
-git log --pretty=format:"  %C(yellow)%h%C(reset) %s %C(dim)(%an)%C(reset)" "$REMOTE_SHA..$LOCAL_SHA"
-echo
-echo
+if [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+  # Show commits being deployed
+  printf "%bCommits:%b\n" "$BOLD" "$RESET"
+  git log --pretty=format:"  %C(yellow)%h%C(reset) %s %C(dim)(%an)%C(reset)" "$REMOTE_SHA..$LOCAL_SHA"
+  echo
+  echo
 
-# Show file changes with colors: A=green, D=red, M=yellow, R=blue
-printf "%bFile changes:%b\n" "$BOLD" "$RESET"
-git diff --name-status "$REMOTE_SHA..$LOCAL_SHA" | while IFS=$'\t' read -r status path rest; do
-  case "$status" in
-    A*) printf "  %b+ %s%b\n" "$GREEN" "$path" "$RESET" ;;
-    D*) printf "  %b- %s%b\n" "$RED" "$path" "$RESET" ;;
-    M*) printf "  %b~ %s%b\n" "$YELLOW" "$path" "$RESET" ;;
-    R*) printf "  %b→ %s → %s%b\n" "$BLUE" "$path" "$rest" "$RESET" ;;
-    *)  printf "  %s %s\n" "$status" "$path" ;;
-  esac
-done
-echo
+  # Show file changes with colors: A=green, D=red, M=yellow, R=blue
+  printf "%bFile changes:%b\n" "$BOLD" "$RESET"
+  git diff --name-status "$REMOTE_SHA..$LOCAL_SHA" | while IFS=$'\t' read -r status path rest; do
+    case "$status" in
+      A*) printf "  %b+ %s%b\n" "$GREEN" "$path" "$RESET" ;;
+      D*) printf "  %b- %s%b\n" "$RED" "$path" "$RESET" ;;
+      M*) printf "  %b~ %s%b\n" "$YELLOW" "$path" "$RESET" ;;
+      R*) printf "  %b→ %s → %s%b\n" "$BLUE" "$path" "$rest" "$RESET" ;;
+      *)  printf "  %s %s\n" "$status" "$path" ;;
+    esac
+  done
+  echo
 
-# Push and run remote deploy
-printf "%b==>%b git push origin %s\n" "$BLUE" "$RESET" "$BRANCH"
-git push origin "$BRANCH"
-echo
+  # Push new commits
+  printf "%b==>%b git push origin %s\n" "$BLUE" "$RESET" "$BRANCH"
+  git push origin "$BRANCH"
+  echo
+fi
+
+# Sync env files (if any changed)
+if [ "$ENV_CHANGED" = "1" ]; then
+  printf "%b==>%b Syncing env files\n" "$BLUE" "$RESET"
+  for local_prod in infra/env/*.env.prod; do
+    remote_name="$(basename "${local_prod%.prod}")"
+    scp -q "$local_prod" "$SERVER:$REMOTE_PATH/infra/env/$remote_name"
+    printf "  %b✓%b %s\n" "$GREEN" "$RESET" "$remote_name"
+  done
+  echo
+fi
 
 printf "%b==>%b Running deploy on server\n" "$BLUE" "$RESET"
-ssh -t "$SERVER" "cd $REMOTE_PATH && ./scripts/deploy.sh"
+if [ "$REMOTE_SHA" = "$LOCAL_SHA" ] && [ "$ENV_CHANGED" = "1" ]; then
+  # Env-only change: just recreate containers to pick up new env
+  ssh -t "$SERVER" "cd $REMOTE_PATH && docker compose up -d --force-recreate"
+else
+  ssh -t "$SERVER" "cd $REMOTE_PATH && ./scripts/deploy.sh"
+fi
 
 echo
 printf "%b✅ Deployed %s%b → %bhttps://smartanalyzer.ru%b\n" "$GREEN" "${LOCAL_SHA:0:7}" "$RESET" "$BLUE" "$RESET"
