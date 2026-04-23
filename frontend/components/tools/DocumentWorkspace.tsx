@@ -331,16 +331,20 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     () => Object.fromEntries(annotations.map((annotation) => [annotation.id, annotation.plugin_id])),
     [annotations]
   );
+  const annotationPluginByIdRef = useRef(annotationPluginById);
+  useEffect(() => {
+    annotationPluginByIdRef.current = annotationPluginById;
+  }, [annotationPluginById]);
 
   const handleSelectedAnnotationChange = useCallback(
     (annotationId: string | null) => {
       dispatch({
         type: "set_active_finding",
         findingId: annotationId ?? undefined,
-        pluginId: annotationId ? annotationPluginById[annotationId] : undefined,
+        pluginId: annotationId ? annotationPluginByIdRef.current[annotationId] : undefined,
       });
     },
-    [annotationPluginById]
+    []
   );
 
   const handleEditorDocumentChange = useCallback((payload: {
