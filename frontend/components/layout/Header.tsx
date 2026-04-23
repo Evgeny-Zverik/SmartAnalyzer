@@ -4,20 +4,39 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { logout as authLogout } from "@/lib/api/auth";
+import { logout as authLogout, me } from "@/lib/api/auth";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { getToken, onAuthChange } from "@/lib/auth/token";
+
+const ADMIN_EMAIL = "1@mail.com";
 
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const [loggedIn, setLoggedIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    setLoggedIn(!!getToken());
+    const token = getToken();
+    setLoggedIn(!!token);
     setAuthReady(true);
-    return onAuthChange(() => setLoggedIn(!!getToken()));
+    if (token) {
+      me()
+        .then((u) => setIsAdmin(u.email.trim().toLowerCase() === ADMIN_EMAIL))
+        .catch(() => setIsAdmin(false));
+    }
+    return onAuthChange(() => {
+      const t = getToken();
+      setLoggedIn(!!t);
+      if (!t) {
+        setIsAdmin(false);
+        return;
+      }
+      me()
+        .then((u) => setIsAdmin(u.email.trim().toLowerCase() === ADMIN_EMAIL))
+        .catch(() => setIsAdmin(false));
+    });
   }, []);
 
   function handleLogout() {
@@ -74,6 +93,11 @@ export function Header() {
               <Link href="/settings" className={navClass("/settings")}>
                 Настройки
               </Link>
+              {isAdmin && (
+                <Link href="/admin" className={navClass("/admin")}>
+                  Админ
+                </Link>
+              )}
               <button
                 onClick={handleLogout}
                 type="button"

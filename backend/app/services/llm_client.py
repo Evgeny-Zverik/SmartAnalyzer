@@ -11,6 +11,7 @@ from openai import OpenAI
 
 from app.core.logging import logger
 from app.core.config import settings as app_settings
+from app.services import token_counter
 from app.utils.errors import raise_error
 
 _client_cache: dict[tuple[str | None, str | None], OpenAI] = {}
@@ -706,6 +707,7 @@ def _create_completion(
             if isinstance(max_tokens, int) and max_tokens > 0:
                 request_kwargs["max_tokens"] = max_tokens
             response = client.chat.completions.create(**request_kwargs)
+            token_counter.capture_from_response(response)
             if cancelled is not None and cancelled.is_set():
                 raise CancelledException("LLM request cancelled by client")
             content = _extract_message_content(response)
@@ -790,11 +792,15 @@ Document:
             temperature=0,
             timeout=timeout,
             stream=True,
+            stream_options={"include_usage": True},
         )
         for chunk in stream:
-            delta = chunk.choices[0].delta if chunk.choices else None
-            if delta and delta.content:
-                collected.append(delta.content)
+            if getattr(chunk, "usage", None):
+                token_counter.capture_from_response(chunk)
+            if chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    collected.append(delta.content)
     except Exception as e:
         error_code, hint = _summarize_llm_error(e, opts)
         status_code = 503 if error_code == "LLM_UNAVAILABLE" else 500

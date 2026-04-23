@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.session import check_database_connection
+from app.services import token_counter
 from app.utils.errors import (
     ApiError,
     api_error_handler,
@@ -41,6 +42,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router, prefix="/api/v1", tags=["api"])
+
+
+@app.middleware("http")
+async def reset_token_counter(request, call_next):
+    token_counter.reset()
+    return await call_next(request)
 
 
 def _check_storage() -> dict[str, object]:

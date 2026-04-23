@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.usage_log import UsageLog
 from app.models.user import User
+from app.services import token_counter
 from app.utils.errors import raise_error
 
 TOOL_SLUGS = (
@@ -78,7 +79,13 @@ def assert_can_run(db: Session, user: User, tool_slug: str) -> None:
 
 
 def log_run(db: Session, user_id: int, tool_slug: str) -> None:
-    log = UsageLog(user_id=user_id, tool_slug=tool_slug)
+    tokens_in, tokens_out = token_counter.pop()
+    log = UsageLog(
+        user_id=user_id,
+        tool_slug=tool_slug,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+    )
     db.add(log)
     db.commit()
 
