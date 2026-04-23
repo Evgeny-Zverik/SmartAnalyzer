@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
+from app.utils.errors import raise_error
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -79,5 +80,12 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+        )
+    if user.is_blocked:
+        raise_error(
+            403,
+            "ACCOUNT_BLOCKED",
+            "Ваш аккаунт ограничен, напишите в поддержку",
+            {},
         )
     return user

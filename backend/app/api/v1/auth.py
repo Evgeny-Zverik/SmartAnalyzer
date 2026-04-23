@@ -48,6 +48,14 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "ACCOUNT_BLOCKED",
+                "message": "Ваш аккаунт ограничен, напишите в поддержку",
+            },
+        )
     token = create_access_token(subject=str(user.id))
     tk = derive_transport_key(user.id)
     return {"access_token": token, "token_type": "bearer", "transport_key": tk}

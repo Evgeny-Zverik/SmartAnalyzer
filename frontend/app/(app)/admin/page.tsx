@@ -2,14 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ShieldCheck, Trash2, Users as UsersIcon } from "lucide-react";
+import { Ban, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { requestReauth } from "@/lib/auth/session";
 import { isUnauthorized } from "@/lib/api/errors";
-import { deleteAdminUser, listAdminUsers, type AdminUser } from "@/lib/api/admin";
+import {
+  deleteAdminUser,
+  listAdminUsers,
+  setAdminUserBlocked,
+  type AdminUser,
+} from "@/lib/api/admin";
 import { parseApiError } from "@/lib/api/errors";
 
 export const ADMIN_EMAIL = "1@mail.com";
@@ -71,10 +76,20 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<"recent" | "activity">("recent");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<{ active: number; inactive: number; all: number }>({
+    active: 0,
+    inactive: 0,
+    all: 0,
+  });
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingBlockId, setTogglingBlockId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -101,10 +116,23 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!user || activeTab !== "users" || users !== null) return;
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, sortKey, pageSize]);
+
+  useEffect(() => {
+    if (!user || activeTab !== "users") return;
     setUsersLoading(true);
-    listAdminUsers()
-      .then((res) => setUsers(res.items))
+    listAdminUsers({ page, pageSize, q: debouncedSearch || undefined, sort: sortKey })
+      .then((res) => {
+        setUsers(res.items);
+        setTotal(res.total);
+        setSummary(res.summary);
+      })
       .catch((err) => {
         if (isUnauthorized(err)) {
           authLogout();
@@ -115,7 +143,7 @@ export default function AdminPage() {
         setUsers([]);
       })
       .finally(() => setUsersLoading(false));
-  }, [user, activeTab, users]);
+  }, [user, activeTab, page, pageSize, debouncedSearch, sortKey]);
 
   if (checking) {
     return (
@@ -140,21 +168,35 @@ export default function AdminPage() {
 
   if (!user) return null;
 
-  const allUsers = users ?? [];
+  const pageUsers = users ?? [];
   const totalRuns = (u: AdminUser) => u.tools.reduce((s, t) => s + t.count, 0);
-  const maxRuns = Math.max(1, ...allUsers.map(totalRuns));
-  const filteredUsers = allUsers
-    .filter((u) =>
-      search.trim() === ""
-        ? true
-        : u.email.toLowerCase().includes(search.trim().toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sortKey === "activity") return totalRuns(b) - totalRuns(a);
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-  const activeCount = allUsers.filter((u) => u.tools.length > 0).length;
-  const inactiveCount = allUsers.length - activeCount;
+  const maxRuns = Math.max(1, ...pageUsers.map(totalRuns));
+  const filteredUsers = pageUsers;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const fromIndex = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const toIndex = Math.min(total, page * pageSize);
+
+  async function handleToggleBlocked(target: AdminUser) {
+    setTogglingBlockId(target.id);
+    try {
+      const next = !target.is_blocked;
+      await setAdminUserBlocked(target.id, next);
+      setUsers((prev) =>
+        prev
+          ? prev.map((u) => (u.id === target.id ? { ...u, is_blocked: next } : u))
+          : prev
+      );
+      toast.success(
+        next
+          ? `Пользователь ${target.email} заблокирован`
+          : `Блокировка снята с ${target.email}`
+      );
+    } catch (err) {
+      toast.error(parseApiError(err).message || "Не удалось обновить блокировку");
+    } finally {
+      setTogglingBlockId(null);
+    }
+  }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -231,13 +273,13 @@ export default function AdminPage() {
                   <h2 className="text-lg font-semibold text-zinc-900">Пользователи</h2>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-600">
-                      Всего {allUsers.length}
+                      Всего {summary.all}
                     </span>
                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
-                      Активные {activeCount}
+                      Активные {summary.active}
                     </span>
                     <span className="rounded-full bg-zinc-50 px-2 py-0.5 font-medium text-zinc-500 ring-1 ring-zinc-200">
-                      Без активности {inactiveCount}
+                      Без активности {summary.inactive}
                     </span>
                   </div>
                 </div>
@@ -293,7 +335,9 @@ export default function AdminPage() {
                   return (
                     <li
                       key={u.id}
-                      className={`relative grid grid-cols-1 gap-3 px-5 py-4 transition hover:bg-zinc-50/80 md:grid-cols-[minmax(0,1.4fr)_120px_160px_minmax(0,1.6fr)_48px] md:items-center md:gap-5`}
+                      className={`relative grid grid-cols-1 gap-3 px-5 py-4 transition hover:bg-zinc-50/80 md:grid-cols-[minmax(0,1.4fr)_120px_160px_minmax(0,1.6fr)_96px] md:items-center md:gap-5 ${
+                        u.is_blocked ? "bg-rose-50/40" : ""
+                      }`}
                     >
                       <span
                         aria-hidden
@@ -314,9 +358,17 @@ export default function AdminPage() {
                           {initial}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-900" title={u.email}>
-                            {u.email}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium text-zinc-900" title={u.email}>
+                              {u.email}
+                            </p>
+                            {u.is_blocked && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700 ring-1 ring-rose-200">
+                                <Ban className="h-3 w-3" />
+                                Заблокирован
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-zinc-500">
                             <span title={`ID ${u.id}`}>#{u.id}</span>
                             <span className="mx-1.5 text-zinc-300">•</span>
@@ -418,8 +470,36 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      {/* Delete */}
-                      <div className="flex justify-end">
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleBlocked(u)}
+                          disabled={u.id === user.id || togglingBlockId === u.id}
+                          title={
+                            u.id === user.id
+                              ? "Нельзя заблокировать самого себя"
+                              : u.is_blocked
+                                ? "Разблокировать пользователя"
+                                : "Заблокировать пользователя"
+                          }
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-300 ${
+                            u.is_blocked
+                              ? "border-amber-300 bg-amber-50 text-amber-700 hover:border-amber-400 hover:bg-amber-100"
+                              : "border-zinc-200 bg-white text-zinc-500 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                          }`}
+                          aria-label={
+                            u.is_blocked
+                              ? `Разблокировать ${u.email}`
+                              : `Заблокировать ${u.email}`
+                          }
+                        >
+                          {u.is_blocked ? (
+                            <ShieldOff className="h-4 w-4" />
+                          ) : (
+                            <Ban className="h-4 w-4" />
+                          )}
+                        </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(u)}
@@ -439,6 +519,66 @@ export default function AdminPage() {
                   );
                 })}
               </ul>
+            )}
+
+            {!usersLoading && total > 0 && (
+              <div className="flex flex-col gap-3 border-t border-zinc-100 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <span>
+                    {fromIndex}–{toIndex} из {total}
+                  </span>
+                  <span className="text-zinc-300">·</span>
+                  <label className="inline-flex items-center gap-1.5">
+                    <span>На странице</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 shadow-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPage(1)}
+                    disabled={page <= 1}
+                    className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    «
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Назад
+                  </button>
+                  <span className="px-2 text-xs tabular-nums text-zinc-500">
+                    {page} / {pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={page >= pageCount}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Вперёд
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage(pageCount)}
+                    disabled={page >= pageCount}
+                    className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
             )}
           </section>
         )}

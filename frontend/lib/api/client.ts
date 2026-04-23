@@ -89,9 +89,29 @@ export async function apiFetch<T = unknown>(
       err.message ??
       (typeof err.detail === "string" ? err.detail : undefined) ??
       `API error ${res.status}`;
-    throw new ApiError(res.status, err.error, message, err.details ?? err.detail);
+    const apiErr = new ApiError(res.status, err.error, message, err.details ?? err.detail);
+    if (apiErr.code === "ACCOUNT_BLOCKED" && typeof window !== "undefined") {
+      handleAccountBlocked(apiErr.message);
+    }
+    throw apiErr;
   }
   return data;
+}
+
+let __accountBlockedShown = false;
+function handleAccountBlocked(message: string): void {
+  if (__accountBlockedShown) return;
+  __accountBlockedShown = true;
+  try {
+    import("@/lib/auth/token").then(({ clearToken }) => clearToken());
+  } catch {}
+  window.alert(message || "Ваш аккаунт ограничен, напишите в поддержку");
+  setTimeout(() => {
+    __accountBlockedShown = false;
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+  }, 0);
 }
 
 export class ApiError extends Error {
