@@ -1,0 +1,12 @@
+smartanalyzer.ru, www.smartanalyzer.ru {
+	encode gzip zstd
+
+	request_body {
+		max_size 50MB
+	}
+
+	@api path /api/*
+	reverse_proxy @api backend:8000
+
+	reverse_proxy frontend:3000
+}

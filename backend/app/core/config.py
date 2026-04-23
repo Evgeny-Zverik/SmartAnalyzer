@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     case_law_web_search_api_key: str = ""
     case_law_web_search_domains: str = "kad.arbitr.ru,sudrf.ru,sudact.ru"
     encryption_key: str = ""
+    cors_allow_origins: str = ""
 
     class Config:
         env_file = ".env"
