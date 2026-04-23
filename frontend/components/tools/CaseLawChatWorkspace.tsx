@@ -95,6 +95,67 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         <p className="mt-2 text-sm leading-6 text-emerald-800/90">{result.search_scope}</p>
       </div>
 
+      {(() => {
+        const outcomeSummary = (result as { outcome_summary?: { granted: number; partial: number; denied: number; unknown: number } | null }).outcome_summary;
+        const amountStats = (result as { amount_stats?: { count: number; min_rub: number | null; max_rub: number | null; median_rub: number | null } | null }).amount_stats;
+        if (!outcomeSummary && !amountStats) return null;
+        const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(n) + " ₽";
+        const totalKnown = outcomeSummary
+          ? outcomeSummary.granted + outcomeSummary.partial + outcomeSummary.denied
+          : 0;
+        return (
+          <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+              Агрегат по подборке
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-stone-700">
+              {outcomeSummary && totalKnown > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-stone-500">Исходы:</span>
+                  {outcomeSummary.granted > 0 && (
+                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                      удовлетворено: {outcomeSummary.granted}
+                    </span>
+                  )}
+                  {outcomeSummary.partial > 0 && (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                      частично: {outcomeSummary.partial}
+                    </span>
+                  )}
+                  {outcomeSummary.denied > 0 && (
+                    <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                      отказано: {outcomeSummary.denied}
+                    </span>
+                  )}
+                  {outcomeSummary.unknown > 0 && (
+                    <span className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[11px] font-medium text-stone-600">
+                      неясно: {outcomeSummary.unknown}
+                    </span>
+                  )}
+                </div>
+              )}
+              {amountStats && amountStats.count > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-stone-500">
+                    Суммы по {amountStats.count} {amountStats.count === 1 ? "делу" : "делам"}:
+                  </span>
+                  {amountStats.median_rub !== null && (
+                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                      медиана {fmt(amountStats.median_rub)}
+                    </span>
+                  )}
+                  {amountStats.min_rub !== null && amountStats.max_rub !== null && amountStats.min_rub !== amountStats.max_rub && (
+                    <span className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[11px] font-medium text-stone-700">
+                      от {fmt(amountStats.min_rub)} до {fmt(amountStats.max_rub)}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
         <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
@@ -162,9 +223,18 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
           {result.cited_cases.map((item, index) => {
             const regionMatch = (item as Record<string, unknown>).region_match;
             const amount = (item as { amount_rub?: number | null }).amount_rub;
+            const outcome = (item as { outcome?: "granted" | "partial" | "denied" | null }).outcome;
             const amountLabel =
               typeof amount === "number" && amount > 0
                 ? new Intl.NumberFormat("ru-RU").format(amount) + " ₽"
+                : null;
+            const outcomeChip =
+              outcome === "granted"
+                ? { label: "удовлетворено", cls: "border-emerald-300 bg-emerald-50 text-emerald-700" }
+                : outcome === "partial"
+                ? { label: "частично", cls: "border-amber-300 bg-amber-50 text-amber-700" }
+                : outcome === "denied"
+                ? { label: "отказано", cls: "border-rose-300 bg-rose-50 text-rose-700" }
                 : null;
             return (
               <div
@@ -175,6 +245,14 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-stone-900">{item.title}</p>
+                      {outcomeChip && (
+                        <span
+                          title="Исход дела по данным снипета (резолютив). Если не определено — чип не показывается."
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${outcomeChip.cls}`}
+                        >
+                          {outcomeChip.label}
+                        </span>
+                      )}
                       {amountLabel && (
                         <span
                           title="Максимальная сумма, обнаруженная в снипете — обычно итоговое взыскание"

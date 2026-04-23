@@ -149,6 +149,21 @@ class CaseLawReferenceItem(BaseModel):
     takeaway: str
     region_match: str = "unknown"  # "match" | "other" | "unknown"
     amount_rub: int | None = None  # максимальная сумма в рублях, обнаруженная в снипете
+    outcome: str | None = None  # "granted" | "partial" | "denied" | None
+
+
+class OutcomeSummary(BaseModel):
+    granted: int = 0
+    partial: int = 0
+    denied: int = 0
+    unknown: int = 0
+
+
+class AmountStats(BaseModel):
+    count: int = 0  # число дел с извлечённой суммой
+    min_rub: int | None = None
+    max_rub: int | None = None
+    median_rub: int | None = None
 
 
 class TenderAnalyzerResult(BaseModel):
@@ -165,6 +180,8 @@ class TenderAnalyzerResult(BaseModel):
     data_source: str = "live"
     related_region_notice: str = ""
     requested_regions: list[str] = []
+    outcome_summary: OutcomeSummary | None = None
+    amount_stats: AmountStats | None = None
 
 
 class RiskDriverItem(BaseModel):

@@ -8,7 +8,13 @@ import xml.etree.ElementTree as ET
 
 from app.core.config import settings
 from app.core.logging import logger
-from app.schemas.tools import CaseLawReferenceItem, CourtPositionItem, TenderAnalyzerResult
+from app.schemas.tools import (
+    AmountStats,
+    CaseLawReferenceItem,
+    CourtPositionItem,
+    OutcomeSummary,
+    TenderAnalyzerResult,
+)
 from app.services.llm_client import _build_openai_client, _coerce_json_payload, _create_completion
 
 REGION_HINT_PATTERNS = (
@@ -743,6 +749,75 @@ def _extract_max_amount_rub(*texts: str) -> int | None:
     return best
 
 
+_OUTCOME_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    # Отказ — проверяем первым, чтобы «удовлетворить» потом не сматчило раньше.
+    # Ловим обе последовательности: «отказ ... в удовлетворении/иске» и
+    # «в удовлетворении/исковых требованиях ... отказ».
+    ("denied", re.compile(
+        r"(?:\bотказ(?:ать|ано|а)\b[^.]{0,80}(?:в\s+(?:удовлетворении|иске)|исковых?\s+требовани[йя]))|"
+        r"(?:(?:в\s+удовлетворении|исковых?\s+требовани[йя])[^.]{0,80}\bотказ(?:ать|ано|а)\b)",
+        flags=re.IGNORECASE,
+    )),
+    # Частичное удовлетворение — проверяется до granted, чтобы «удовлетворить иск
+    # частично» не попадало в granted. Допускаем до 30 символов между «удовлетвор»
+    # и «частично» в обе стороны.
+    ("partial", re.compile(
+        r"(?:частично.{0,30}удовлетвор)|(?:удовлетвор\w{0,6}.{0,30}частично)",
+        flags=re.IGNORECASE,
+    )),
+    # Полное удовлетворение — «иск/требование удовлетвор…» или «удовлетвор… в
+    # полном объёме/полностью».
+    ("granted", re.compile(
+        r"(?:(?:иск(?:овые\s+требования)?|требовани[яе])\s+[^.]{0,30}удовлетвор)|"
+        r"(?:удовлетвор\w{0,6}\s+(?:в\s+полном\s+объ[её]ме|полностью|иск|требовани))",
+        flags=re.IGNORECASE,
+    )),
+]
+
+
+def _extract_outcome(*texts: str) -> str | None:
+    """Определить исход дела по тексту снипета/заголовка.
+
+    Возвращает "granted" / "partial" / "denied" / None. Порядок проверки
+    важен: «отказ» раньше «частично», «частично» раньше «удовлетворить»,
+    чтобы «частично удовлетворено» не попало в granted.
+    """
+    for text in texts:
+        if not text:
+            continue
+        for label, pattern in _OUTCOME_PATTERNS:
+            if pattern.search(text):
+                return label
+    return None
+
+
+def _build_outcome_summary(cases: list[CaseLawReferenceItem]) -> OutcomeSummary | None:
+    if not cases:
+        return None
+    summary = OutcomeSummary()
+    for case in cases:
+        if case.outcome == "granted":
+            summary.granted += 1
+        elif case.outcome == "partial":
+            summary.partial += 1
+        elif case.outcome == "denied":
+            summary.denied += 1
+        else:
+            summary.unknown += 1
+    if summary.granted + summary.partial + summary.denied == 0:
+        return None  # нечего показывать, все unknown
+    return summary
+
+
+def _build_amount_stats(cases: list[CaseLawReferenceItem]) -> AmountStats | None:
+    amounts = sorted(c.amount_rub for c in cases if c.amount_rub and c.amount_rub > 0)
+    if not amounts:
+        return None
+    n = len(amounts)
+    median = amounts[n // 2] if n % 2 else (amounts[n // 2 - 1] + amounts[n // 2]) // 2
+    return AmountStats(count=n, min_rub=amounts[0], max_rub=amounts[-1], median_rub=median)
+
+
 def _item_region_match(query: str, item: dict[str, str]) -> str:
     requested_regions = _extract_region_hints(query)
     if not requested_regions:
@@ -1095,6 +1170,7 @@ def _build_web_search_fallback(
             takeaway=item["snippet"] or "Откройте источник для просмотра карточки дела и судебных актов.",
             region_match=_item_region_match(query, item),
             amount_rub=_extract_max_amount_rub(item.get("title", ""), item.get("snippet", "")),
+            outcome=_extract_outcome(item.get("title", ""), item.get("snippet", "")),
         )
         for item in filtered[:10]
     ]
@@ -1139,6 +1215,8 @@ def _build_web_search_fallback(
             "follow_up_prompt": follow_up_prompt,
             "data_source": "web_search",
             "related_region_notice": related_notice,
+            "outcome_summary": _build_outcome_summary(cited_cases),
+            "amount_stats": _build_amount_stats(cited_cases),
         }
     )
 
@@ -1179,7 +1257,11 @@ def _summarize_web_results_with_llm(
 В поле court указывай ровно то наименование суда, которое присутствует в поле Source/Court или Title конкретного источника — не сокращай, не придумывай название, не подставляй суды, не упомянутые в результатах.
 Не используй значения "n/a", "без названия", пустые строки и прочерки в полях title, citation, court. Если подходящего значения нет в источниках — не добавляй такой элемент вовсе.
 В объектах court_positions используй строго ключи court, position, relevance — никаких severity, score, priority и прочих.
-В объектах cited_cases используй строго ключи title, citation, url, takeaway.
+В объектах cited_cases используй строго ключи title, citation, url, takeaway, outcome.
+Поле outcome — исход дела, одно из четырёх значений: "granted" (иск удовлетворён полностью),
+"partial" (удовлетворён частично), "denied" (в удовлетворении отказано), "unknown" (из
+снипета исход неясен). **Не угадывай** — если в Title или Snippet нет явных слов про
+удовлетворение или отказ, ставь "unknown". Лучше честное "unknown", чем ошибка.
 Все текстовые поля верни на русском языке.
 Если в выдаче есть конфликт между арбитражными судами и судами общей юрисдикции, при слове "арбитраж" в запросе отдавай приоритет арбитражным материалам.
 
@@ -1189,7 +1271,7 @@ def _summarize_web_results_with_llm(
 - dispute_overview
 - regions: string[]
 - court_positions: array of objects {{court, position, relevance}}
-- cited_cases: array of objects {{title, citation, url, takeaway}}
+- cited_cases: array of objects {{title, citation, url, takeaway, outcome}}
 - legal_basis: string[]
 - practical_takeaways: string[]
 - follow_up_prompt
@@ -1217,6 +1299,14 @@ def _summarize_web_results_with_llm(
     enriched_cases = []
     for case in normalized.cited_cases:
         item = url_to_item.get(case.url, {"url": case.url, "title": case.title, "snippet": case.takeaway})
+        regex_outcome = _extract_outcome(
+            item.get("title", ""), item.get("snippet", ""), case.takeaway or ""
+        )
+        # LLM мог предложить свой outcome — принимаем его, только если regex ничего
+        # не нашёл и LLM дал одно из допустимых значений. Regex побеждает LLM: он
+        # сработал по явным маркерам резолютива и его ошибкам доверять сложнее.
+        llm_outcome = (case.outcome or "").strip().lower() if case.outcome else ""
+        outcome = regex_outcome or (llm_outcome if llm_outcome in {"granted", "partial", "denied"} else None)
         update: dict[str, object] = {
             "region_match": _item_region_match(query, item),
             "title": _build_cited_title(item),
@@ -1224,6 +1314,7 @@ def _summarize_web_results_with_llm(
             "amount_rub": _extract_max_amount_rub(
                 item.get("title", ""), item.get("snippet", ""), case.takeaway or ""
             ),
+            "outcome": outcome,
         }
         enriched_cases.append(case.model_copy(update=update))
     enriched_positions = []
@@ -1263,6 +1354,8 @@ def _summarize_web_results_with_llm(
             "legal_basis": merged_basis,
             "requested_regions": region_hints_norm,
             "related_region_notice": related_notice,
+            "outcome_summary": _build_outcome_summary(enriched_cases),
+            "amount_stats": _build_amount_stats(enriched_cases),
         }
     )
 

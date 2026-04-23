@@ -139,11 +139,24 @@ export type TenderAnalyzerRunResponse = {
       takeaway: string;
       region_match?: string;
       amount_rub?: number | null;
+      outcome?: "granted" | "partial" | "denied" | null;
     }>;
     legal_basis: string[];
     practical_takeaways: string[];
     follow_up_prompt: string;
     data_source?: "live" | "web_search" | "stub" | "no_results";
+    outcome_summary?: {
+      granted: number;
+      partial: number;
+      denied: number;
+      unknown: number;
+    } | null;
+    amount_stats?: {
+      count: number;
+      min_rub: number | null;
+      max_rub: number | null;
+      median_rub: number | null;
+    } | null;
   };
 };
 
