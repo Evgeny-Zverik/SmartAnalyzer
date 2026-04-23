@@ -20,6 +20,20 @@ router = APIRouter()
 
 ADMIN_EMAIL = "1@mail.com"
 
+TOP_LEVEL_TOOL_SLUGS = {
+    "document-analyzer",
+    "contract-checker",
+    "data-extractor",
+    "tender-analyzer",
+    "risk-analyzer",
+    "handwriting-recognition",
+    "legal-style-translator",
+    "legal-text-simplifier",
+    "spelling-checker",
+    "foreign-language-translator",
+    "legal-document-design-review",
+}
+
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if (current_user.email or "").strip().lower() != ADMIN_EMAIL:
@@ -129,7 +143,10 @@ def list_users(
             UsageLog.tool_slug,
             func.count(UsageLog.id).label("count"),
         )
-        .filter(UsageLog.user_id.in_(user_ids))
+        .filter(
+            UsageLog.user_id.in_(user_ids),
+            UsageLog.tool_slug.in_(TOP_LEVEL_TOOL_SLUGS),
+        )
         .group_by(UsageLog.user_id, UsageLog.tool_slug)
         .all()
         if user_ids

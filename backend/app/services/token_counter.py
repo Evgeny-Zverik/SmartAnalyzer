@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import logging
-from contextvars import ContextVar
+import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_tokens_in: ContextVar[int] = ContextVar("llm_tokens_in", default=0)
-_tokens_out: ContextVar[int] = ContextVar("llm_tokens_out", default=0)
+_state = threading.local()
+
+
+def _get() -> tuple[int, int]:
+    return getattr(_state, "tokens_in", 0), getattr(_state, "tokens_out", 0)
 
 
 def reset() -> None:
-    _tokens_in.set(0)
-    _tokens_out.set(0)
+    _state.tokens_in = 0
+    _state.tokens_out = 0
 
 
 def add(prompt_tokens: int, completion_tokens: int) -> None:
-    _tokens_in.set(_tokens_in.get() + max(0, int(prompt_tokens or 0)))
-    _tokens_out.set(_tokens_out.get() + max(0, int(completion_tokens or 0)))
+    tin, tout = _get()
+    _state.tokens_in = tin + max(0, int(prompt_tokens or 0))
+    _state.tokens_out = tout + max(0, int(completion_tokens or 0))
 
 
 def capture_from_response(response: Any) -> None:
@@ -33,10 +37,10 @@ def capture_from_response(response: Any) -> None:
 
 
 def snapshot() -> tuple[int, int]:
-    return _tokens_in.get(), _tokens_out.get()
+    return _get()
 
 
 def pop() -> tuple[int, int]:
-    tokens_in, tokens_out = snapshot()
+    tokens_in, tokens_out = _get()
     reset()
     return tokens_in, tokens_out
