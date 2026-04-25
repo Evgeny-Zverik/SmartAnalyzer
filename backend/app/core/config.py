@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_use_ssl: bool = True
     smtp_use_tls: bool = False
+    resend_api_key: str = ""
+    resend_api_url: str = "https://api.resend.com/emails"
     app_public_url: str = "http://localhost:3000"
     password_reset_token_minutes: int = 60
 

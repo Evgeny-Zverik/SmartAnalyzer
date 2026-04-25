@@ -4,25 +4,52 @@ import logging
 import smtplib
 from email.message import EmailMessage
 
+import httpx
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _resend_configured() -> bool:
+    return bool(settings.resend_api_key and settings.smtp_from)
 
 
 def _smtp_configured() -> bool:
     return bool(settings.smtp_host and settings.smtp_from)
 
 
-def send_email(to: str, subject: str, text: str, html: str | None = None) -> bool:
-    if not _smtp_configured():
-        logger.warning(
-            "SMTP not configured; email to %s skipped. Subject: %s\n%s",
-            to,
-            subject,
-            text,
+def _send_via_resend_api(to: str, subject: str, text: str, html: str | None) -> bool:
+    payload: dict = {
+        "from": settings.smtp_from,
+        "to": [to],
+        "subject": subject,
+        "text": text,
+    }
+    if html:
+        payload["html"] = html
+    try:
+        resp = httpx.post(
+            settings.resend_api_url,
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=15.0,
         )
+        if resp.status_code >= 400:
+            logger.error(
+                "Resend API error %s for %s: %s", resp.status_code, to, resp.text
+            )
+            return False
+        return True
+    except Exception as exc:
+        logger.exception("failed to send via Resend API to %s: %s", to, exc)
         return False
 
+
+def _send_via_smtp(to: str, subject: str, text: str, html: str | None) -> bool:
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
@@ -44,8 +71,22 @@ def send_email(to: str, subject: str, text: str, html: str | None = None) -> boo
             smtp.send_message(msg)
         return True
     except Exception as exc:
-        logger.exception("failed to send email to %s: %s", to, exc)
+        logger.exception("failed to send email via SMTP to %s: %s", to, exc)
         return False
+
+
+def send_email(to: str, subject: str, text: str, html: str | None = None) -> bool:
+    if _resend_configured():
+        return _send_via_resend_api(to, subject, text, html)
+    if _smtp_configured():
+        return _send_via_smtp(to, subject, text, html)
+    logger.warning(
+        "Email not configured; message to %s skipped. Subject: %s\n%s",
+        to,
+        subject,
+        text,
+    )
+    return False
 
 
 def send_password_reset_email(to: str, reset_url: str) -> bool:
