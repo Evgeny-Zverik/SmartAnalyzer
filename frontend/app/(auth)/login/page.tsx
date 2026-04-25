@@ -95,10 +95,6 @@ export default function LoginPage() {
             <Link
               href="/forgot-password"
               className="font-medium text-emerald-700 hover:text-emerald-800"
-              tabIndex={-1}
-              aria-disabled
-              onClick={(e) => e.preventDefault()}
-              title="Скоро"
             >
               Забыли пароль?
             </Link>

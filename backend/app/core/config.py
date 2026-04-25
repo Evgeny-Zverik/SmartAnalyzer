@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     case_law_web_search_domains: str = "kad.arbitr.ru,sudrf.ru,sudact.ru"
     encryption_key: str = ""
     cors_allow_origins: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_ssl: bool = True
+    smtp_use_tls: bool = False
+    app_public_url: str = "http://localhost:3000"
+    password_reset_token_minutes: int = 60
 
     class Config:
         env_file = ".env"

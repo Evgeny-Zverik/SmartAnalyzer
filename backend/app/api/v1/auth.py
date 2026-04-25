@@ -1,6 +1,11 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import JWTError, jwt
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+from app.core.config import settings as app_settings
 from app.core.encryption import derive_transport_key
 from app.core.security import (
     create_access_token,
@@ -11,6 +16,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserRead
+from app.services.email import send_password_reset_email
 from app.services.folders import ensure_user_system_folders
 
 router = APIRouter()
@@ -59,6 +65,84 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
     token = create_access_token(subject=str(user.id))
     tk = derive_transport_key(user.id)
     return {"access_token": token, "token_type": "bearer", "transport_key": tk}
+
+
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+def _create_password_reset_token(user_id: int) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=app_settings.password_reset_token_minutes
+    )
+    payload = {"sub": str(user_id), "purpose": "password_reset", "exp": expire}
+    return jwt.encode(
+        payload, app_settings.jwt_secret, algorithm=app_settings.jwt_algorithm
+    )
+
+
+def _verify_password_reset_token(token: str) -> int:
+    try:
+        payload = jwt.decode(
+            token,
+            app_settings.jwt_secret,
+            algorithms=[app_settings.jwt_algorithm],
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ссылка недействительна или истекла",
+        )
+    if payload.get("purpose") != "password_reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Некорректный токен",
+        )
+    try:
+        return int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Некорректный токен",
+        )
+
+
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if user and not user.is_blocked:
+        token = _create_password_reset_token(user.id)
+        base = app_settings.app_public_url.rstrip("/")
+        reset_url = f"{base}/reset-password?token={token}"
+        send_password_reset_email(user.email, reset_url)
+    return None
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db)):
+    user_id = _verify_password_reset_token(body.token)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь не найден",
+        )
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "ACCOUNT_BLOCKED",
+                "message": "Ваш аккаунт ограничен, напишите в поддержку",
+            },
+        )
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/me")

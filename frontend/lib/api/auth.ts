@@ -50,6 +50,20 @@ export async function me(): Promise<User> {
   return res;
 }
 
+export function requestPasswordReset(email: string): Promise<void> {
+  return apiFetch<void>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(token: string, password: string): Promise<{ ok: boolean }> {
+  return apiFetch("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export function logout(): void {
   clearToken();
   clearTransportKey();
