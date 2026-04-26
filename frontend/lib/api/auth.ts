@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
-import { clearToken, setToken } from "@/lib/auth/token";
+import { clearToken, setLastEmail, setToken } from "@/lib/auth/token";
 import { clearTransportKey, setTransportKey } from "@/lib/crypto";
 import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
 
@@ -31,6 +31,7 @@ export async function register(email: string, password: string): Promise<User> {
   });
   setToken(loginRes.access_token);
   if (loginRes.transport_key) setTransportKey(loginRes.transport_key);
+  setLastEmail(email);
   return user;
 }
 
@@ -42,6 +43,7 @@ export async function login(email: string, password: string): Promise<User> {
   });
   setToken(res.access_token);
   if (res.transport_key) setTransportKey(res.transport_key);
+  setLastEmail(email);
   return me();
 }
 

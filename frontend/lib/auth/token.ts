@@ -1,5 +1,16 @@
 const TOKEN_KEY = "smartanalyzer_token";
+const LAST_EMAIL_KEY = "smartanalyzer_last_email";
 const AUTH_CHANGE_EVENT = "smartanalyzer_auth_change";
+
+export function getLastEmail(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
+}
+
+export function setLastEmail(email: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LAST_EMAIL_KEY, email);
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
