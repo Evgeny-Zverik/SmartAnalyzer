@@ -122,6 +122,9 @@ def log_credit_transaction(
     amount: int,
     reason: str,
     reference: str | None = None,
+    *,
+    document_id: int | None = None,
+    pages: int | None = None,
 ) -> CreditTransaction:
     user.credit_balance += amount
     transaction = CreditTransaction(
@@ -130,18 +133,35 @@ def log_credit_transaction(
         balance_after=user.credit_balance,
         reason=reason,
         reference=reference,
+        document_id=document_id,
+        pages=pages,
     )
     db.add(transaction)
     return transaction
 
 
-def log_run(db: Session, user: User, tool_slug: str) -> None:
+def log_run(
+    db: Session,
+    user: User,
+    tool_slug: str,
+    *,
+    document_id: int | None = None,
+    pages: int | None = None,
+) -> None:
     base_cost = get_credit_cost(tool_slug)
     if user.credit_balance < base_cost:
         assert_can_run(db, user, tool_slug)
     tokens_in, tokens_out = token_counter.pop()
     cost = get_run_credit_cost(tool_slug, tokens_in, tokens_out)
-    log_credit_transaction(db, user, -cost, "tool_run", tool_slug)
+    log_credit_transaction(
+        db,
+        user,
+        -cost,
+        "tool_run",
+        tool_slug,
+        document_id=document_id,
+        pages=pages,
+    )
     log = UsageLog(
         user_id=user.id,
         tool_slug=tool_slug,

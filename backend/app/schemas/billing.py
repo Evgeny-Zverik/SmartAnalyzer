@@ -26,6 +26,9 @@ class CreditTransactionRead(BaseModel):
     balance_after: int
     reason: str
     reference: str | None
+    document_id: int | None = None
+    document_name: str | None = None
+    pages: int | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -32,6 +32,7 @@ from app.schemas.plugins import (
     WorkspacePluginResultsResponse,
 )
 from app.services.folders import ensure_user_system_folders
+from app.services.document_meta import count_document_pages
 from app.services.usage import assert_can_run, log_run
 from app.utils.errors import raise_error
 
@@ -303,7 +304,13 @@ def run_workspace_plugin(
         execution.result_json = result.model_dump(mode="json")
         execution.error_json = None
         db.commit()
-        log_run(db, current_user, plugin_id)
+        log_run(
+            db,
+            current_user,
+            plugin_id,
+            document_id=doc.id,
+            pages=count_document_pages(doc.storage_path, doc.mime_type),
+        )
         return RunPluginResponse(
             execution_id=execution.id,
             plugin_id=plugin_id,
@@ -367,6 +374,8 @@ async def run_all_workspace_plugins(
         cancelled=cancelled,
     )
 
+    doc_pages = count_document_pages(doc.storage_path, doc.mime_type)
+
     def _run_plugins_sync() -> list[BatchRunPluginResponseItem]:
         items: list[BatchRunPluginResponseItem] = []
         for plugin in plugins_to_run:
@@ -410,7 +419,13 @@ async def run_all_workspace_plugins(
                 execution.result_json = result.model_dump(mode="json")
                 execution.error_json = None
                 db.commit()
-                log_run(db, current_user, plugin.manifest.id)
+                log_run(
+                    db,
+                    current_user,
+                    plugin.manifest.id,
+                    document_id=doc.id,
+                    pages=doc_pages,
+                )
                 items.append(BatchRunPluginResponseItem(
                     execution_id=execution.id, plugin_id=plugin.manifest.id,
                     state=execution.status, result=execution.result_json,

@@ -19,6 +19,8 @@ class CreditTransaction(Base):
     balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    document_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -16,6 +16,7 @@ from app.models.user import User
 from app.services.folders import ensure_user_system_folders, resolve_analysis_folder
 from app.services.ocr import recognize_handwriting
 from app.services.case_law_search import build_case_law_stub_result, search_case_law
+from app.services.document_meta import count_document_pages
 from app.services.usage import assert_can_run, log_run
 from app.services.text_extraction import extract_advanced_editor_payload, extract_text, extract_tables_from_xlsx
 from app.services.llm_client import (
@@ -238,7 +239,13 @@ def run_document_analyzer(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "document-analyzer")
+    log_run(
+        db,
+        current_user,
+        "document-analyzer",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return DocumentAnalyzerRunResponse(analysis_id=analysis_id, tool_slug="document-analyzer", result=result)
 
 
@@ -290,7 +297,13 @@ def stream_document_analyzer(
                         final_result.model_dump(),
                         folder.id,
                     )
-                    log_run(db, current_user, "document-analyzer")
+                    log_run(
+                        db,
+                        current_user,
+                        "document-analyzer",
+                        document_id=doc.id,
+                        pages=count_document_pages(doc.storage_path, doc.mime_type),
+                    )
                     payload = {
                         "type": "final",
                         "analysis_id": analysis_id,
@@ -359,7 +372,13 @@ def run_data_extractor(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "data-extractor")
+    log_run(
+        db,
+        current_user,
+        "data-extractor",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug="data-extractor", result=result)
 
 
@@ -394,7 +413,13 @@ def run_handwriting_recognition(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "handwriting-recognition")
+    log_run(
+        db,
+        current_user,
+        "handwriting-recognition",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return HandwritingRecognitionRunResponse(
         analysis_id=analysis_id,
         tool_slug="handwriting-recognition",
@@ -435,7 +460,13 @@ def run_legal_text_simplifier(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "legal-text-simplifier")
+    log_run(
+        db,
+        current_user,
+        "legal-text-simplifier",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return LegalTextSimplifierRunResponse(
         analysis_id=analysis_id,
         tool_slug="legal-text-simplifier",
@@ -476,7 +507,13 @@ def run_spelling_checker(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "spelling-checker")
+    log_run(
+        db,
+        current_user,
+        "spelling-checker",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return SpellingCheckerRunResponse(
         analysis_id=analysis_id,
         tool_slug="spelling-checker",
@@ -511,7 +548,13 @@ def run_tender_analyzer(
         stub.result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "tender-analyzer")
+    log_run(
+        db,
+        current_user,
+        "tender-analyzer",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return TenderAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
 
@@ -558,5 +601,11 @@ def run_risk_analyzer(
         stub.result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user, "risk-analyzer")
+    log_run(
+        db,
+        current_user,
+        "risk-analyzer",
+        document_id=doc.id,
+        pages=count_document_pages(doc.storage_path, doc.mime_type),
+    )
     return RiskAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)

@@ -10,6 +10,7 @@ from app.schemas.billing import (
     CreditPurchaseResponse,
     CreditTransactionRead,
 )
+from app.models.document import Document
 from app.services.usage import get_recent_credit_transactions, log_credit_transaction
 from app.utils.errors import raise_error
 
@@ -79,4 +80,16 @@ def list_credit_transactions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_recent_credit_transactions(db, current_user.id)
+    transactions = get_recent_credit_transactions(db, current_user.id)
+    doc_ids = {t.document_id for t in transactions if t.document_id is not None}
+    name_by_id: dict[int, str] = {}
+    if doc_ids:
+        rows = db.query(Document.id, Document.filename).filter(Document.id.in_(doc_ids)).all()
+        name_by_id = {row[0]: row[1] for row in rows}
+    result: list[CreditTransactionRead] = []
+    for t in transactions:
+        item = CreditTransactionRead.model_validate(t)
+        if t.document_id is not None:
+            item.document_name = name_by_id.get(t.document_id)
+        result.append(item)
+    return result

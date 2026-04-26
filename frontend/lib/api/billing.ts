@@ -19,6 +19,9 @@ export type CreditTransaction = {
   balance_after: number;
   reason: string;
   reference: string | null;
+  document_id: number | null;
+  document_name: string | null;
+  pages: number | null;
   created_at: string;
 };
 
