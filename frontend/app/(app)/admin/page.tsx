@@ -12,6 +12,7 @@ import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { requestReauth } from "@/lib/auth/session";
 import { isUnauthorized } from "@/lib/api/errors";
+import { notifyCreditsChanged } from "@/lib/billing/creditBus";
 import {
   adjustAdminUserCredits,
   deleteAdminUser,
@@ -664,13 +665,16 @@ export default function AdminPage() {
       <AdminCreditAdjustModal
         user={creditTarget}
         onClose={() => setCreditTarget(null)}
-        onAdjusted={(userId, newBalance) =>
+        onAdjusted={(userId, newBalance) => {
           setUsers((prev) =>
             prev
               ? prev.map((u) => (u.id === userId ? { ...u, credit_balance: newBalance } : u))
               : prev
-          )
-        }
+          );
+          if (user && userId === user.id) {
+            notifyCreditsChanged(newBalance);
+          }
+        }}
       />
 
       {deleteTarget && (
