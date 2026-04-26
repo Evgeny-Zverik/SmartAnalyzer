@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { AdminCreditAdjustModal } from "@/components/admin/AdminCreditAdjustModal";
 import { FeatureModulesPanel } from "@/components/admin/FeatureModulesPanel";
 import { RevenueDashboard } from "@/components/admin/RevenueDashboard";
+import { VouchersPanel } from "@/components/admin/VouchersPanel";
+import { VoucherRedemptionsPanel } from "@/components/admin/VoucherRedemptionsPanel";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
@@ -89,9 +91,9 @@ function formatRelative(iso: string | null): string {
   return `${Math.floor(days / 365)} г назад`;
 }
 
-type Tab = "users" | "features" | "revenue";
+type Tab = "users" | "features" | "revenue" | "vouchers";
 
-const VALID_TABS: Tab[] = ["users", "features", "revenue"];
+const VALID_TABS: Tab[] = ["users", "features", "revenue", "vouchers"];
 
 export default function AdminPage() {
   const router = useRouter();
@@ -264,6 +266,7 @@ export default function AdminPage() {
     { key: "users", label: "Пользователи" },
     { key: "features", label: "Фича-модули" },
     { key: "revenue", label: "Доходы" },
+    { key: "vouchers", label: "Ваучеры" },
   ];
 
   return (
@@ -660,6 +663,12 @@ export default function AdminPage() {
 
         {activeTab === "features" && <FeatureModulesPanel />}
         {activeTab === "revenue" && <RevenueDashboard />}
+        {activeTab === "vouchers" && (
+          <>
+            <VouchersPanel />
+            <VoucherRedemptionsPanel />
+          </>
+        )}
       </div>
 
       <AdminCreditAdjustModal

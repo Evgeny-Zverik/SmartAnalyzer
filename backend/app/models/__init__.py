@@ -7,6 +7,7 @@ from app.models.user_feature_flag import UserFeatureFlag
 from app.models.usage_log import UsageLog
 from app.models.user import User
 from app.models.user_settings import UserSettings
+from app.models.voucher import Voucher, VoucherRedemption
 from app.models.workspace_enabled_plugin import WorkspaceEnabledPlugin
 
 __all__ = [
@@ -19,5 +20,7 @@ __all__ = [
     "User",
     "UserFeatureFlag",
     "UserSettings",
+    "Voucher",
+    "VoucherRedemption",
     "WorkspaceEnabledPlugin",
 ]

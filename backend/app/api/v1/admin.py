@@ -309,6 +309,15 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _as_utc(dt: datetime | None) -> datetime | None:
+    """Coerce a possibly naive datetime (SQLite) to UTC-aware."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _purchase_revenue_rub(reference: str | None, amount: int) -> float:
     """Estimate RUB revenue for a purchase transaction.
 
@@ -352,7 +361,11 @@ def revenue_dashboard(
         slot["credits"] += int(tx.amount or 0)
 
     # Period purchases
-    period_purchases = [tx for tx in all_purchases if tx.created_at and tx.created_at >= period_start]
+    period_purchases = [
+        tx
+        for tx in all_purchases
+        if tx.created_at and _as_utc(tx.created_at) >= period_start
+    ]
     period_revenue = sum(_purchase_revenue_rub(tx.reference, tx.amount) for tx in period_purchases)
     period_credits_issued = sum(int(tx.amount or 0) for tx in period_purchases)
     period_paying_users = {int(tx.user_id) for tx in period_purchases}
@@ -360,7 +373,7 @@ def revenue_dashboard(
     # By day
     by_day: dict[str, dict] = {}
     for tx in period_purchases:
-        d = tx.created_at.astimezone(timezone.utc).date().isoformat()
+        d = _as_utc(tx.created_at).date().isoformat()
         slot = by_day.setdefault(d, {"date": d, "revenue_rub": 0.0, "purchases": 0, "credits": 0})
         slot["revenue_rub"] += _purchase_revenue_rub(tx.reference, tx.amount)
         slot["purchases"] += 1

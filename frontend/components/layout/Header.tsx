@@ -15,6 +15,7 @@ import {
   Plus,
   Scale,
   ShieldCheck,
+  Ticket,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import { getToken, onAuthChange } from "@/lib/auth/token";
 import { tools } from "@/lib/config/tools";
 import { getEnabledToolSlugs } from "@/lib/features/toolFeatureGate";
 import { notifyCreditsChanged, onCreditsChanged } from "@/lib/billing/creditBus";
+import { RedeemVoucherModal } from "@/components/billing/RedeemVoucherModal";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
   FileSearch,
@@ -49,6 +51,7 @@ export function Header() {
   const balanceAnimRef = useRef<number | null>(null);
   const balanceFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [redeemOpen, setRedeemOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement | null>(null);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const toolsCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -461,6 +464,23 @@ export function Header() {
                         </Link>
                       )}
 
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAvatarMenuOpen(false);
+                          setRedeemOpen(true);
+                        }}
+                        className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13.5px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 focus:bg-stone-100 focus:outline-none"
+                      >
+                        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover/item:bg-emerald-100 group-hover/item:scale-105">
+                          <Ticket className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          Активировать ваучер
+                        </span>
+                      </button>
+
                       <div className="my-1 h-px bg-stone-200/80" />
 
                       <button
@@ -498,6 +518,7 @@ export function Header() {
         </nav>
         </div>
       </div>
+      <RedeemVoucherModal open={redeemOpen} onClose={() => setRedeemOpen(false)} />
     </header>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { logout as authLogout, me, requestPasswordReset, type User } from "@/lib/api/auth";
 import { listCreditTransactions, type CreditTransaction } from "@/lib/api/billing";
+import { RedeemVoucherCard } from "@/components/billing/RedeemVoucherCard";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { getToken } from "@/lib/auth/token";
 import { isUnauthorized } from "@/lib/api/errors";
@@ -77,6 +78,11 @@ function describeTransaction(tx: CreditTransaction): string {
   if (tx.reason === "refund") return "Возврат";
   if (tx.reason === "bonus") return "Бонусные кредиты";
   if (tx.reason === "adjustment") return "Корректировка администратора";
+  if (tx.reason === "admin_grant") return "Начисление администратором";
+  if (tx.reason === "admin_debit") return "Списание администратором";
+  if (tx.reason === "voucher_redeem") {
+    return tx.reference ? `Ваучер ${tx.reference}` : "Активация ваучера";
+  }
   return tx.reason;
 }
 
@@ -307,6 +313,15 @@ export default function ProfilePage() {
           </p>
           <p className="mt-1 text-xs text-stone-500">ID: {user.id}</p>
         </div>
+      </section>
+
+      {/* Redeem voucher */}
+      <section className="mt-4">
+        <RedeemVoucherCard
+          onRedeemed={(newBalance) =>
+            setUser((prev) => (prev ? { ...prev, credit_balance: newBalance } : prev))
+          }
+        />
       </section>
 
       {/* Two-column section: spending + top-ups */}
