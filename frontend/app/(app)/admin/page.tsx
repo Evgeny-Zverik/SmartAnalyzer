@@ -2,8 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Ban, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
+import { Ban, Coins, Pencil, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
+import { AdminCreditAdjustModal } from "@/components/admin/AdminCreditAdjustModal";
 import { FeatureModulesPanel } from "@/components/admin/FeatureModulesPanel";
 import { RevenueDashboard } from "@/components/admin/RevenueDashboard";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
@@ -12,6 +13,7 @@ import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { requestReauth } from "@/lib/auth/session";
 import { isUnauthorized } from "@/lib/api/errors";
 import {
+  adjustAdminUserCredits,
   deleteAdminUser,
   listAdminUsers,
   setAdminUserBlocked,
@@ -133,6 +135,7 @@ export default function AdminPage() {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingBlockId, setTogglingBlockId] = useState<number | null>(null);
+  const [creditTarget, setCreditTarget] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -436,9 +439,27 @@ export default function AdminPage() {
 
                       {/* Balance and spend */}
                       <div className="space-y-1.5">
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                          {u.credit_balance.toLocaleString("ru-RU")} кредитов
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                            title="Баланс кредитов"
+                          >
+                            <Coins className="h-3.5 w-3.5" />
+                            {u.credit_balance.toLocaleString("ru-RU")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCreditTarget(u);
+                            }}
+                            title={`Изменить баланс ${u.email}`}
+                            aria-label={`Изменить баланс ${u.email}`}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </div>
                         <div
                           className="text-[11px] leading-tight text-zinc-500"
                           title={`Потрачено кредитов за запуски: ${u.credits_spent.toLocaleString("ru-RU")}`}
@@ -639,6 +660,18 @@ export default function AdminPage() {
         {activeTab === "features" && <FeatureModulesPanel />}
         {activeTab === "revenue" && <RevenueDashboard />}
       </div>
+
+      <AdminCreditAdjustModal
+        user={creditTarget}
+        onClose={() => setCreditTarget(null)}
+        onAdjusted={(userId, newBalance) =>
+          setUsers((prev) =>
+            prev
+              ? prev.map((u) => (u.id === userId ? { ...u, credit_balance: newBalance } : u))
+              : prev
+          )
+        }
+      />
 
       {deleteTarget && (
         <div

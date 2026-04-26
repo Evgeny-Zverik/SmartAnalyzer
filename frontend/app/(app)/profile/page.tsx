@@ -270,9 +270,9 @@ export default function ProfilePage() {
               <Coins className="h-3.5 w-3.5" />
               Баланс
             </div>
-            <p className="mt-2 text-3xl font-bold tracking-[-0.02em] text-stone-950 tabular-nums">
+            <p className="mt-2 inline-flex items-center gap-1.5 text-3xl font-bold tracking-[-0.02em] text-stone-950 tabular-nums">
+              <Coins className="h-6 w-6 text-emerald-600" aria-label="кредиты" />
               {balanceLabel}
-              <span className="ml-1 text-sm font-medium text-stone-500">кредитов</span>
             </p>
             <Link
               href="/pricing"

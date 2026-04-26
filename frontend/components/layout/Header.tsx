@@ -421,7 +421,7 @@ export function Header() {
                           <p className="mt-0.5 truncate text-[11px] text-stone-500">{userEmail}</p>
                           <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-emerald-700 shadow-sm">
                             <Coins className="h-3.5 w-3.5" />
-                            {balanceLabel} кредитов
+                            {balanceLabel}
                           </p>
                         </div>
                       </div>
