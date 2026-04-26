@@ -23,6 +23,7 @@ from app.services.usage import (
     INPUT_TOKEN_PRICE_RUB_PER_MILLION,
     OUTPUT_TOKEN_PRICE_RUB_PER_MILLION,
     calculate_token_cost_rub,
+    log_credit_transaction,
 )
 
 # Mirror of CREDIT_PACKAGES in app.api.v1.billing — used to convert "purchase"
@@ -87,6 +88,65 @@ def set_user_blocked(
     user.is_blocked = bool(payload.get("is_blocked"))
     db.commit()
     return {"id": user.id, "is_blocked": user.is_blocked}
+
+
+@router.post("/users/{user_id}/credits")
+def adjust_user_credits(
+    user_id: int,
+    payload: dict,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    raw_amount = payload.get("amount")
+    try:
+        amount = int(raw_amount)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="amount must be an integer",
+        )
+    if amount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="amount must be non-zero",
+        )
+    if abs(amount) > 1_000_000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="amount out of range (±1 000 000)",
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if amount < 0 and user.credit_balance + amount < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Resulting balance would be negative ({user.credit_balance + amount})",
+        )
+
+    reason_raw = payload.get("reason")
+    note = (str(reason_raw).strip() if isinstance(reason_raw, str) else "")[:200] or None
+
+    log_credit_transaction(
+        db,
+        user,
+        amount,
+        "admin_grant" if amount > 0 else "admin_debit",
+        note,
+    )
+    db.commit()
+    return {
+        "user_id": user.id,
+        "credit_balance": user.credit_balance,
+        "amount": amount,
+        "reason": note,
+        "actor_id": current_user.id,
+    }
 
 
 @router.delete("/users/{user_id}", status_code=204)

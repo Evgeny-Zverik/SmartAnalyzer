@@ -6,7 +6,7 @@ import { ChevronDown, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { CreditCostHint } from "@/components/billing/CreditCostHint";
-import { InsufficientCreditsAlert } from "@/components/billing/InsufficientCreditsAlert";
+import { InsufficientCreditsModal } from "@/components/billing/InsufficientCreditsAlert";
 import {
   downloadDocumentFile,
 } from "@/lib/utils/downloadDocumentFile";
@@ -205,7 +205,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         dispatch({ type: "set_status", pluginId, status: "failed" });
         const credit = extractCreditError(parsed);
         if (credit) {
-          setCreditError(credit);
+          setCreditError({
+            required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+            balance: credit.balance,
+          });
           setErrorMessage(null);
         } else {
           setErrorMessage(parsed.message || "Plugin run failed.");
@@ -260,7 +263,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         }
         const credit = extractCreditError(parsed);
         if (credit) {
-          setCreditError(credit);
+          setCreditError({
+            required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+            balance: credit.balance,
+          });
           setErrorMessage(null);
         } else {
           setErrorMessage(parsed.message || "Plugin batch run failed.");
@@ -337,7 +343,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       const parsed = parseApiError(error);
       const credit = extractCreditError(parsed);
       if (credit) {
-        setCreditError(credit);
+        setCreditError({
+          required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+          balance: credit.balance,
+        });
         setErrorMessage(null);
       } else {
         setErrorMessage(parsed.message || "Cannot run analysis.");
@@ -476,14 +485,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}>
-      {creditError ? (
-        <InsufficientCreditsAlert
-          required={creditError.required}
-          balance={creditError.balance}
-          toolName="Анализатор документов"
-          onDismiss={() => setCreditError(null)}
-        />
-      ) : null}
+      <InsufficientCreditsModal
+        open={creditError !== null}
+        required={creditError?.required ?? null}
+        balance={creditError?.balance ?? null}
+        toolName="Анализатор документов"
+        onClose={() => setCreditError(null)}
+      />
       {errorMessage ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
           {errorMessage}

@@ -57,6 +57,25 @@ export function setAdminUserBlocked(
   });
 }
 
+export type AdjustCreditsResponse = {
+  user_id: number;
+  credit_balance: number;
+  amount: number;
+  reason: string | null;
+  actor_id: number;
+};
+
+export function adjustAdminUserCredits(
+  userId: number,
+  amount: number,
+  reason?: string | null
+): Promise<AdjustCreditsResponse> {
+  return apiFetch<AdjustCreditsResponse>(`/api/v1/admin/users/${userId}/credits`, {
+    method: "POST",
+    body: JSON.stringify({ amount, reason: reason ?? null }),
+  });
+}
+
 export type RevenuePackageRow = {
   package_id: string;
   name: string;

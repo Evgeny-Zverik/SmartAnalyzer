@@ -103,12 +103,12 @@ credits_charged = max(fixed_tool_credits, token_credits)
 | `foreign-language-translator` | 60 |
 | `risk_analyzer` | 60 |
 | `suggested_edits` | 60 |
-| `document-analyzer` | 80 |
 | `contract-checker` | 120 |
 | `tender-analyzer` | 120 |
 | `risk-analyzer` | 120 |
 | `legal-document-design-review` | 140 |
 | `data-extractor` | 160 |
+| `document-analyzer` | 180 |
 
 ### Безопасные ориентиры по токенам
 При смеси `70%` входящих и `30%` исходящих токенов безопасные лимиты по
