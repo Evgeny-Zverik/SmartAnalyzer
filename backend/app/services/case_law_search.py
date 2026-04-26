@@ -1468,6 +1468,82 @@ def _merge_yandex_results(batches: list[list[dict[str, str]]]) -> list[dict[str,
     return [by_url[u] for u in ordered]
 
 
+def _search_case_law_via_llm(query: str) -> TenderAnalyzerResult | None:
+    """Best-effort answer from the LLM when no external search source returned results.
+
+    Returns a result tagged ``data_source="llm"`` with an explicit disclaimer that
+    the content is composed from the model's training data and is not a live
+    search result. Returns None if the LLM call fails.
+    """
+    region_hints = _extract_region_hints(query)
+    region_line = (
+        f"Запрос относится к региону: {', '.join(region_hints)}." if region_hints else ""
+    )
+    prompt = f"""Ты — юридический аналитик. Внешний поиск судебной практики недоступен,
+поэтому отвечай по своим знаниям, не выдумывая конкретных дел и URL.
+
+Запрос пользователя: {query}
+{region_line}
+
+Верни ТОЛЬКО JSON без markdown и без пояснений со следующими ключами:
+- summary: 2–4 предложения. Начни с фразы «Поиск по открытым источникам недоступен — ответ собран по знаниям модели и может быть неактуален.»
+- search_scope: одно-два предложения о том, какие суды и инстанции обычно рассматривают такие споры
+- dispute_overview: краткое описание правовой позиции по существу запроса (3–5 предложений)
+- regions: массив строк с регионами, упомянутыми в запросе (или пустой массив)
+- court_positions: 2–4 объекта с ключами court, position, relevance. court — обобщённое
+  название уровня суда (например, «Верховный Суд РФ», «арбитражные суды округа», «суды
+  общей юрисдикции»), без выдуманных конкретных составов или номеров дел. position —
+  суть правовой позиции на 1–2 предложения. relevance — почему это важно для запроса.
+- cited_cases: пустой массив [] (мы не выдумываем номера дел)
+- legal_basis: 3–6 строк со статьями законов и кодексов, релевантных запросу (например,
+  «Ст. 330 ГК РФ — неустойка», «Постановление Пленума ВС РФ № 7 от 24.03.2016»). Только
+  реально существующие нормы.
+- practical_takeaways: 3–5 практических советов, что проверить и какие доказательства
+  собрать
+- follow_up_prompt: одно предложение — что уточнить, чтобы сузить поиск
+
+Все текстовые поля — на русском.
+"""
+    try:
+        client, model = _build_openai_client({})
+        content = _create_completion(client, model, prompt, {}, "case law llm fallback")
+        payload = json.loads(_coerce_json_payload(content))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Case law LLM-only fallback failed: %s", exc)
+        return None
+
+    try:
+        normalized = _normalize_case_law_payload(payload, query)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Case law LLM-only fallback returned invalid JSON shape: %s", exc)
+        return None
+
+    # Force-attach the open search links so the user can continue manually,
+    # and tag the result so the UI can show the disclaimer banner.
+    normalized.cited_cases = [
+        CaseLawReferenceItem(
+            title="Картотека арбитражных дел",
+            citation="kad.arbitr.ru",
+            url="https://kad.arbitr.ru/",
+            takeaway="Официальный поиск по делам арбитражных судов РФ.",
+        ),
+        CaseLawReferenceItem(
+            title="ГАС «Правосудие»",
+            citation="sudrf.ru",
+            url="https://sudrf.ru/",
+            takeaway="Поиск актов судов общей юрисдикции по региону и типу суда.",
+        ),
+        CaseLawReferenceItem(
+            title="СудАкт",
+            citation="sudact.ru",
+            url="https://sudact.ru/",
+            takeaway="Агрегатор судебных актов с полнотекстовым поиском.",
+        ),
+    ]
+    normalized.data_source = "llm"
+    return normalized
+
+
 def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAnalyzerResult:
     endpoint = settings.case_law_search_url.strip()
     if endpoint:
@@ -1529,6 +1605,9 @@ def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAn
     try:
         web_results = _search_case_law_web(query)
         if not web_results:
+            llm_result = _search_case_law_via_llm(query)
+            if llm_result is not None:
+                return llm_result
             return build_case_law_stub_result(query)
         try:
             return _summarize_web_results_with_llm(
@@ -1540,5 +1619,8 @@ def search_case_law(query: str, allow_related_regions: bool = False) -> TenderAn
             logger.warning("Case law LLM summary failed, using web fallback: %s", exc)
             return _build_web_search_fallback(query, web_results, allow_related_regions=allow_related_regions)
     except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
-        logger.warning("Case law web search failed, using stub fallback: %s", exc)
+        logger.warning("Case law web search failed, trying LLM-only fallback: %s", exc)
+        llm_result = _search_case_law_via_llm(query)
+        if llm_result is not None:
+            return llm_result
         return build_case_law_stub_result(query)

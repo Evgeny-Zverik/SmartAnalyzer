@@ -23,6 +23,7 @@ import { CreditCostHint } from "@/components/billing/CreditCostHint";
 import { getToken } from "@/lib/auth/token";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
 import { getFallbackCreditCost } from "@/lib/config/creditCosts";
+import { getLatestCreditBalance, notifyCreditsChanged } from "@/lib/billing/creditBus";
 
 const displayFont = PT_Serif({
   subsets: ["latin", "cyrillic"],
@@ -418,6 +419,13 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       },
     ]);
 
+    const optimisticCost =
+      usage?.credit_costs?.[tool.slug] ?? getFallbackCreditCost(tool.slug);
+    const baselineBalance = usage?.credit_balance ?? getLatestCreditBalance();
+    if (baselineBalance != null && optimisticCost > 0) {
+      notifyCreditsChanged(Math.max(0, baselineBalance - optimisticCost));
+    }
+
     try {
       const response = await runTenderAnalyzerChat(trimmed, allowRelatedRegions, controller.signal);
       setMessages((prev) => [
@@ -431,7 +439,12 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       ]);
       setStatus("success");
       if (getToken()) {
-        void getUsageStatus().then(setUsage).catch(() => {});
+        void getUsageStatus()
+          .then((next) => {
+            setUsage(next);
+            notifyCreditsChanged(next.credit_balance);
+          })
+          .catch(() => {});
       }
       setQuery("");
     } catch (error) {
@@ -454,6 +467,9 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       }
       setErrorMessage(message);
       setStatus("error");
+      if (baselineBalance != null && optimisticCost > 0) {
+        notifyCreditsChanged(baselineBalance);
+      }
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
