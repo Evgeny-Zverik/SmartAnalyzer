@@ -135,6 +135,22 @@ def get_feature_modules(
     return _serialize_feature_states(db, current_user)
 
 
+@router.get("/features/public", response_model=list[FeatureModuleState])
+def get_public_feature_modules(db: Session = Depends(get_db)):
+    """Resolve feature states from the admin's perspective so unauthenticated
+    visitors see exactly what the admin has enabled in the catalog."""
+    from app.api.v1.admin import ADMIN_EMAIL
+
+    admin = (
+        db.query(User)
+        .filter(User.email == ADMIN_EMAIL)
+        .first()
+    )
+    if admin is None:
+        admin = User(id=0, email="", plan="enterprise")
+    return _serialize_feature_states(db, admin)
+
+
 @router.put("/features/{feature_key}", response_model=list[FeatureModuleState])
 def update_feature_module(
     feature_key: str,

@@ -1,4 +1,5 @@
-import { getFeatureModules, type FeatureModuleState } from "@/lib/api/settings";
+import { getFeatureModules, getPublicFeatureModules, type FeatureModuleState } from "@/lib/api/settings";
+import { getToken } from "@/lib/auth/token";
 
 const TOOL_FEATURE_KEYS: Record<string, string> = {
   "document-analyzer": "document_analyzer",
@@ -57,15 +58,22 @@ export function getEnabledToolSlugsFromModules(
 }
 
 export async function getEnabledToolSlugs(toolSlugs: string[]): Promise<Set<string>> {
+  const fetcher = getToken() ? getFeatureModules : getPublicFeatureModules;
   try {
-    const modules = await getFeatureModules();
+    const modules = await fetcher();
     saveFeatureModulesCache(modules);
     return getEnabledToolSlugsFromModules(toolSlugs, modules);
   } catch (error) {
-    const cachedModules = readFeatureModulesCache();
-    if (cachedModules) {
-      return getEnabledToolSlugsFromModules(toolSlugs, cachedModules);
+    try {
+      const modules = await getPublicFeatureModules();
+      saveFeatureModulesCache(modules);
+      return getEnabledToolSlugsFromModules(toolSlugs, modules);
+    } catch {
+      const cachedModules = readFeatureModulesCache();
+      if (cachedModules) {
+        return getEnabledToolSlugsFromModules(toolSlugs, cachedModules);
+      }
+      throw error;
     }
-    throw error;
   }
 }

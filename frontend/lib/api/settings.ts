@@ -48,6 +48,10 @@ export async function getFeatureModules(): Promise<FeatureModuleState[]> {
   return apiFetch<FeatureModuleState[]>("/api/v1/settings/features");
 }
 
+export async function getPublicFeatureModules(): Promise<FeatureModuleState[]> {
+  return apiFetch<FeatureModuleState[]>("/api/v1/settings/features/public");
+}
+
 export async function updateFeatureModule(
   featureKey: string,
   enabled: boolean
