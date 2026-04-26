@@ -5,7 +5,7 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.usage import UsageStatusResponse
-from app.services.usage import get_plan_limits, get_usage_today
+from app.services.usage import CREDIT_COSTS, get_usage_today
 
 router = APIRouter()
 
@@ -18,6 +18,7 @@ def get_usage_status(
     plan = current_user.plan
     return UsageStatusResponse(
         plan=plan,
-        limits=get_plan_limits(plan),
+        credit_balance=current_user.credit_balance,
+        credit_costs=CREDIT_COSTS,
         usage_today=get_usage_today(db, current_user.id),
     )

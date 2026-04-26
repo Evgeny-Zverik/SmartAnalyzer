@@ -43,6 +43,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         created_at=user.created_at,
         plan=user.plan,
+        credit_balance=user.credit_balance,
     )
 
 
@@ -153,5 +154,6 @@ def me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "created_at": str(current_user.created_at),
         "plan": current_user.plan,
+        "credit_balance": current_user.credit_balance,
         "transport_key": tk,
     }

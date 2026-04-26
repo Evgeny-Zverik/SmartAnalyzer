@@ -5,6 +5,7 @@ import { IBM_Plex_Sans, PT_Serif } from "next/font/google";
 import { ChevronDown, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { CreditCostHint } from "@/components/billing/CreditCostHint";
 import {
   downloadDocumentFile,
 } from "@/lib/utils/downloadDocumentFile";
@@ -14,11 +15,14 @@ import { PluginToolbar } from "@/components/plugins/PluginToolbar";
 import { PluginPanels } from "@/components/plugins/PluginPanels";
 import { uploadDocument } from "@/lib/api/documents";
 import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
+import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
+import { getToken } from "@/lib/auth/token";
 import { requestReauth } from "@/lib/auth/session";
 import { isDocumentAnalyzerAnonymizationEnabled } from "@/lib/features/documentAnalyzerAnonymization";
 import { isDocumentAnalyzerEncryptionEnabled } from "@/lib/features/documentAnalyzerEncryption";
+import { getFallbackCreditCost } from "@/lib/config/creditCosts";
 import {
   listPlugins,
   getDocumentWorkspacePlugins,
@@ -93,6 +97,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const [anonymizationEnabled, setAnonymizationEnabled] = useState(false);
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -100,6 +105,21 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     isDocumentAnalyzerEncryptionEnabled().then((enabled) => {
       if (active) setEncryptionEnabled(enabled);
     });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let active = true;
+    getUsageStatus()
+      .then((next) => {
+        if (active) setUsage(next);
+      })
+      .catch(() => {
+        if (active) setUsage(null);
+      });
     return () => {
       active = false;
     };
@@ -260,6 +280,9 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       await autoRunEnabledPlugins(items, documentId, controller.signal);
       if (controller.signal.aborted) return;
       setState("ready");
+      if (getToken()) {
+        void getUsageStatus().then(setUsage).catch(() => {});
+      }
     } catch (error) {
       if (controller.signal.aborted) return;
       const parsed = parseApiError(error);
@@ -326,6 +349,20 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     });
     return mapped;
   }, [orderedItems, store.visible_overlay_by_plugin, store.result_by_plugin]);
+
+  const enabledPluginCost = useMemo(
+    () =>
+      orderedItems
+        .filter((item) => item.enabled && item.state !== "locked")
+        .reduce(
+          (sum, item) =>
+            sum + (usage?.credit_costs?.[item.manifest.id] ?? getFallbackCreditCost(item.manifest.id)),
+          0
+        ),
+    [orderedItems, usage?.credit_costs]
+  );
+  const workspaceCost = enabledPluginCost || null;
+  const costPhase = state === "preparing" ? "running" : state === "ready" ? "success" : "idle";
 
   const annotationPluginById = useMemo(
     () => Object.fromEntries(annotations.map((annotation) => [annotation.id, annotation.plugin_id])),
@@ -454,6 +491,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   >
                     Анализировать ещё раз
                   </Button>
+                  <CreditCostHint
+                    credits={workspaceCost}
+                    balance={usage?.credit_balance ?? null}
+                    compact
+                    tone="dark"
+                    phase={costPhase}
+                  />
                   <Button
                     type="button"
                     onClick={() => {
@@ -488,13 +532,22 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   Остановить анализ
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  onClick={handleRunAnalysis}
-                  className={PRIMARY_ANALYZE_BUTTON_CLASS}
-                >
-                  Анализировать документ
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={handleRunAnalysis}
+                    className={PRIMARY_ANALYZE_BUTTON_CLASS}
+                  >
+                    Анализировать документ
+                  </Button>
+                  <CreditCostHint
+                    credits={workspaceCost}
+                    balance={usage?.credit_balance ?? null}
+                    compact
+                    tone="dark"
+                    phase={costPhase}
+                  />
+                </>
               )}
 
               {encryptionEnabled || anonymizationEnabled ? (

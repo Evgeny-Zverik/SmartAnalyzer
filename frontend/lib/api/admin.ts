@@ -9,11 +9,13 @@ export type AdminUser = {
   id: number;
   email: string;
   plan: string;
+  credit_balance: number;
   created_at: string;
   last_seen_at: string | null;
   tools: AdminUserTool[];
   tokens_in: number;
   tokens_out: number;
+  credits_spent: number;
   is_blocked: boolean;
 };
 

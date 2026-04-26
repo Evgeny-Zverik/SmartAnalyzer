@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
   const selectedFolderName = selectedFolder?.name ?? "Папки";
   const selectedFolderTotal = folderContent?.pagination.total ?? 0;
-  const planLabel = usage ? (usage.plan === "pro" ? "Pro" : "Free") : "—";
+  const creditBalanceLabel = usage ? usage.credit_balance.toLocaleString("ru-RU") : "—";
 
   const loadFolders = useCallback(async () => {
     const data = await listFolders();
@@ -246,9 +246,9 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3">
                 <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   <Sparkles className="h-3.5 w-3.5" />
-                  План
+                  Кредиты
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{planLabel}</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{creditBalanceLabel}</p>
               </div>
             </div>
           </div>

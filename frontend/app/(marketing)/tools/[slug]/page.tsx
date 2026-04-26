@@ -24,10 +24,14 @@ import { CaseLawChatWorkspace } from "@/components/tools/CaseLawChatWorkspace";
 import { DocumentWorkspace } from "@/components/tools/DocumentWorkspace";
 import { SecureUploadHero } from "@/components/tools/SecureUploadHero";
 import { Button } from "@/components/ui/Button";
+import { CreditCostHint } from "@/components/billing/CreditCostHint";
 import { getFeatureModules } from "@/lib/api/settings";
 import { getFeatureKeyForTool, isToolEnabled } from "@/lib/features/toolFeatureGate";
 import { downloadDocumentFile, type DownloadDocumentFormat } from "@/lib/utils/downloadDocumentFile";
 import { requestReauth } from "@/lib/auth/session";
+import { getToken } from "@/lib/auth/token";
+import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
+import { getFallbackCreditCost } from "@/lib/config/creditCosts";
 
 type ToolState = "idle" | "ready" | "loading" | "success" | "error";
 type DocumentTab = "summary" | "advanced";
@@ -222,6 +226,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
   const [compareDocumentId, setCompareDocumentId] = useState<number | null>(null);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const advancedEditorData = useMemo(
     () =>
       ((result?.advanced_editor as {
@@ -275,6 +280,31 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
             ? ""
             : "Панель закреплена, чтобы можно было быстро запустить анализ при скролле."
       : "Сначала загрузите файл. После выбора документа панель превратится в рабочую строку.";
+  const toolCreditCost = usage?.credit_costs?.[tool.slug] ?? getFallbackCreditCost(tool.slug);
+  const costPhase = state === "loading" ? "running" : state === "success" ? "success" : "idle";
+  const costHint = (
+    <CreditCostHint
+      credits={toolCreditCost}
+      balance={usage?.credit_balance ?? null}
+      compact
+      tone="light"
+      phase={costPhase}
+    />
+  );
+  const darkCostHint = (
+    <CreditCostHint
+      credits={toolCreditCost}
+      balance={usage?.credit_balance ?? null}
+      compact
+      tone="dark"
+      phase={costPhase}
+    />
+  );
+
+  const refreshUsage = useCallback(() => {
+    if (!getToken()) return;
+    void getUsageStatus().then(setUsage).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!downloadMenuOpen) return;
@@ -289,6 +319,21 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
     window.addEventListener("mousedown", handlePointerDown);
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, [downloadMenuOpen]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    getUsageStatus()
+      .then((next) => {
+        if (!cancelled) setUsage(next);
+      })
+      .catch(() => {
+        if (!cancelled) setUsage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const featureKey = getFeatureKeyForTool(tool.slug);
@@ -438,6 +483,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
               setDocumentTab("advanced");
               setHasEditorChanges(false);
               setState("success");
+              refreshUsage();
               return;
             }
             if (event.type === "error") {
@@ -479,6 +525,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         );
         setResult(analysis.result as Record<string, unknown>);
         setState("success");
+        refreshUsage();
       } else {
         const analysis = await runToolAnalysis(
           tool.slug,
@@ -493,6 +540,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
           setDocumentId(analysis.documentId);
         }
         setState("success");
+        refreshUsage();
       }
     } catch (e) {
       if (isAbortError(e)) {
@@ -545,7 +593,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
         analysisAbortRef.current = null;
       }
     }
-  }, [file, compareFile, isCompareTool, tool.slug, router, documentId, compareDocumentId, editedDocument, hasEditorChanges]);
+  }, [file, compareFile, isCompareTool, tool.slug, router, documentId, compareDocumentId, editedDocument, hasEditorChanges, refreshUsage]);
 
   const handleAbortAnalysis = useCallback(() => {
     analysisAbortRef.current?.abort();
@@ -686,6 +734,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                   >
                     {state === "loading" ? "Остановить сравнение" : state === "success" ? "Проанализировано" : "Сравнить документы"}
                   </Button>
+                  <div className="xl:justify-self-end">{costHint}</div>
                 </div>
               </section>
             ) : (
@@ -813,6 +862,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                             ? "Проанализировано"
                             : "Сравнить документы"}
                       </Button>
+                      <div className="mt-3 flex justify-center">{darkCostHint}</div>
                     </div>
                   </div>
                 </div>
@@ -852,6 +902,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 { title: "Обезличивание", value: "Имена, контакты, реквизиты" },
                 { title: "Шифрование", value: "AES-GCM при передаче и хранении" },
               ]}
+              costHint={darkCostHint}
             />
           ) : (
             <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1010,6 +1061,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                               ? "Сравнить документы"
                               : "Запустить анализ"}
                     </Button>
+                    {costHint}
                   </div>
                   {actionHint ? (
                     <p className="text-xs text-gray-500 xl:text-right">{actionHint}</p>

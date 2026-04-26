@@ -238,7 +238,7 @@ def run_document_analyzer(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "document-analyzer")
+    log_run(db, current_user, "document-analyzer")
     return DocumentAnalyzerRunResponse(analysis_id=analysis_id, tool_slug="document-analyzer", result=result)
 
 
@@ -290,7 +290,7 @@ def stream_document_analyzer(
                         final_result.model_dump(),
                         folder.id,
                     )
-                    log_run(db, current_user.id, "document-analyzer")
+                    log_run(db, current_user, "document-analyzer")
                     payload = {
                         "type": "final",
                         "analysis_id": analysis_id,
@@ -359,7 +359,7 @@ def run_data_extractor(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "data-extractor")
+    log_run(db, current_user, "data-extractor")
     return DataExtractorRunResponse(analysis_id=analysis_id, tool_slug="data-extractor", result=result)
 
 
@@ -394,7 +394,7 @@ def run_handwriting_recognition(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "handwriting-recognition")
+    log_run(db, current_user, "handwriting-recognition")
     return HandwritingRecognitionRunResponse(
         analysis_id=analysis_id,
         tool_slug="handwriting-recognition",
@@ -435,7 +435,7 @@ def run_legal_text_simplifier(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "legal-text-simplifier")
+    log_run(db, current_user, "legal-text-simplifier")
     return LegalTextSimplifierRunResponse(
         analysis_id=analysis_id,
         tool_slug="legal-text-simplifier",
@@ -476,7 +476,7 @@ def run_spelling_checker(
         result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "spelling-checker")
+    log_run(db, current_user, "spelling-checker")
     return SpellingCheckerRunResponse(
         analysis_id=analysis_id,
         tool_slug="spelling-checker",
@@ -511,7 +511,7 @@ def run_tender_analyzer(
         stub.result.model_dump(),
         folder.id,
     )
-    log_run(db, current_user.id, "tender-analyzer")
+    log_run(db, current_user, "tender-analyzer")
     return TenderAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)
 
 
@@ -527,7 +527,7 @@ def run_tender_analyzer_chat(
     if not query:
         raise_error(400, "BAD_REQUEST", "Query is required.", {"query": ""})
     result = search_case_law(query, allow_related_regions=body.allow_related_regions)
-    log_run(db, current_user.id, "tender-analyzer")
+    log_run(db, current_user, "tender-analyzer")
     return TenderAnalyzerChatResponse(tool_slug="tender-analyzer", result=result)
 
 
@@ -539,6 +539,7 @@ def run_risk_analyzer(
 ):
     _assert_feature_enabled(db, current_user, "risk_analyzer")
     ensure_user_system_folders(db, current_user.id)
+    assert_can_run(db, current_user, "risk-analyzer")
     doc = _get_document_for_user(db, body.document_id, current_user.id)
     stub = _stub_risk_analyzer(analysis_id=0)
     folder = resolve_analysis_folder(
@@ -557,4 +558,5 @@ def run_risk_analyzer(
         stub.result.model_dump(),
         folder.id,
     )
+    log_run(db, current_user, "risk-analyzer")
     return RiskAnalyzerRunResponse(analysis_id=analysis_id, tool_slug=stub.tool_slug, result=stub.result)

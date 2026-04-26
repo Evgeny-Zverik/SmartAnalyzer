@@ -2,7 +2,8 @@ import { apiFetch } from "@/lib/api/client";
 
 export type UsageStatus = {
   plan: string;
-  limits: { daily_runs_per_tool: number | null };
+  credit_balance: number;
+  credit_costs: Record<string, number>;
   usage_today: Record<string, number>;
 };
 

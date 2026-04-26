@@ -78,7 +78,7 @@ export function Header() {
             Инструменты
           </Link>
           <Link href="/pricing" className={navClass("/pricing")}>
-            Тарифы
+            Кредиты
           </Link>
           {!authReady ? (
             <div

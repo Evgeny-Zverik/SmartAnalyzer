@@ -19,6 +19,10 @@ import { parseApiError, isLimitReached, isUnauthorized } from "@/lib/api/errors"
 import { logout } from "@/lib/api/auth";
 import { requestReauth } from "@/lib/auth/session";
 import { Button } from "@/components/ui/Button";
+import { CreditCostHint } from "@/components/billing/CreditCostHint";
+import { getToken } from "@/lib/auth/token";
+import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
+import { getFallbackCreditCost } from "@/lib/config/creditCosts";
 
 const displayFont = PT_Serif({
   subsets: ["latin", "cyrillic"],
@@ -61,6 +65,11 @@ function formatTime(sec: number): string {
 }
 
 function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["result"] }) {
+  const relatedRegionNotice =
+    typeof (result as Record<string, unknown>).related_region_notice === "string"
+      ? String((result as Record<string, unknown>).related_region_notice)
+      : "";
+
   return (
     <div className="space-y-4 [font-family:var(--font-case-body)]">
       {(result as Record<string, unknown>).data_source === "stub" && (
@@ -81,12 +90,11 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
           </p>
         </div>
       )}
-      {typeof (result as Record<string, unknown>).related_region_notice === "string" &&
-        (result as Record<string, unknown>).related_region_notice && (
+      {relatedRegionNotice && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
             <p className="text-sm font-semibold text-amber-800">Другие регионы</p>
             <p className="mt-1 text-xs text-amber-700">
-              {String((result as Record<string, unknown>).related_region_notice)}
+              {relatedRegionNotice}
             </p>
           </div>
         )}
@@ -348,6 +356,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -364,7 +373,23 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!getToken()) return;
+    let active = true;
+    getUsageStatus()
+      .then((next) => {
+        if (active) setUsage(next);
+      })
+      .catch(() => {
+        if (active) setUsage(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const canSubmit = query.trim().length > 0;
+  const costPhase = status === "loading" ? "running" : status === "success" ? "success" : "idle";
   const headerHint = useMemo(
     () =>
       status === "loading"
@@ -405,6 +430,9 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
         },
       ]);
       setStatus("success");
+      if (getToken()) {
+        void getUsageStatus().then(setUsage).catch(() => {});
+      }
       setQuery("");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -496,6 +524,15 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
               >
                 {status === "loading" ? "Остановить поиск" : "Найти практику"}
               </Button>
+              <div className="flex justify-center">
+                <CreditCostHint
+                  credits={usage?.credit_costs?.[tool.slug] ?? getFallbackCreditCost(tool.slug)}
+                  balance={usage?.credit_balance ?? null}
+                  compact
+                  tone="dark"
+                  phase={costPhase}
+                />
+              </div>
 
               <label className="flex items-start gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs text-zinc-200">
                 <input

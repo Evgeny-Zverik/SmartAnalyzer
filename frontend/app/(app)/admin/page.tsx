@@ -17,7 +17,9 @@ import {
 } from "@/lib/api/admin";
 import { parseApiError } from "@/lib/api/errors";
 
-export const ADMIN_EMAIL = "1@mail.com";
+const ADMIN_EMAIL = "1@mail.com";
+const TOKEN_INPUT_RUB_PER_MILLION = 36;
+const TOKEN_OUTPUT_RUB_PER_MILLION = 149;
 
 const TOOL_LABELS: Record<string, string> = {
   "document-analyzer": "Анализатор документов",
@@ -44,6 +46,24 @@ function formatTokens(n: number): string {
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
   return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+function tokenSpendRubles(tokensIn: number, tokensOut: number): number {
+  return (
+    (tokensIn * TOKEN_INPUT_RUB_PER_MILLION + tokensOut * TOKEN_OUTPUT_RUB_PER_MILLION) /
+    1_000_000
+  );
+}
+
+function formatRubles(amount: number): string {
+  if (amount === 0) return "0 ₽";
+  if (amount < 0.01) return "<0,01 ₽";
+  return new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency: "RUB",
+    minimumFractionDigits: amount < 10 ? 2 : 0,
+    maximumFractionDigits: amount < 10 ? 2 : 0,
+  }).format(amount);
 }
 
 function formatRelative(iso: string | null): string {
@@ -331,6 +351,7 @@ export default function AdminPage() {
                   const hiddenCount = u.tools.length - visibleTools.length;
                   const initial = u.email.slice(0, 1).toUpperCase();
                   const activityPct = Math.round((total / maxRuns) * 100);
+                  const spentRubles = tokenSpendRubles(u.tokens_in, u.tokens_out);
 
                   return (
                     <li
@@ -390,17 +411,20 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      {/* Plan */}
-                      <div>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            u.plan === "pro"
-                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              : "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200"
-                          }`}
-                        >
-                          {u.plan === "pro" ? "Pro" : "Free"}
+                      {/* Balance and spend */}
+                      <div className="space-y-1.5">
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                          {u.credit_balance.toLocaleString("ru-RU")} кредитов
                         </span>
+                        <div
+                          className="text-[11px] leading-tight text-zinc-500"
+                          title={`Потрачено кредитов за запуски: ${u.credits_spent.toLocaleString("ru-RU")}`}
+                        >
+                          <span className="font-medium text-zinc-700">
+                            −{u.credits_spent.toLocaleString("ru-RU")}
+                          </span>{" "}
+                          потрачено
+                        </div>
                       </div>
 
                       {/* Activity */}
@@ -423,7 +447,7 @@ export default function AdminPage() {
                         </div>
                         <div
                           className="mt-1.5 flex items-center gap-1 text-[11px] text-zinc-500"
-                          title={`Входящие: ${u.tokens_in.toLocaleString()} · Исходящие: ${u.tokens_out.toLocaleString()}`}
+                          title={`Входящие: ${u.tokens_in.toLocaleString()} · Исходящие: ${u.tokens_out.toLocaleString()} · Стоимость: ${formatRubles(spentRubles)}`}
                         >
                           <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">
                             <span className="text-sky-400">↓</span>
@@ -434,6 +458,12 @@ export default function AdminPage() {
                             <span className="tabular-nums">{formatTokens(u.tokens_out)}</span>
                           </span>
                           <span className="text-zinc-400">токенов</span>
+                        </div>
+                        <div className="mt-1 text-[11px] leading-tight text-zinc-500">
+                          <span className="font-semibold tabular-nums text-zinc-800">
+                            {formatRubles(spentRubles)}
+                          </span>{" "}
+                          по токенам
                         </div>
                       </div>
 

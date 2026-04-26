@@ -1,170 +1,254 @@
-import { Card } from "@/components/ui/Card";
+"use client";
+
+import { useMemo, useState } from "react";
+import { ArrowUpRight, Check, CircleHelp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import type { CreditPackage } from "@/lib/api/billing";
 import type { UsageStatus } from "@/lib/api/usage";
 
-const plans = [
+type PlanKey = "free" | CreditPackage["id"] | "enterprise";
+
+const plans: Array<{
+  key: PlanKey;
+  name: string;
+  credits: string;
+  price: string;
+  description: string;
+  fit: string;
+  badge?: string;
+  save?: string;
+  featured?: boolean;
+}> = [
   {
-    key: "15",
-    badge: "Базовый",
-    limit: "до 15 запросов",
-    description: "Бесплатно для теста сервиса и первых точечных сценариев без регулярной нагрузки",
-    price: "Бесплатно",
-    cta: "Начать тест",
-    ctaHref: "/register",
-    variant: "secondary" as const,
-    tone: "border-stone-200 bg-[linear-gradient(160deg,rgba(255,255,255,0.98),rgba(245,244,241,0.96))]",
-    badgeTone: "border-stone-300 bg-stone-100 text-stone-700",
+    key: "free",
+    name: "Free",
+    credits: "100 кредитов",
+    price: "0 ₽",
+    description: "Хватит, чтобы проверить интерфейс, запустить короткий анализ и понять формат результата.",
+    fit: "Тест сервиса",
   },
   {
-    key: "50",
-    badge: "Старт",
-    limit: "до 50 запросов",
-    description: "Для редкого использования и аккуратного старта",
-    price: "2 000 ₽/мес",
-    cta: "Выбрать 50",
-    ctaHref: "/register",
-    variant: "secondary" as const,
-    tone: "border-zinc-200 bg-[linear-gradient(160deg,rgba(255,255,255,0.98),rgba(247,247,247,0.96))]",
-    badgeTone: "border-zinc-300 bg-zinc-100 text-zinc-700",
+    key: "start",
+    name: "Start",
+    credits: "2 000 кредитов",
+    price: "490 ₽",
+    description: "Для редкой работы: несколько договоров, OCR небольших файлов и точечные AI-вопросы.",
+    fit: "До 20-30 коротких операций",
   },
   {
-    key: "200",
-    badge: "Оптимальный",
-    limit: "до 200 запросов",
-    description: "Для периодической рабочей нагрузки",
-    price: "6 000 ₽/мес",
-    cta: "Перейти на Про",
-    ctaHref: "/register",
-    variant: "primary" as const,
-    tone: "border-emerald-300 bg-[linear-gradient(160deg,rgba(239,253,246,0.98),rgba(220,252,238,0.95))]",
-    badgeTone: "border-emerald-300 bg-emerald-100 text-emerald-800",
+    key: "pro",
+    name: "Pro",
+    credits: "7 000 кредитов",
+    price: "1 490 ₽",
+    description: "Оптимальный запас для регулярного анализа, сравнения документов и подготовки отчётов.",
+    fit: "Лучший выбор для старта",
+    badge: "Рекомендуем",
+    save: "лучший старт",
     featured: true,
   },
   {
-    key: "400",
-    badge: "Рост",
-    limit: "до 400 запросов",
-    description: "Для частого использования в течение месяца",
-    price: "8 500 ₽/мес",
-    cta: "Выбрать 400",
-    ctaHref: "mailto:sales@smartanalyzer.example",
-    variant: "secondary" as const,
-    tone: "border-sky-200 bg-[linear-gradient(160deg,rgba(250,252,255,0.98),rgba(236,244,255,0.95))]",
-    badgeTone: "border-sky-300 bg-sky-100 text-sky-800",
+    key: "business",
+    name: "Business",
+    credits: "20 000 кредитов",
+    price: "3 990 ₽",
+    description: "Для интенсивной загрузки документов, больших файлов, сравнений и командной работы.",
+    fit: "Для активной рабочей недели",
+    save: "выгоднее Pro",
   },
   {
-    key: "600",
-    badge: "Максимум",
-    limit: "до 600 запросов",
-    description: "Для интенсивной ежедневной работы",
-    price: "10 000 ₽/мес",
-    cta: "Выбрать 600",
-    ctaHref: "mailto:sales@smartanalyzer.example",
-    variant: "secondary" as const,
-    tone: "border-violet-200 bg-[linear-gradient(160deg,rgba(252,251,255,0.98),rgba(243,239,255,0.95))]",
-    badgeTone: "border-violet-300 bg-violet-100 text-violet-800",
+    key: "enterprise",
+    name: "Enterprise",
+    credits: "от 100 000 кредитов",
+    price: "Договор",
+    description: "Корпоративный баланс, лимиты по сотрудникам, закрывающие документы, SLA и SSO.",
+    fit: "Для отдела или компании",
   },
 ];
 
 type PricingTableProps = {
   compact?: boolean;
   usage?: UsageStatus | null;
-  onUpgradePro?: () => void | Promise<void>;
-  upgrading?: boolean;
+  onPurchaseCredits?: (packageId: CreditPackage["id"]) => void | Promise<void>;
+  purchasing?: boolean;
 };
+
+function isCreditPackage(key: PlanKey): key is CreditPackage["id"] {
+  return key === "start" || key === "pro" || key === "business";
+}
 
 export function PricingTable({
   compact = false,
   usage = null,
-  onUpgradePro,
-  upgrading = false,
+  onPurchaseCredits,
+  purchasing = false,
 }: PricingTableProps) {
-  const isPro = usage?.plan === "pro";
-  const showUpgradeButton = usage != null && !isPro && onUpgradePro;
-  const visiblePlans = compact ? plans.slice(0, 3) : plans;
+  const [selected, setSelected] = useState<PlanKey>("pro");
+  const selectedPlan = useMemo(
+    () => plans.find((plan) => plan.key === selected) ?? plans[2],
+    [selected]
+  );
+  const canPurchase = usage != null && isCreditPackage(selected) && onPurchaseCredits;
+  const isLoggedIn = usage != null;
+
+  if (compact) {
+    return (
+      <div className="grid gap-3 md:grid-cols-3">
+        {plans.slice(0, 3).map((plan) => (
+          <div
+            key={plan.key}
+            className={`rounded-[22px] border p-5 shadow-[0_16px_44px_rgba(15,23,42,0.08)] ${
+              plan.featured
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-zinc-200 bg-white"
+            }`}
+          >
+            <p className="text-lg font-semibold text-zinc-950">{plan.name}</p>
+            <p className="mt-2 text-sm font-semibold text-emerald-700">{plan.credits}</p>
+            <p className="mt-4 text-3xl font-semibold text-zinc-950">{plan.price}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className={`grid gap-4 ${compact ? "md:grid-cols-3" : "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"}`}>
-      {visiblePlans.map((plan) => {
-        const isProPlan = plan.key === "200";
-        const useUpgradeButton = isProPlan && showUpgradeButton;
-        const isFreePlan = plan.key === "15";
-        const accentBand = isFreePlan
-          ? "from-stone-300/30 via-stone-100/18 to-transparent"
-          : isProPlan
-            ? "from-emerald-400/32 via-teal-200/14 to-transparent"
-            : plan.key === "400"
-              ? "from-sky-300/28 via-blue-100/14 to-transparent"
-              : plan.key === "600"
-                ? "from-violet-300/28 via-fuchsia-100/14 to-transparent"
-                : "from-zinc-300/24 via-zinc-100/14 to-transparent";
-        const buttonTone = isProPlan
-          ? "bg-zinc-900 hover:bg-zinc-800 focus:ring-zinc-600"
-          : isFreePlan
-            ? "border-stone-300 bg-stone-100/90 text-stone-900 hover:bg-stone-200/80 focus:ring-stone-400"
-            : "border-zinc-300 bg-white/92 hover:bg-white focus:ring-zinc-400";
+    <section className="overflow-hidden rounded-[32px] border border-slate-800 bg-[#101622] p-5 text-white shadow-[0_30px_90px_rgba(2,6,23,0.28)] sm:p-7">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+            <Sparkles className="h-3.5 w-3.5" />
+            Выбор пакета
+          </div>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">Цены</h2>
+          <p className="mt-2 max-w-2xl text-base font-medium leading-7 text-slate-400">
+            Выберите пакет кредитов. Кредиты не сгорают и списываются только за действия.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+          Выбрано: <span className="font-bold text-white">{selectedPlan.name}</span>
+          <span className="mx-2 text-slate-600">/</span>
+          <span className="font-bold text-emerald-300">{selectedPlan.price}</span>
+        </div>
+      </div>
 
-        return (
-          <Card
-            key={plan.key}
-            className={`group relative h-full overflow-hidden rounded-[28px] border p-0 shadow-[0_18px_52px_rgba(28,25,23,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_78px_rgba(28,25,23,0.14)] ${plan.tone}`}
-          >
-            <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${accentBand}`} />
-            <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/45 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
-            <div className="relative flex h-full flex-col p-5 xl:p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${plan.badgeTone}`}>
-                  {plan.badge}
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        {plans.map((plan) => {
+          const active = selected === plan.key;
+          return (
+            <button
+              key={plan.key}
+              type="button"
+              onClick={() => setSelected(plan.key)}
+              className={`group relative min-h-[184px] overflow-hidden rounded-[24px] border p-5 text-left transition ${
+                active
+                  ? "border-emerald-400 bg-[linear-gradient(135deg,#18345a,#18283f_45%,#1f4a3a)] shadow-[0_20px_70px_rgba(16,185,129,0.18)]"
+                  : "border-slate-800 bg-[#151d2c] hover:border-slate-600 hover:bg-[#192235]"
+              }`}
+              aria-pressed={active}
+            >
+              {plan.save && (
+                <span className="absolute right-0 top-0 rounded-bl-[18px] bg-[linear-gradient(90deg,#2563eb,#b84def)] px-4 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-white">
+                  {plan.save}
+                </span>
+              )}
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-4">
+                <span
+                  className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    active
+                      ? "border-emerald-300 bg-emerald-400/20 text-emerald-200"
+                      : "border-slate-600 text-transparent"
+                  }`}
+                >
+                  <Check className="h-3 w-3" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-2xl font-bold ${active ? "text-emerald-300" : "text-white"}`}>
+                      {plan.name}
+                    </p>
+                    {plan.badge && (
+                      <span className="rounded-full border border-emerald-300/50 bg-emerald-300/12 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-200">
+                        {plan.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-200">
+                    <span>Вы получаете</span>
+                    <span className="rounded-full bg-slate-700/80 px-3 py-1 text-white">
+                      {plan.credits}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-emerald-200/90">{plan.fit}</p>
                 </div>
-                {isFreePlan && (
-                  <span className="inline-flex items-center rounded-full border border-emerald-300/80 bg-emerald-100/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
-                    Тест
-                  </span>
-                )}
-              </div>
-              <p className="mt-5 text-[2.2rem] font-semibold leading-[0.94] tracking-[-0.06em] text-zinc-950 xl:text-[1.95rem]">
-                {plan.limit}
-              </p>
-              <p className="mt-3 min-h-[108px] text-[15px] leading-7 text-zinc-600 xl:min-h-[96px] xl:text-[13px] xl:leading-6">
-                {plan.description}
-              </p>
-              <div className="mt-5 border-t border-zinc-200/80 pt-4">
-                <p className={`font-semibold leading-[0.88] tracking-[-0.06em] ${isFreePlan ? "text-[2.2rem] xl:text-[1.95rem]" : "text-[2.9rem] xl:text-[2.45rem]"} text-zinc-900`}>
+                </div>
+                <p className="shrink-0 text-3xl font-bold tracking-[-0.04em] text-white sm:text-right">
                   {plan.price}
                 </p>
-                <div className="mt-3 space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Лимит в месяц</p>
-                  <div className="h-px w-full bg-gradient-to-r from-transparent via-zinc-300/80 to-transparent" />
-                </div>
               </div>
 
-              {!compact && (
-                <div className="mt-auto pt-6">
-                  {useUpgradeButton ? (
-                    <Button
-                      type="button"
-                      variant={plan.variant}
-                      disabled={upgrading}
-                      onClick={onUpgradePro}
-                      className={`w-full rounded-full ${buttonTone}`}
-                    >
-                      {upgrading ? "Обновление…" : "Перейти на Про"}
-                    </Button>
-                  ) : (
-                    <Button
-                      href={isProPlan && isPro ? "#" : plan.ctaHref}
-                      variant={plan.variant}
-                      className={`w-full rounded-full ${buttonTone}`}
-                    >
-                      {isProPlan && isPro ? "Текущий план" : plan.cta}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+              <p className="mt-6 max-w-3xl text-base font-semibold leading-7 text-slate-100">
+                {plan.description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <a
+          href="#credit-details"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-300 hover:text-emerald-200"
+        >
+          <CircleHelp className="h-4 w-4" />
+          Подробнее о стоимости кредитов и списаниях
+        </a>
+
+        {selected === "enterprise" ? (
+          <Button
+            href="mailto:sales@smartanalyzer.example"
+            className="min-w-[220px] rounded-xl bg-[linear-gradient(90deg,#2563eb,#b84def)] px-7 py-4 text-base font-bold text-white hover:opacity-95"
+          >
+            Связаться <ArrowUpRight className="ml-2 h-5 w-5" />
+          </Button>
+        ) : selected === "free" && isLoggedIn ? (
+          <Button
+            href="/dashboard"
+            className="min-w-[220px] rounded-xl bg-emerald-500 px-7 py-4 text-base font-bold text-slate-950 hover:bg-emerald-400"
+          >
+            Открыть кабинет
+          </Button>
+        ) : canPurchase ? (
+          <Button
+            type="button"
+            disabled={purchasing}
+            onClick={() => onPurchaseCredits(selected)}
+            className="min-w-[220px] rounded-xl bg-emerald-500 px-7 py-4 text-base font-bold text-slate-950 hover:bg-emerald-400"
+          >
+            {purchasing ? "Пополнение..." : `Приобрести ${selectedPlan.price}`}
+          </Button>
+        ) : (
+          <Button
+            href="/register"
+            className="min-w-[220px] rounded-xl bg-emerald-500 px-7 py-4 text-base font-bold text-slate-950 hover:bg-emerald-400"
+          >
+            Зарегистрироваться
+          </Button>
+        )}
+      </div>
+
+      <div
+        id="credit-details"
+        className="mt-8 rounded-[18px] border border-slate-700 bg-slate-800/70 p-5"
+      >
+        <h3 className="text-xl font-bold">Что такое кредит?</h3>
+        <p className="mt-3 max-w-5xl text-base leading-7 text-slate-200">
+          Кредит SmartAnalyzer — внутренняя единица оплаты AI-операций. Анализ,
+          OCR, сравнение документов и AI-вопросы списывают разное количество
+          кредитов в зависимости от сложности. Срок действия пакета не ограничен.
+        </p>
+      </div>
+    </section>
   );
 }

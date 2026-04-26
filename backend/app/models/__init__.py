@@ -1,6 +1,7 @@
 from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.folder import Folder
+from app.models.credit_transaction import CreditTransaction
 from app.models.plugin_execution import PluginExecution
 from app.models.user_feature_flag import UserFeatureFlag
 from app.models.usage_log import UsageLog
@@ -12,6 +13,7 @@ __all__ = [
     "Document",
     "DocumentAnalysis",
     "Folder",
+    "CreditTransaction",
     "PluginExecution",
     "UsageLog",
     "User",

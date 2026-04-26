@@ -303,7 +303,7 @@ def run_workspace_plugin(
         execution.result_json = result.model_dump(mode="json")
         execution.error_json = None
         db.commit()
-        log_run(db, current_user.id, plugin_id)
+        log_run(db, current_user, plugin_id)
         return RunPluginResponse(
             execution_id=execution.id,
             plugin_id=plugin_id,
@@ -373,6 +373,8 @@ async def run_all_workspace_plugins(
             if cancelled.is_set():
                 break
 
+            assert_can_run(db, current_user, plugin.manifest.id)
+
             execution = PluginExecution(
                 user_id=current_user.id,
                 document_id=document_id,
@@ -408,7 +410,7 @@ async def run_all_workspace_plugins(
                 execution.result_json = result.model_dump(mode="json")
                 execution.error_json = None
                 db.commit()
-                log_run(db, current_user.id, plugin.manifest.id)
+                log_run(db, current_user, plugin.manifest.id)
                 items.append(BatchRunPluginResponseItem(
                     execution_id=execution.id, plugin_id=plugin.manifest.id,
                     state=execution.status, result=execution.result_json,

@@ -18,5 +18,6 @@ class UserRead(BaseModel):
     email: str
     created_at: datetime
     plan: str = "free"
+    credit_balance: int = 0
 
     model_config = {"from_attributes": True}

@@ -67,7 +67,7 @@ export function isUnauthorized(err: unknown): boolean {
 
 export function isLimitReached(err: unknown): boolean {
   if (err instanceof ApiError) {
-    return err.status === 429 || err.code === "LIMIT_REACHED";
+    return err.status === 429 || err.code === "LIMIT_REACHED" || err.code === "INSUFFICIENT_CREDITS";
   }
   return false;
 }

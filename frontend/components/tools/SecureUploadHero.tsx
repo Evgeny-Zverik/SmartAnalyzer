@@ -29,6 +29,7 @@ type SecureUploadHeroProps = {
   analyzeDisabled: boolean;
   securityChips: SecurityChip[];
   infoCards: InfoCard[];
+  costHint?: ReactNode;
   intakeLabel?: string;
   uploadTitle?: string;
   analyzeLabel?: string;
@@ -67,6 +68,7 @@ export function SecureUploadHero({
   analyzeDisabled,
   securityChips,
   infoCards,
+  costHint,
   intakeLabel = "Proof Intake",
   uploadTitle = "Загрузите текст на проверку",
   analyzeLabel = "Запустить анализ",
@@ -176,6 +178,7 @@ export function SecureUploadHero({
             >
               {analyzeLabel}
             </Button>
+            {costHint ? <div className="flex justify-center">{costHint}</div> : null}
           </div>
         </div>
       </div>

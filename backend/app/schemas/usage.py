@@ -5,5 +5,6 @@ from pydantic import BaseModel
 
 class UsageStatusResponse(BaseModel):
     plan: str
-    limits: dict[str, int | None]
+    credit_balance: int
+    credit_costs: dict[str, int]
     usage_today: dict[str, int]

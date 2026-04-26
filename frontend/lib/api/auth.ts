@@ -8,6 +8,7 @@ export type User = {
   email: string;
   created_at: string;
   plan: string;
+  credit_balance: number;
 };
 
 type LoginResponse = {

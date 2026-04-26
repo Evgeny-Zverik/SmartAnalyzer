@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.document import Document
 from app.models.document_analysis import DocumentAnalysis
 from app.models.folder import Folder
+from app.models.credit_transaction import CreditTransaction
 from app.models.plugin_execution import PluginExecution
 from app.models.usage_log import UsageLog
 from app.models.user import User
@@ -86,6 +87,7 @@ def delete_user(
         )
     for model in (
         UsageLog,
+        CreditTransaction,
         PluginExecution,
         DocumentAnalysis,
         Document,
@@ -165,6 +167,7 @@ def list_users(
             UsageLog.user_id,
             func.coalesce(func.sum(UsageLog.tokens_in), 0),
             func.coalesce(func.sum(UsageLog.tokens_out), 0),
+            func.coalesce(func.sum(UsageLog.credits_charged), 0),
         )
         .filter(UsageLog.user_id.in_(user_ids))
         .group_by(UsageLog.user_id)
@@ -173,8 +176,12 @@ def list_users(
         else []
     )
     tokens_by_user: dict[int, dict[str, int]] = {
-        user_id: {"in": int(tin or 0), "out": int(tout or 0)}
-        for user_id, tin, tout in token_rows
+        user_id: {
+            "in": int(tin or 0),
+            "out": int(tout or 0),
+            "credits_spent": int(credits_spent or 0),
+        }
+        for user_id, tin, tout, credits_spent in token_rows
     }
 
     last_seen_rows = (
@@ -195,12 +202,14 @@ def list_users(
                 "id": u.id,
                 "email": u.email,
                 "plan": u.plan,
+                "credit_balance": u.credit_balance,
                 "is_blocked": bool(u.is_blocked),
                 "created_at": str(u.created_at),
                 "last_seen_at": last_seen_by_user.get(u.id),
                 "tools": tools_by_user.get(u.id, []),
                 "tokens_in": tokens_by_user.get(u.id, {}).get("in", 0),
                 "tokens_out": tokens_by_user.get(u.id, {}).get("out", 0),
+                "credits_spent": tokens_by_user.get(u.id, {}).get("credits_spent", 0),
             }
             for u in users
         ],
