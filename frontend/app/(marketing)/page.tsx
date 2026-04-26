@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fraunces, IBM_Plex_Sans } from "next/font/google";
-import { ArrowRight, CheckCircle2, Clock3, Sparkles, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Sparkles, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { tools } from "@/lib/config/tools";
 
@@ -227,6 +227,86 @@ export default function HomePage() {
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-[34px] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_22px_80px_rgba(15,23,42,0.1)] backdrop-blur md:p-10">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 [font-family:var(--font-home-body)]">
+                Сравнение
+              </p>
+              <h2 className="mt-2 text-3xl tracking-[-0.03em] text-zinc-900 sm:text-4xl [font-family:var(--font-home-display)]">
+                Чем SmartAnalyzer лучше обычного GPT
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
+                ChatGPT — универсальный ассистент. SmartAnalyzer — отраслевая платформа для договоров,
+                заточенная под юридические задачи и работу с длинными документами.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            {[
+              {
+                title: "Понимает длинные договоры целиком",
+                gpt: "Теряет контекст на больших файлах, пропускает приложения и пункты в середине документа.",
+                us: "Обрабатывает документы целиком, включая приложения и сноски, без обрезки контекста.",
+              },
+              {
+                title: "Юридическая экспертиза, а не общие советы",
+                gpt: "Даёт обтекаемые формулировки и часто «галлюцинирует» статьи закона.",
+                us: "Структурирует риски, ссылается на конкретные пункты договора и подсвечивает спорные формулировки.",
+              },
+              {
+                title: "Работа с PDF, DOCX, XLSX и сканами",
+                gpt: "Принимает текст, плохо справляется со сканами и рукописью.",
+                us: "Встроенный OCR для сканов и рукописных документов, корректное чтение таблиц и форм.",
+              },
+              {
+                title: "Сравнение редакций и контроль изменений",
+                gpt: "Ручная вставка двух версий в чат, без структурного diff.",
+                us: "Сравнение редакций пункт-в-пункт с подсветкой изменений и риск-оценкой.",
+              },
+              {
+                title: "Безопасность и обезличивание",
+                gpt: "Данные уходят в общий продукт, обезличивания нет.",
+                us: "Обезличивание перед отправкой в модель, AES-GCM шифрование диалогов, доступ закрыт даже для нас.",
+              },
+              {
+                title: "Готовые инструменты под задачу",
+                gpt: "Один чат на все случаи — каждый раз заново формулируешь промпт.",
+                us: "Отдельные инструменты: проверка рисков, перевод юр. стиля, упрощение текста, редизайн документа.",
+              },
+            ].map((row, index) => (
+              <article
+                key={row.title}
+                className="home-fade-up rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 [font-family:var(--font-home-body)]"
+                style={{ animationDelay: `${0.08 + index * 0.06}s` }}
+              >
+                <h3 className="text-lg leading-tight tracking-[-0.01em] text-zinc-900 [font-family:var(--font-home-display)]">
+                  {row.title}
+                </h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                      <X className="h-3.5 w-3.5 text-zinc-400" />
+                      GPT
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">{row.gpt}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      SmartAnalyzer
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-700">{row.us}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
