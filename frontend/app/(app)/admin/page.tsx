@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Ban, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureModulesPanel } from "@/components/admin/FeatureModulesPanel";
+import { RevenueDashboard } from "@/components/admin/RevenueDashboard";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
@@ -258,7 +259,7 @@ export default function AdminPage() {
   const tabs: { key: Tab; label: string; disabled?: boolean }[] = [
     { key: "users", label: "Пользователи" },
     { key: "features", label: "Фича-модули" },
-    { key: "revenue", label: "Доходы", disabled: true },
+    { key: "revenue", label: "Доходы" },
   ];
 
   return (
@@ -636,6 +637,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === "features" && <FeatureModulesPanel />}
+        {activeTab === "revenue" && <RevenueDashboard />}
       </div>
 
       {deleteTarget && (

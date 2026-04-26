@@ -56,3 +56,107 @@ export function setAdminUserBlocked(
     body: JSON.stringify({ is_blocked: isBlocked }),
   });
 }
+
+export type RevenuePackageRow = {
+  package_id: string;
+  name: string;
+  price_rub: number | null;
+  count: number;
+  revenue_rub: number;
+  credits: number;
+};
+
+export type RevenueByDayRow = {
+  date: string;
+  revenue_rub: number;
+  purchases: number;
+  credits: number;
+};
+
+export type RevenueTopSpender = {
+  user_id: number;
+  email: string;
+  plan: string | null;
+  credit_balance: number;
+  created_at: string | null;
+  revenue_rub: number;
+  credits_purchased: number;
+  purchases: number;
+};
+
+export type RevenueRecentPurchase = {
+  id: number;
+  user_id: number;
+  email: string;
+  package: string | null;
+  credits: number;
+  revenue_rub: number;
+  created_at: string;
+};
+
+export type RevenueByToolRow = {
+  tool_slug: string;
+  runs: number;
+  tokens_in: number;
+  tokens_out: number;
+  credits_charged: number;
+  token_cost_rub: number;
+  credit_revenue_rub: number;
+};
+
+export type RevenueDashboard = {
+  period: { days: number; from: string; to: string };
+  totals_lifetime: {
+    revenue_rub: number;
+    purchases: number;
+    paying_users: number;
+    total_users: number;
+    active_users: number;
+    arppu_rub: number;
+    arpu_rub: number;
+    paying_conversion_pct: number;
+    credits_issued: number;
+    credits_spent: number;
+    credits_bonus_issued: number;
+    credits_outstanding: number;
+    tokens_in: number;
+    tokens_out: number;
+    token_cost_rub: number;
+    gross_margin_rub: number;
+    gross_margin_pct: number;
+  };
+  totals_period: {
+    revenue_rub: number;
+    purchases: number;
+    paying_users: number;
+    active_users: number;
+    arppu_rub: number;
+    credits_issued: number;
+    credits_spent: number;
+    credits_charged: number;
+    tokens_in: number;
+    tokens_out: number;
+    token_cost_rub: number;
+    gross_margin_rub: number;
+    gross_margin_pct: number;
+  };
+  by_package: RevenuePackageRow[];
+  by_day: RevenueByDayRow[];
+  top_spenders: RevenueTopSpender[];
+  recent_purchases: RevenueRecentPurchase[];
+  by_tool_lifetime: RevenueByToolRow[];
+  by_plan: { plan: string; users: number }[];
+  new_users_by_day: { date: string; new_users: number }[];
+  pricing: {
+    input_token_rub_per_million: number;
+    output_token_rub_per_million: number;
+    rub_per_credit: number;
+    packages: { id: string; price_rub: number; credits: number; rub_per_credit: number }[];
+  };
+};
+
+export function getAdminRevenue(days: number): Promise<RevenueDashboard> {
+  return apiFetch<RevenueDashboard>("/api/v1/admin/revenue", {
+    params: { days: String(days) },
+  });
+}
