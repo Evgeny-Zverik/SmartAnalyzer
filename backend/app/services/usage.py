@@ -31,7 +31,7 @@ TOOL_SLUGS = (
 )
 
 CREDIT_COSTS: dict[str, int] = {
-    "document-analyzer": 80,
+    "document-analyzer": 180,
     "data-extractor": 160,
     "handwriting-recognition": 40,
     "legal-text-simplifier": 50,

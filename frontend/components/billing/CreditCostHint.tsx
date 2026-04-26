@@ -23,7 +23,7 @@ export function CreditCostHint({
   const creditLabel = credits == null ? "—" : credits.toLocaleString("ru-RU");
   const balanceLabel = balance == null ? null : balance.toLocaleString("ru-RU");
   const phaseLabel =
-    phase === "running" ? "Резервируем" : phase === "success" ? "Списано от" : label;
+    phase === "running" ? "Резервируем" : phase === "success" ? "Списано" : label;
   const amountPrefix = phase === "running" || phase === "success" ? "−" : "";
 
   return (

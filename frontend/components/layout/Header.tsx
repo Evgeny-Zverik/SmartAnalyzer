@@ -24,6 +24,7 @@ import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { getToken, onAuthChange } from "@/lib/auth/token";
 import { tools } from "@/lib/config/tools";
 import { getEnabledToolSlugs } from "@/lib/features/toolFeatureGate";
+import { notifyCreditsChanged, onCreditsChanged } from "@/lib/billing/creditBus";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
   FileSearch,
@@ -43,6 +44,10 @@ export function Header() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [displayBalance, setDisplayBalance] = useState<number | null>(null);
+  const [balanceFlash, setBalanceFlash] = useState<"up" | "down" | null>(null);
+  const balanceAnimRef = useRef<number | null>(null);
+  const balanceFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement | null>(null);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
@@ -94,6 +99,7 @@ export function Header() {
           const email = u.email.trim();
           setUserEmail(email);
           setCreditBalance(u.credit_balance);
+          notifyCreditsChanged(u.credit_balance);
           setIsAdmin(email.toLowerCase() === ADMIN_EMAIL);
         })
         .catch(() => {
@@ -117,6 +123,7 @@ export function Header() {
           const email = u.email.trim();
           setUserEmail(email);
           setCreditBalance(u.credit_balance);
+          notifyCreditsChanged(u.credit_balance);
           setIsAdmin(email.toLowerCase() === ADMIN_EMAIL);
         })
         .catch(() => {
@@ -131,6 +138,55 @@ export function Header() {
     setAvatarMenuOpen(false);
     setToolsMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    return onCreditsChanged((next) => setCreditBalance(next));
+  }, []);
+
+  useEffect(() => {
+    if (creditBalance == null) {
+      setDisplayBalance(null);
+      return;
+    }
+    setDisplayBalance((prev) => {
+      if (prev == null) return creditBalance;
+      if (prev === creditBalance) return prev;
+
+      if (balanceAnimRef.current != null) {
+        cancelAnimationFrame(balanceAnimRef.current);
+      }
+      const start = prev;
+      const target = creditBalance;
+      const startedAt = performance.now();
+      const duration = Math.min(1200, 320 + Math.min(900, Math.abs(target - start) * 1.2));
+
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const value = start + (target - start) * eased;
+        setDisplayBalance(t >= 1 ? target : Math.round(value));
+        if (t < 1) {
+          balanceAnimRef.current = requestAnimationFrame(tick);
+        } else {
+          balanceAnimRef.current = null;
+        }
+      };
+      balanceAnimRef.current = requestAnimationFrame(tick);
+
+      setBalanceFlash(target < start ? "down" : "up");
+      if (balanceFlashTimerRef.current) clearTimeout(balanceFlashTimerRef.current);
+      balanceFlashTimerRef.current = setTimeout(() => setBalanceFlash(null), 900);
+
+      return prev;
+    });
+  }, [creditBalance]);
+
+  useEffect(() => {
+    return () => {
+      if (balanceAnimRef.current != null) cancelAnimationFrame(balanceAnimRef.current);
+      if (balanceFlashTimerRef.current) clearTimeout(balanceFlashTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!avatarMenuOpen) return;
@@ -177,7 +233,8 @@ export function Header() {
 
   const avatarInitial = (userEmail || "S").slice(0, 1).toUpperCase();
   const accountName = userEmail ? userEmail.split("@")[0] : "SmartAnalyzer";
-  const balanceLabel = creditBalance == null ? "—" : creditBalance.toLocaleString("ru-RU");
+  const balanceLabel =
+    displayBalance == null ? "—" : displayBalance.toLocaleString("ru-RU");
 
   const avatarHue = (() => {
     const seed = userEmail || "smartanalyzer";
@@ -277,14 +334,34 @@ export function Header() {
             />
           ) : loggedIn ? (
             <>
-              <div className="group/balance flex items-center gap-1 rounded-full border border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 p-1 pl-3 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_4px_14px_rgba(16,185,129,0.10)] transition hover:border-emerald-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(16,185,129,0.18)]">
+              <div
+                className={`group/balance flex items-center gap-1 rounded-full border p-1 pl-3 transition duration-500 ${
+                  balanceFlash === "down"
+                    ? "border-rose-300 bg-gradient-to-r from-rose-50 via-white to-rose-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(244,63,94,0.18)]"
+                    : balanceFlash === "up"
+                    ? "border-emerald-300 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(16,185,129,0.22)]"
+                    : "border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_4px_14px_rgba(16,185,129,0.10)] hover:border-emerald-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(16,185,129,0.18)]"
+                }`}
+              >
                 <span
                   title="Текущий баланс кредитов"
-                  className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-800 tabular-nums"
+                  className={`flex items-center gap-1.5 text-[13px] font-semibold tabular-nums transition-colors duration-500 ${
+                    balanceFlash === "down" ? "text-rose-700" : "text-emerald-800"
+                  }`}
                 >
-                  <Coins className="h-4 w-4 text-emerald-600" />
+                  <Coins
+                    className={`h-4 w-4 transition-colors duration-500 ${
+                      balanceFlash === "down" ? "text-rose-600" : "text-emerald-600"
+                    }`}
+                  />
                   <span className="leading-none">{balanceLabel}</span>
-                  <span className="text-[11px] font-medium text-emerald-600/80">кр.</span>
+                  <span
+                    className={`text-[11px] font-medium transition-colors duration-500 ${
+                      balanceFlash === "down" ? "text-rose-600/80" : "text-emerald-600/80"
+                    }`}
+                  >
+                    кр.
+                  </span>
                 </span>
                 <Link
                   href="/pricing"

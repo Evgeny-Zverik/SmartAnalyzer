@@ -16,6 +16,7 @@ import { PluginPanels } from "@/components/plugins/PluginPanels";
 import { uploadDocument } from "@/lib/api/documents";
 import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
+import { getLatestCreditBalance, notifyCreditsChanged } from "@/lib/billing/creditBus";
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
@@ -86,6 +87,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     full_text: string;
     rich_content?: Record<string, unknown> | null;
     source_format?: string | null;
+    page_breaks?: number[];
     annotations: AdvancedAnnotation[];
   } | null>(null);
   const [store, dispatch] = useReducer(pluginStoreReducer, undefined, createInitialPluginStore);
@@ -274,6 +276,19 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     analysisAbortRef.current = controller;
     setState("preparing");
     setErrorMessage(null);
+
+    const optimisticCost = orderedItems
+      .filter((item) => item.enabled && item.state !== "locked")
+      .reduce(
+        (sum, item) =>
+          sum + (usage?.credit_costs?.[item.manifest.id] ?? getFallbackCreditCost(item.manifest.id)),
+        0
+      );
+    const baselineBalance = usage?.credit_balance ?? getLatestCreditBalance();
+    if (baselineBalance != null && optimisticCost > 0) {
+      notifyCreditsChanged(Math.max(0, baselineBalance - optimisticCost));
+    }
+
     try {
       const items = await hydratePlugins(documentId);
       if (controller.signal.aborted) return;
@@ -281,7 +296,12 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       if (controller.signal.aborted) return;
       setState("ready");
       if (getToken()) {
-        void getUsageStatus().then(setUsage).catch(() => {});
+        void getUsageStatus()
+          .then((next) => {
+            setUsage(next);
+            notifyCreditsChanged(next.credit_balance);
+          })
+          .catch(() => {});
       }
     } catch (error) {
       if (controller.signal.aborted) return;

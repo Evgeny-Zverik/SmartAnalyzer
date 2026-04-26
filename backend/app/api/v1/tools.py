@@ -190,6 +190,7 @@ def prepare_document_analyzer(
             annotations=[],
             rich_content=editor_payload.get("rich_content"),
             source_format=editor_payload.get("source_format"),
+            page_breaks=editor_payload.get("page_breaks", []),
         ),
     )
 

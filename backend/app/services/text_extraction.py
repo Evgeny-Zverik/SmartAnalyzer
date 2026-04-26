@@ -24,6 +24,10 @@ def _read_decrypted(path: str) -> bytes:
 
 
 def extract_text_from_pdf(path: str) -> str:
+    return extract_pdf_payload(path)["full_text"]
+
+
+def extract_pdf_payload(path: str) -> dict[str, Any]:
     try:
         from pypdf import PdfReader
     except ImportError:
@@ -31,11 +35,14 @@ def extract_text_from_pdf(path: str) -> str:
     data = _read_decrypted(path)
     try:
         reader = PdfReader(io.BytesIO(data))
-        parts = []
+        parts: list[str] = []
+        page_breaks: list[int] = []
         total = 0
-        for page in reader.pages:
+        for page_idx, page in enumerate(reader.pages):
             if total >= MAX_TEXT_LENGTH:
                 break
+            if page_idx > 0:
+                page_breaks.append(total)
             text = page.extract_text() or ""
             remaining = MAX_TEXT_LENGTH - total
             if len(text) > remaining:
@@ -45,7 +52,12 @@ def extract_text_from_pdf(path: str) -> str:
         raw = "".join(parts).strip()
         if not raw:
             raise_error(400, "BAD_REQUEST", "Cannot read text from document. The file may be empty or image-only.", {})
-        return raw
+        return {
+            "full_text": raw,
+            "rich_content": None,
+            "source_format": "pdf",
+            "page_breaks": [offset for offset in page_breaks if 0 < offset <= len(raw)],
+        }
     except Exception as e:
         raise_error(400, "BAD_REQUEST", "Cannot read text from document.", {"detail": str(e)})
 
@@ -131,6 +143,22 @@ def _is_list_style(style_name: str) -> tuple[str, bool]:
     if "list number" in lower:
         return "orderedList", True
     return "paragraph", False
+
+
+_W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _paragraph_has_page_break(paragraph: Any) -> bool:
+    try:
+        element = paragraph._p
+    except AttributeError:
+        return False
+    for br in element.iter(f"{_W_NS}br"):
+        if br.get(f"{_W_NS}type") == "page":
+            return True
+    if next(element.iter(f"{_W_NS}lastRenderedPageBreak"), None) is not None:
+        return True
+    return False
 
 
 def _paragraph_node_from_docx(paragraph: Any) -> tuple[dict[str, Any], str | None]:
@@ -290,6 +318,26 @@ def _serialize_rich_node_to_text(node: dict[str, Any] | None) -> str:
     return separator.join(part for part in parts if part)
 
 
+def _compute_doc_page_breaks(
+    rich_content: dict[str, Any], block_breaks_before: list[bool]
+) -> list[int]:
+    children = rich_content.get("content") or []
+    if len(block_breaks_before) != len(children):
+        return []
+
+    breaks: list[int] = []
+    serialized_parts: list[str] = []
+    for child, has_break in zip(children, block_breaks_before):
+        text = _serialize_rich_node_to_text(child)
+        if not text:
+            continue
+        if serialized_parts and has_break:
+            current = "\n".join(serialized_parts)
+            breaks.append(len(current) + 1)
+        serialized_parts.append(text)
+    return breaks
+
+
 def extract_docx_rich_payload(path: str) -> dict[str, Any]:
     try:
         from docx import Document as DocxDocument
@@ -302,15 +350,21 @@ def extract_docx_rich_payload(path: str) -> dict[str, Any]:
     try:
         doc = DocxDocument(io.BytesIO(data))
         content: list[dict[str, Any]] = []
+        block_breaks_before: list[bool] = []
         pending_list_type: str | None = None
         pending_list_items: list[dict[str, Any]] = []
+        pending_break_before_list = False
+        pending_break_in_list = False
 
         def flush_pending_list() -> None:
-            nonlocal pending_list_type, pending_list_items
+            nonlocal pending_list_type, pending_list_items, pending_break_before_list, pending_break_in_list
             if pending_list_type and pending_list_items:
                 content.append({"type": pending_list_type, "content": pending_list_items})
+                block_breaks_before.append(pending_break_before_list)
             pending_list_type = None
             pending_list_items = []
+            pending_break_before_list = pending_break_in_list
+            pending_break_in_list = False
 
         for block in _iter_docx_blocks(doc):
             if hasattr(block, "rows") and isinstance(block, Table):
@@ -318,26 +372,42 @@ def extract_docx_rich_payload(path: str) -> dict[str, Any]:
                 table_node = _table_node_from_docx(block)
                 if table_node is not None:
                     if table_node.get("type") == "doc" and isinstance(table_node.get("content"), list):
-                        content.extend(table_node["content"])
+                        for child in table_node["content"]:
+                            content.append(child)
+                            block_breaks_before.append(False)
                     else:
                         content.append(table_node)
+                        block_breaks_before.append(False)
                 continue
 
+            has_break = _paragraph_has_page_break(block)
             paragraph_node, list_type = _paragraph_node_from_docx(block)
             if list_type:
                 if pending_list_type != list_type:
                     flush_pending_list()
                     pending_list_type = list_type
+                if has_break:
+                    if not pending_list_items:
+                        pending_break_before_list = True
+                    else:
+                        pending_break_in_list = True
                 pending_list_items.append({"type": "listItem", "content": [paragraph_node]})
             else:
                 flush_pending_list()
                 content.append(paragraph_node)
+                block_breaks_before.append(has_break)
 
         flush_pending_list()
 
         rich_content = {"type": "doc", "content": content or [{"type": "paragraph"}]}
-        raw_text = _serialize_rich_node_to_text(rich_content).strip()
-        full_text = _truncate_text(raw_text)
+        page_breaks = _compute_doc_page_breaks(rich_content, block_breaks_before)
+        raw_text = _serialize_rich_node_to_text(rich_content)
+        stripped_text = raw_text.strip()
+        leading_strip = len(raw_text) - len(raw_text.lstrip())
+        if leading_strip:
+            page_breaks = [pb - leading_strip for pb in page_breaks if pb > leading_strip]
+        full_text = _truncate_text(stripped_text)
+        page_breaks = [pb for pb in page_breaks if 0 < pb < len(full_text)]
         if not full_text:
             raise_error(400, "BAD_REQUEST", "Cannot read text from document. The file may be empty.", {})
 
@@ -345,6 +415,7 @@ def extract_docx_rich_payload(path: str) -> dict[str, Any]:
             "full_text": full_text,
             "rich_content": rich_content,
             "source_format": "docx",
+            "page_breaks": page_breaks,
         }
     except Exception as e:
         raise_error(400, "BAD_REQUEST", "Cannot read text from document.", {"detail": str(e)})
@@ -428,8 +499,11 @@ def extract_text(path: str, mime_type: str) -> str:
 def extract_advanced_editor_payload(path: str, mime_type: str) -> dict[str, Any]:
     if mime_type == DOCX_MIME:
         return extract_docx_rich_payload(path)
+    if mime_type == PDF_MIME:
+        return extract_pdf_payload(path)
     return {
         "full_text": extract_text(path, mime_type),
         "rich_content": None,
         "source_format": "plain_text",
+        "page_breaks": [],
     }

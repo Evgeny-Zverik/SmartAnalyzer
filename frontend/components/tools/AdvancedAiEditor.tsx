@@ -62,6 +62,7 @@ type AdvancedAiEditorProps = {
     full_text: string;
     rich_content?: Record<string, unknown> | null;
     source_format?: string | null;
+    page_breaks?: number[];
     annotations: AdvancedAnnotation[];
   };
   isAnalyzing?: boolean;
@@ -86,6 +87,7 @@ type AppliedHighlight = {
 };
 
 const ANNOTATION_HIGHLIGHT_PLUGIN_KEY = new PluginKey("annotationHighlight");
+const PAGE_BREAK_PLUGIN_KEY = new PluginKey("pageBreaks");
 
 const FORMAT_PRESETS: Array<{
   value: EditorFormatPreset;
@@ -265,6 +267,47 @@ function buildAnnotationDecorations(
   }
 
   return DecorationSet.create(doc, decorations);
+}
+
+function createPageBreakPlugin(pageBreaks: number[]) {
+  return new Plugin({
+    key: PAGE_BREAK_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        if (!pageBreaks.length) return null;
+        const index = buildDocTextIndex(state.doc);
+        const total = pageBreaks.length + 1;
+        const decorations: Decoration[] = [];
+        const seen = new Set<number>();
+        pageBreaks.forEach((offset, idx) => {
+          const pos = findPositionForOffset(index.segments, offset, "start");
+          if (pos === null) return;
+          if (seen.has(pos)) return;
+          seen.add(pos);
+          const pageNumber = idx + 2;
+          decorations.push(
+            Decoration.widget(
+              pos,
+              () => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "sa-page-break";
+                wrapper.setAttribute("contenteditable", "false");
+                wrapper.setAttribute("data-page", String(pageNumber));
+                wrapper.setAttribute("aria-label", `Страница ${pageNumber} из ${total}`);
+                const label = document.createElement("span");
+                label.className = "sa-page-break-label";
+                label.textContent = `Стр. ${pageNumber} / ${total}`;
+                wrapper.appendChild(label);
+                return wrapper;
+              },
+              { side: -1, ignoreSelection: true, key: `page-break-${pageNumber}` }
+            )
+          );
+        });
+        return DecorationSet.create(state.doc, decorations);
+      },
+    },
+  });
 }
 
 function createAnnotationHighlightPlugin(
@@ -675,6 +718,20 @@ export function AdvancedAiEditor({
     };
   }, [editor, annotations, activeId, appliedHighlights]);
 
+  const pageBreaks = useMemo(
+    () => (data.page_breaks ?? []).filter((offset) => Number.isFinite(offset) && offset > 0),
+    [data.page_breaks]
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+    const plugin = createPageBreakPlugin(pageBreaks);
+    editor.registerPlugin(plugin);
+    return () => {
+      editor.unregisterPlugin(PAGE_BREAK_PLUGIN_KEY);
+    };
+  }, [editor, pageBreaks]);
+
   const counts = useMemo(
     () => ({
       risk: annotations.filter((annotation) => annotation.type === "risk").length,
@@ -1018,13 +1075,21 @@ export function AdvancedAiEditor({
 
       <div className={`grid items-start gap-6 ${inspectorEnabled ? "2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
         <div className="w-full">
-          <div className="mx-auto w-full bg-gray-100 p-2 sm:p-3">
+          <div className="relative mx-auto w-full overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_top,#eef2f7,#dde3ec_70%)] p-3 sm:p-6">
+            <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
             <div
               ref={editorScrollRef}
-              className="relative min-h-[1080px] max-h-[1080px] overflow-y-auto border border-gray-300 bg-white shadow-[2px_2px_8px_rgba(0,0,0,0.15)]"
+              className="relative mx-auto min-h-[640px] w-full max-w-[860px] rounded-[6px] border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_30px_60px_-20px_rgba(15,23,42,0.25),0_18px_36px_-18px_rgba(15,23,42,0.18)]"
             >
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-transparent via-zinc-100 to-transparent" />
+              {pageBreaks.length > 0 ? (
+                <div className="pointer-events-none absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500 shadow-sm backdrop-blur">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {pageBreaks.length + 1} страниц
+                </div>
+              ) : null}
               <div
-                className={`px-8 py-10 text-gray-800 outline-none sm:px-12 sm:py-14 lg:px-20 lg:py-16 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-5 [&_.ProseMirror_h1]:text-[2rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_table]:my-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-300 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-300 [&_.ProseMirror_th]:bg-white [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8 [&_.sa-annotation]:rounded-[0.35rem] [&_.sa-annotation]:px-0.5 [&_.sa-annotation]:py-[0.08rem] [&_.sa-annotation]:transition-colors [&_.sa-annotation-risk]:bg-red-100/90 [&_.sa-annotation-risk]:text-red-950 [&_.sa-annotation-improvement]:bg-amber-100/90 [&_.sa-annotation-improvement]:text-amber-950 [&_.sa-annotation-applied]:bg-emerald-100 [&_.sa-annotation-applied]:text-emerald-950 [&_.sa-annotation-active]:ring-2 [&_.sa-annotation-active]:ring-offset-1 [&_.sa-annotation-risk.sa-annotation-active]:ring-red-300 [&_.sa-annotation-improvement.sa-annotation-active]:ring-amber-300`}
+                className={`px-8 py-12 text-zinc-800 outline-none sm:px-14 sm:py-16 lg:px-24 lg:py-20 ${activePreset.className} [&_.ProseMirror]:min-h-[832px] [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mb-6 [&_.ProseMirror_h1]:mt-2 [&_.ProseMirror_h1]:text-[2.05rem] [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:tracking-[-0.01em] [&_.ProseMirror_h1]:text-zinc-900 [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-7 [&_.ProseMirror_h2]:text-[1.4rem] [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:text-zinc-900 [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:text-[1.15rem] [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:text-zinc-900 [&_.ProseMirror_p]:my-3.5 [&_.ProseMirror_p]:whitespace-pre-wrap [&_.ProseMirror_p]:leading-[1.75] [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_strong]:text-zinc-900 [&_.ProseMirror_em]:text-zinc-700 [&_.ProseMirror_a]:text-emerald-700 [&_.ProseMirror_a]:underline [&_.ProseMirror_a]:underline-offset-2 [&_.ProseMirror_table]:my-7 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:overflow-hidden [&_.ProseMirror_table]:rounded-xl [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-zinc-200 [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:shadow-[0_1px_2px_rgba(15,23,42,0.04)] [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-zinc-200 [&_.ProseMirror_td]:px-4 [&_.ProseMirror_td]:py-3 [&_.ProseMirror_td]:align-top [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-zinc-200 [&_.ProseMirror_th]:bg-zinc-50 [&_.ProseMirror_th]:px-4 [&_.ProseMirror_th]:py-3 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_th]:text-zinc-700 [&_.ProseMirror_tr:nth-child(even)_td]:bg-zinc-50/40 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-8 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-8 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_blockquote]:my-5 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-zinc-200 [&_.ProseMirror_blockquote]:bg-zinc-50/60 [&_.ProseMirror_blockquote]:px-4 [&_.ProseMirror_blockquote]:py-2 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-zinc-600 [&_.ProseMirror_hr]:my-8 [&_.ProseMirror_hr]:border-zinc-200 [&_.sa-annotation]:rounded-[0.35rem] [&_.sa-annotation]:px-0.5 [&_.sa-annotation]:py-[0.08rem] [&_.sa-annotation]:transition-colors [&_.sa-annotation-risk]:bg-red-100/90 [&_.sa-annotation-risk]:text-red-950 [&_.sa-annotation-improvement]:bg-amber-100/90 [&_.sa-annotation-improvement]:text-amber-950 [&_.sa-annotation-applied]:bg-emerald-100 [&_.sa-annotation-applied]:text-emerald-950 [&_.sa-annotation-active]:ring-2 [&_.sa-annotation-active]:ring-offset-1 [&_.sa-annotation-risk.sa-annotation-active]:ring-red-300 [&_.sa-annotation-improvement.sa-annotation-active]:ring-amber-300 [&_.sa-page-break]:relative [&_.sa-page-break]:my-10 [&_.sa-page-break]:flex [&_.sa-page-break]:select-none [&_.sa-page-break]:items-center [&_.sa-page-break]:justify-center [&_.sa-page-break]:before:absolute [&_.sa-page-break]:before:inset-x-0 [&_.sa-page-break]:before:top-1/2 [&_.sa-page-break]:before:h-px [&_.sa-page-break]:before:bg-zinc-200 [&_.sa-page-break]:before:content-[''] [&_.sa-page-break-label]:relative [&_.sa-page-break-label]:rounded-full [&_.sa-page-break-label]:border [&_.sa-page-break-label]:border-zinc-200 [&_.sa-page-break-label]:bg-white [&_.sa-page-break-label]:px-3 [&_.sa-page-break-label]:py-1 [&_.sa-page-break-label]:text-[11px] [&_.sa-page-break-label]:font-semibold [&_.sa-page-break-label]:uppercase [&_.sa-page-break-label]:tracking-[0.18em] [&_.sa-page-break-label]:text-zinc-500 [&_.sa-page-break-label]:shadow-[0_1px_3px_rgba(15,23,42,0.06)]`}
               >
                 {editor ? <EditorContent editor={editor} /> : null}
               </div>

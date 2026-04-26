@@ -27,6 +27,7 @@ class DocumentAdvancedEditorResult(BaseModel):
     annotations: list[DocumentAnnotationItem]
     rich_content: dict[str, Any] | None = None
     source_format: str | None = None
+    page_breaks: list[int] = []
 
 
 class DocumentAnalyzerResult(BaseModel):

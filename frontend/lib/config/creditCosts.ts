@@ -1,5 +1,5 @@
 export const CREDIT_COSTS: Record<string, number> = {
-  "document-analyzer": 80,
+  "document-analyzer": 180,
   "data-extractor": 160,
   "handwriting-recognition": 40,
   "legal-text-simplifier": 50,

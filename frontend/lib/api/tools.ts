@@ -42,6 +42,7 @@ export type DocumentAnalyzerRunResponse = {
       full_text: string;
       rich_content?: Record<string, unknown> | null;
       source_format?: string | null;
+      page_breaks?: number[];
       annotations: Array<{
         id: string;
         type: "risk" | "improvement";
@@ -70,6 +71,7 @@ export type DocumentAnalyzerPrepareResponse = {
     full_text: string;
     rich_content?: Record<string, unknown> | null;
     source_format?: string | null;
+    page_breaks?: number[];
     annotations: Array<{
       id: string;
       type: "risk" | "improvement";
