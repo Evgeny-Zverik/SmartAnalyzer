@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Fraunces, IBM_Plex_Sans } from "next/font/google";
 import { ArrowRight, CheckCircle2, Clock3, Sparkles, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { tools } from "@/lib/config/tools";
+import { HomeToolsGrid } from "@/components/marketing/HomeToolsGrid";
 
 const displayFont = Fraunces({
   subsets: ["latin"],
@@ -156,55 +156,7 @@ export default function HomePage() {
               Все инструменты
             </Button>
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {tools.map((tool, index) => (
-              <article
-                key={tool.slug}
-                className="home-fade-up rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_46px_rgba(15,23,42,0.12)]"
-                style={{ animationDelay: `${0.08 + index * 0.06}s` }}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 [font-family:var(--font-home-body)]">
-                    {tool.category}
-                  </div>
-                  {(
-                    tool.slug === "legal-document-design-review" ||
-                    tool.slug === "legal-style-translator" ||
-                    tool.slug === "foreign-language-translator" ||
-                    tool.slug === "legal-text-simplifier" ||
-                    tool.slug === "spelling-checker"
-                  ) && (
-                    <div className="inline-flex rounded-full border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-100 [font-family:var(--font-home-body)]">
-                      Безлимит
-                    </div>
-                  )}
-                </div>
-                <h3 className="mt-4 text-xl leading-tight text-zinc-900 [font-family:var(--font-home-display)]">
-                  {tool.title}
-                </h3>
-                <p className="mt-2 min-h-16 text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
-                  {tool.description}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {tool.mvp.accepts.slice(0, 3).map((format) => (
-                    <span
-                      key={`${tool.slug}-${format}`}
-                      className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700 [font-family:var(--font-home-body)]"
-                    >
-                      {format}
-                    </span>
-                  ))}
-                </div>
-                <Link
-                  href={`/tools/${tool.slug}`}
-                  className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900 transition hover:text-emerald-700 [font-family:var(--font-home-body)]"
-                >
-                  Открыть инструмент
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </article>
-            ))}
-          </div>
+          <HomeToolsGrid />
         </div>
       </section>
 

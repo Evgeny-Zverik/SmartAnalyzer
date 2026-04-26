@@ -901,6 +901,7 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
                 { title: "Форматы", value: tool.mvp.accepts.join(" / ").toUpperCase() },
                 { title: "Обезличивание", value: "Имена, контакты, реквизиты" },
                 { title: "Шифрование", value: "AES-GCM при передаче и хранении" },
+                { title: "Стоимость", value: `${toolCreditCost} кр / запуск` },
               ]}
               costHint={darkCostHint}
             />

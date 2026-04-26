@@ -119,7 +119,7 @@ export function SecureUploadHero({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 [font-family:var(--font-doc-body)]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [font-family:var(--font-doc-body)]">
             {infoCards.map((item) => (
               <div key={item.title} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{item.title}</p>

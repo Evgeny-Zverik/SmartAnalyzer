@@ -614,11 +614,12 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 После загрузки файл подготавливается для AI-анализа: подключаются плагины, активируется аннотация рисков
                 и становится доступно повторное редактирование с экспортом.
               </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3 [font-family:var(--font-doc-body)]">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [font-family:var(--font-doc-body)]">
                 {[
                   ["Форматы", accepts.join(" / ").toUpperCase()],
                   ["Плагины", "Риски, улучшения, подсветка"],
                   ["Выгрузка", "TXT, PDF, DOCX"],
+                  ["Стоимость", `${getFallbackCreditCost("document-analyzer")} кр / запуск`],
                 ].map(([title, value]) => (
                   <div key={title} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{title}</p>
