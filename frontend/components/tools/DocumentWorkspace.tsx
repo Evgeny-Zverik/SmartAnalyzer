@@ -6,6 +6,7 @@ import { ChevronDown, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { CreditCostHint } from "@/components/billing/CreditCostHint";
+import { InsufficientCreditsAlert } from "@/components/billing/InsufficientCreditsAlert";
 import {
   downloadDocumentFile,
 } from "@/lib/utils/downloadDocumentFile";
@@ -58,6 +59,17 @@ const bodyFont = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
 });
 
+function extractCreditError(parsed: {
+  error: string;
+  details: unknown;
+}): { required: number | null; balance: number | null } | null {
+  if (parsed.error !== "INSUFFICIENT_CREDITS") return null;
+  const details = (parsed.details ?? {}) as Record<string, unknown>;
+  const required = typeof details.required_credits === "number" ? details.required_credits : null;
+  const balance = typeof details.credit_balance === "number" ? details.credit_balance : null;
+  return { required, balance };
+}
+
 function findingToAnnotation(finding: PluginFinding, pluginId: string): AdvancedAnnotation | null {
   const range = finding.anchor?.text_range;
   if (!range) return null;
@@ -93,6 +105,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
   const [store, dispatch] = useReducer(pluginStoreReducer, undefined, createInitialPluginStore);
   const [state, setState] = useState<"idle" | "preparing" | "ready" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState<{
+    required: number | null;
+    balance: number | null;
+  } | null>(null);
   const [runningPluginId, setRunningPluginId] = useState<string | null>(null);
   const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
@@ -187,7 +203,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       } catch (error) {
         const parsed = parseApiError(error);
         dispatch({ type: "set_status", pluginId, status: "failed" });
-        setErrorMessage(parsed.message || "Plugin run failed.");
+        const credit = extractCreditError(parsed);
+        if (credit) {
+          setCreditError(credit);
+          setErrorMessage(null);
+        } else {
+          setErrorMessage(parsed.message || "Plugin run failed.");
+        }
         if (isUnauthorized(error)) {
           logout();
           requestReauth({ reason: "workspace_plugin" });
@@ -236,7 +258,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         for (const id of pluginIds) {
           dispatch({ type: "set_status", pluginId: id, status: "failed" });
         }
-        setErrorMessage(parsed.message || "Plugin batch run failed.");
+        const credit = extractCreditError(parsed);
+        if (credit) {
+          setCreditError(credit);
+          setErrorMessage(null);
+        } else {
+          setErrorMessage(parsed.message || "Plugin batch run failed.");
+        }
         if (isUnauthorized(error)) {
           logout();
           requestReauth({ reason: "workspace_batch" });
@@ -276,6 +304,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     analysisAbortRef.current = controller;
     setState("preparing");
     setErrorMessage(null);
+    setCreditError(null);
 
     const optimisticCost = orderedItems
       .filter((item) => item.enabled && item.state !== "locked")
@@ -306,7 +335,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     } catch (error) {
       if (controller.signal.aborted) return;
       const parsed = parseApiError(error);
-      setErrorMessage(parsed.message || "Cannot run analysis.");
+      const credit = extractCreditError(parsed);
+      if (credit) {
+        setCreditError(credit);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage(parsed.message || "Cannot run analysis.");
+      }
       setState("error");
       if (isUnauthorized(error)) {
         logout();
@@ -441,6 +476,14 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}>
+      {creditError ? (
+        <InsufficientCreditsAlert
+          required={creditError.required}
+          balance={creditError.balance}
+          toolName="Анализатор документов"
+          onDismiss={() => setCreditError(null)}
+        />
+      ) : null}
       {errorMessage ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
           {errorMessage}
