@@ -330,12 +330,7 @@ export function Header() {
               </div>
             )}
           </div>
-          {!authReady ? (
-            <div
-              aria-hidden="true"
-              className="h-12 w-[360px] rounded-2xl opacity-0 pointer-events-none"
-            />
-          ) : loggedIn ? (
+          {authReady && loggedIn ? (
             <>
               <div
                 className={`group/balance flex items-center gap-1 rounded-full border p-1 pl-3 transition duration-500 ${
