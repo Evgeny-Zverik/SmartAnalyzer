@@ -23,6 +23,7 @@ import { logout as authLogout, me } from "@/lib/api/auth";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
 import { getToken, onAuthChange } from "@/lib/auth/token";
 import { tools } from "@/lib/config/tools";
+import { getEnabledToolSlugs } from "@/lib/features/toolFeatureGate";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
   FileSearch,
@@ -46,6 +47,29 @@ export function Header() {
   const avatarMenuRef = useRef<HTMLDivElement | null>(null);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const toolsCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [enabledToolSlugs, setEnabledToolSlugs] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setEnabledToolSlugs(null);
+      return;
+    }
+    let cancelled = false;
+    getEnabledToolSlugs(tools.map((tool) => tool.slug))
+      .then((enabled) => {
+        if (!cancelled) setEnabledToolSlugs(enabled);
+      })
+      .catch(() => {
+        if (!cancelled) setEnabledToolSlugs(new Set(tools.map((tool) => tool.slug)));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn]);
+
+  const visibleTools = enabledToolSlugs
+    ? tools.filter((tool) => enabledToolSlugs.has(tool.slug))
+    : tools;
 
   function openToolsMenu() {
     if (toolsCloseTimerRef.current) {
@@ -211,7 +235,7 @@ export function Header() {
                 <span className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45 border-l border-t border-stone-200 bg-white" />
 
                 <div className="grid gap-1.5 sm:grid-cols-2">
-                  {tools.map((tool) => {
+                  {visibleTools.map((tool) => {
                     const Icon = TOOL_ICONS[tool.icon] ?? FileSearch;
                     return (
                       <Link

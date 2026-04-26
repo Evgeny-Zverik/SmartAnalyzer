@@ -14,24 +14,6 @@ import {
 import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
 import { saveFeatureModulesCache } from "@/lib/features/toolFeatureGate";
 
-function ExampleSnippet({ value }: { value: string }) {
-  return (
-    <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-800 bg-[linear-gradient(160deg,#020617,#0b1220)] shadow-[0_14px_30px_rgba(2,6,23,0.36)]">
-      <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-400/90" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/90" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/90" />
-        </div>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Сценарий</span>
-      </div>
-      <pre className="overflow-x-auto px-3 py-3 text-[12px] leading-6 text-emerald-100">
-        <code>{value}</code>
-      </pre>
-    </div>
-  );
-}
-
 const FEATURE_TAB_LABELS: Record<string, string> = {
   document_analyzer: "Плагины Анализатора документов",
   handwriting_recognition: "Распознавание рукописных документов",
@@ -53,7 +35,6 @@ export function FeatureModulesPanel() {
   const [activeFeatureKey, setActiveFeatureKey] = useState<string>("document_analyzer");
   const [loading, setLoading] = useState(true);
   const [featureModules, setFeatureModules] = useState<FeatureModuleState[]>([]);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -177,53 +158,80 @@ export function FeatureModulesPanel() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white/90 p-2 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          {parentFeatures.map((feature) => (
-            <button
-              key={feature.key}
-              type="button"
-              onClick={() => setActiveFeatureKey(feature.key)}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                activeFeatureKey === feature.key
-                  ? "bg-zinc-900 text-white shadow-[0_10px_30px_rgba(24,24,27,0.2)]"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-              }`}
-            >
-              {featureLabel(feature)}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {parentFeatures.length === 0 && (
         <p className="rounded-3xl border border-zinc-200 bg-white/95 px-5 py-10 text-center text-sm text-zinc-500 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
           Фича-модули не найдены.
         </p>
       )}
 
-      {selectedParentFeature && (
+      {parentFeatures.length > 0 && (
+      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="rounded-2xl border border-zinc-200 bg-white/90 p-2 shadow-sm lg:sticky lg:top-4 lg:self-start">
+          <nav className="flex flex-col gap-1">
+            {parentFeatures.map((feature) => {
+              const isActive = activeFeatureKey === feature.key;
+              const itemLocked = !feature.available_for_plan;
+              const itemPending = togglingKey === feature.key;
+              return (
+                <div
+                  key={feature.key}
+                  className={`flex items-center gap-2 rounded-xl pl-3 pr-2 py-1.5 text-sm font-medium transition ${
+                    isActive
+                      ? "bg-zinc-900 text-white shadow-[0_10px_30px_rgba(24,24,27,0.2)]"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveFeatureKey(feature.key)}
+                    className="flex-1 truncate text-left"
+                  >
+                    {featureLabel(feature)}
+                  </button>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={feature.effective_enabled}
+                    aria-label={`Toggle ${feature.name}`}
+                    disabled={itemLocked || itemPending}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleFeatureToggle(feature.key, !feature.user_enabled);
+                    }}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+                      itemLocked || itemPending
+                        ? "cursor-not-allowed bg-zinc-300"
+                        : feature.effective_enabled
+                          ? "bg-emerald-500"
+                          : isActive
+                            ? "bg-zinc-600"
+                            : "bg-zinc-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                        feature.effective_enabled ? "translate-x-[18px]" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {selectedParentFeature && (
         <div className="space-y-3">
           {(() => {
             const feature = selectedParentFeature;
             const children = featureModules.filter((item) => item.parent_key === feature.key);
-            const isOpen = expandedKeys.has(feature.key);
             const isLocked = !feature.available_for_plan;
             const isPending = togglingKey === feature.key;
-            const toggleExpand = () =>
-              setExpandedKeys((prev) => {
-                const next = new Set(prev);
-                if (next.has(feature.key)) next.delete(feature.key);
-                else next.add(feature.key);
-                return next;
-              });
 
             return (
               <div
                 key={feature.key}
-                className={`group relative overflow-hidden rounded-3xl border bg-white shadow-[0_14px_50px_rgba(15,23,42,0.07)] transition ${
-                  isOpen ? "border-zinc-300 ring-1 ring-zinc-200" : "border-zinc-200"
-                }`}
+                className="group relative overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_14px_50px_rgba(15,23,42,0.07)] transition"
               >
                 <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-emerald-200/25 blur-2xl opacity-70 transition group-hover:opacity-100" />
                 <div className="relative flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-start">
@@ -238,7 +246,6 @@ export function FeatureModulesPanel() {
                       )}
                     </div>
                     <p className="mt-2 text-sm leading-6 text-zinc-600">{feature.description}</p>
-                    <ExampleSnippet value={feature.example} />
                   </div>
                   <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
                     <button
@@ -262,28 +269,10 @@ export function FeatureModulesPanel() {
                         }`}
                       />
                     </button>
-                    {children.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={toggleExpand}
-                        className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 transition hover:bg-zinc-100"
-                      >
-                        Модули
-                        <svg
-                          className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    )}
                   </div>
                 </div>
 
-                {isOpen && children.length > 0 && (
+                {children.length > 0 && (
                   <div className="border-t border-zinc-100 bg-zinc-50/70 px-5 py-5">
                     <div className="mb-4 rounded-xl border border-zinc-200 bg-white px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
@@ -320,7 +309,6 @@ export function FeatureModulesPanel() {
                                   )}
                                 </div>
                                 <p className="mt-1 text-xs text-zinc-500">{module.description}</p>
-                                <ExampleSnippet value={module.example} />
                                 {inheritedOff && (
                                   <p className="mt-2 text-xs text-amber-600">
                                     Выключен родительским модулем.
@@ -364,6 +352,8 @@ export function FeatureModulesPanel() {
             );
           })()}
         </div>
+        )}
+      </div>
       )}
     </section>
   );

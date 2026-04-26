@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Ban, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -87,12 +87,33 @@ function formatRelative(iso: string | null): string {
 
 type Tab = "users" | "features" | "revenue";
 
+const VALID_TABS: Tab[] = ["users", "features", "revenue"];
+
 export default function AdminPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = (() => {
+    const t = searchParams?.get("tab");
+    return t && (VALID_TABS as string[]).includes(t) ? (t as Tab) : "users";
+  })();
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("users");
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (activeTab === "users") {
+      if (url.searchParams.has("tab")) {
+        url.searchParams.delete("tab");
+        window.history.replaceState({}, "", url.pathname + (url.search ? `?${url.searchParams.toString()}` : "") + url.hash);
+      }
+    } else if (url.searchParams.get("tab") !== activeTab) {
+      url.searchParams.set("tab", activeTab);
+      window.history.replaceState({}, "", url.pathname + `?${url.searchParams.toString()}` + url.hash);
+    }
+  }, [activeTab]);
 
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
