@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Ban, ShieldCheck, ShieldOff, Trash2, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
+import { FeatureModulesPanel } from "@/components/admin/FeatureModulesPanel";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
@@ -235,7 +236,7 @@ export default function AdminPage() {
 
   const tabs: { key: Tab; label: string; disabled?: boolean }[] = [
     { key: "users", label: "Пользователи" },
-    { key: "features", label: "Фича-модули", disabled: true },
+    { key: "features", label: "Фича-модули" },
     { key: "revenue", label: "Доходы", disabled: true },
   ];
 
@@ -612,6 +613,8 @@ export default function AdminPage() {
             )}
           </section>
         )}
+
+        {activeTab === "features" && <FeatureModulesPanel />}
       </div>
 
       {deleteTarget && (

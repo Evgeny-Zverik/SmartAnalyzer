@@ -90,9 +90,6 @@ export function Header() {
               <Link href="/dashboard" className={navClass("/dashboard")}>
                 Кабинет
               </Link>
-              <Link href="/settings" className={navClass("/settings")}>
-                Настройки
-              </Link>
               {isAdmin && (
                 <Link href="/admin" className={navClass("/admin")}>
                   Админ
