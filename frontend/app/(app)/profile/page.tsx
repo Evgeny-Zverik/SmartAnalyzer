@@ -14,7 +14,6 @@ import {
   LogOut,
   Mail,
   Plus,
-  Settings,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -427,16 +426,6 @@ export default function ProfilePage() {
                 <LayoutDashboard className="h-4 w-4" />
               </span>
               <span className="flex-1">Кабинет</span>
-              <ArrowRight className="h-4 w-4 text-stone-400 transition group-hover/item:translate-x-0.5 group-hover/item:text-stone-700" />
-            </Link>
-            <Link
-              href="/settings"
-              className="group/item flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:border-stone-200 hover:bg-stone-50 hover:text-stone-950"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600 ring-1 ring-sky-100 transition group-hover/item:bg-sky-100">
-                <Settings className="h-4 w-4" />
-              </span>
-              <span className="flex-1">Настройки</span>
               <ArrowRight className="h-4 w-4 text-stone-400 transition group-hover/item:translate-x-0.5 group-hover/item:text-stone-700" />
             </Link>
             <button
