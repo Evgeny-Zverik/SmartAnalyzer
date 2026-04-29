@@ -93,47 +93,49 @@ export function Header() {
   }
 
   useEffect(() => {
-    const token = getToken();
-    setLoggedIn(!!token);
-    setAuthReady(true);
-    if (token) {
-      me()
-        .then((u) => {
-          const email = u.email.trim();
-          setUserEmail(email);
-          setCreditBalance(u.credit_balance);
-          notifyCreditsChanged(u.credit_balance);
-          setIsAdmin(email.toLowerCase() === ADMIN_EMAIL);
-        })
-        .catch(() => {
-          setUserEmail("");
-          setCreditBalance(null);
-          setIsAdmin(false);
-        });
+    let cancelled = false;
+
+    function clearAuthState() {
+      setLoggedIn(false);
+      setUserEmail("");
+      setCreditBalance(null);
+      setAvatarMenuOpen(false);
+      setIsAdmin(false);
     }
-    return onAuthChange(() => {
-      const t = getToken();
-      setLoggedIn(!!t);
-      if (!t) {
-        setUserEmail("");
-        setCreditBalance(null);
-        setAvatarMenuOpen(false);
-        setIsAdmin(false);
+
+    function applyAuthenticatedUser(u: Awaited<ReturnType<typeof me>>) {
+      const email = u.email.trim();
+      setLoggedIn(true);
+      setUserEmail(email);
+      setCreditBalance(u.credit_balance);
+      notifyCreditsChanged(u.credit_balance);
+      setIsAdmin(email.toLowerCase() === ADMIN_EMAIL);
+    }
+
+    async function refreshAuthState() {
+      const token = getToken();
+      if (!token) {
+        clearAuthState();
+        setAuthReady(true);
         return;
       }
-      me()
-        .then((u) => {
-          const email = u.email.trim();
-          setUserEmail(email);
-          setCreditBalance(u.credit_balance);
-          notifyCreditsChanged(u.credit_balance);
-          setIsAdmin(email.toLowerCase() === ADMIN_EMAIL);
-        })
-        .catch(() => {
-          setUserEmail("");
-          setCreditBalance(null);
-          setIsAdmin(false);
-        });
+
+      try {
+        const u = await me();
+        if (cancelled) return;
+        applyAuthenticatedUser(u);
+      } catch {
+        if (cancelled) return;
+        authLogout();
+        clearAuthState();
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    }
+
+    void refreshAuthState();
+    return onAuthChange(() => {
+      void refreshAuthState();
     });
   }, []);
 

@@ -53,10 +53,10 @@ export default function LoginPage() {
       <div className="rounded-3xl border border-zinc-200/80 bg-white/85 p-7 shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur sm:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] text-zinc-900">
-            С возвращением
+            Вход в аккаунт
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Войдите, чтобы продолжить работу с документами.
+            Введите email и пароль или создайте новый аккаунт.
           </p>
         </div>
 
