@@ -329,7 +329,15 @@ export function Header() {
               </div>
             )}
           </div>
-          {authReady && loggedIn ? (
+          {!authReady ? (
+            <div
+              aria-hidden="true"
+              className="flex items-center gap-2 px-1"
+            >
+              <span className="h-9 w-28 animate-pulse rounded-full bg-white/70 shadow-sm" />
+              <span className="h-9 w-11 animate-pulse rounded-2xl bg-white/70 shadow-sm" />
+            </div>
+          ) : loggedIn ? (
             <>
               <div
                 className={`group/balance flex items-center gap-1 rounded-full border p-1 pl-3 transition duration-500 ${
