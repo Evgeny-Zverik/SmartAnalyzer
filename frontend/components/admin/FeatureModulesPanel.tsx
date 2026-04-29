@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/settings";
 import { clearDocumentAnalyzerEncryptionCache } from "@/lib/features/documentAnalyzerEncryption";
 import { saveFeatureModulesCache } from "@/lib/features/toolFeatureGate";
+import { AdminPanelSkeleton } from "@/components/ui/Skeleton";
 
 const FEATURE_TAB_LABELS: Record<string, string> = {
   document_analyzer: "Плагины Анализатора документов",
@@ -87,11 +88,7 @@ export function FeatureModulesPanel() {
   }
 
   if (loading) {
-    return (
-      <section className="mt-6 rounded-3xl border border-zinc-200 bg-white/95 px-5 py-10 text-center text-sm text-zinc-500 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
-        Загрузка фича-модулей…
-      </section>
-    );
+    return <AdminPanelSkeleton rows={7} />;
   }
 
   return (

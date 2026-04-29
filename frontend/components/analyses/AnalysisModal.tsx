@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { AnalysisRenderer } from "@/components/analyses/AnalysisRenderer";
 import { getAnalysis, type AnalysisDetail } from "@/lib/api/analyses";
 import { downloadJson } from "@/lib/utils/downloadJson";
@@ -65,7 +66,15 @@ export function AnalysisModal({ analysisId, onClose }: AnalysisModalProps) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          {loading && <p className="text-gray-500">Загрузка…</p>}
+          {loading && (
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-2/5" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-11/12" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          )}
           {error && <p className="text-red-600">{error}</p>}
           {detail && !loading && (
             <>

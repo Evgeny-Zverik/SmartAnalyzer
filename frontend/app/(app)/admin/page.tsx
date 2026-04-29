@@ -9,6 +9,7 @@ import { FeatureModulesPanel } from "@/components/admin/FeatureModulesPanel";
 import { RevenueDashboard } from "@/components/admin/RevenueDashboard";
 import { VouchersPanel } from "@/components/admin/VouchersPanel";
 import { VoucherRedemptionsPanel } from "@/components/admin/VoucherRedemptionsPanel";
+import { AppShellSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { me, logout as authLogout, type User } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
 import { buildLoginRedirectHref } from "@/lib/auth/redirect";
@@ -195,11 +196,7 @@ export default function AdminPage() {
   }, [user, activeTab, page, pageSize, debouncedSearch, sortKey]);
 
   if (checking) {
-    return (
-      <main className="flex min-h-[calc(100vh-104px)] items-center justify-center bg-gray-50 p-8">
-        <p className="text-gray-500">Загрузка…</p>
-      </main>
-    );
+    return <AppShellSkeleton variant="admin" />;
   }
 
   if (forbidden) {
@@ -366,7 +363,11 @@ export default function AdminPage() {
             </div>
 
             {usersLoading ? (
-              <p className="px-5 py-10 text-center text-sm text-zinc-500">Загрузка…</p>
+              <div className="space-y-3 px-5 py-5">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-20 w-full rounded-2xl" />
+                ))}
+              </div>
             ) : filteredUsers.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-zinc-500">
                 Пользователи не найдены

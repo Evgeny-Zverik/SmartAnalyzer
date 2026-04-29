@@ -20,6 +20,7 @@ import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout } from "@/lib/api/auth";
 import { requestReauth } from "@/lib/auth/session";
 import { getAdminRevenue, type RevenueDashboard as RevenueData } from "@/lib/api/admin";
+import { AdminPanelSkeleton } from "@/components/ui/Skeleton";
 
 const PERIOD_OPTIONS: { value: number; label: string }[] = [
   { value: 7, label: "7 дн" },
@@ -198,11 +199,7 @@ export function RevenueDashboard() {
   }, [data]);
 
   if (loading && !data) {
-    return (
-      <section className="mt-6 rounded-3xl border border-zinc-200 bg-white/95 px-5 py-10 text-center text-sm text-zinc-500 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
-        Загрузка финансовых данных…
-      </section>
-    );
+    return <AdminPanelSkeleton rows={6} />;
   }
 
   if (!data) {

@@ -10,6 +10,7 @@ import { CreateFolderDialog } from "@/components/dashboard/CreateFolderDialog";
 import { RenameFolderDialog } from "@/components/dashboard/RenameFolderDialog";
 import { DeleteFolderConfirm } from "@/components/dashboard/DeleteFolderConfirm";
 import { AnalysisModal } from "@/components/analyses/AnalysisModal";
+import { AppShellSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { getToken } from "@/lib/auth/token";
 import { isUnauthorized } from "@/lib/api/errors";
 import { logout as authLogout, me, type User } from "@/lib/api/auth";
@@ -181,11 +182,7 @@ export default function DashboardPage() {
   }
 
   if (checking) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 p-8">
-        <p className="text-gray-500">Загрузка…</p>
-      </main>
-    );
+    return <AppShellSkeleton variant="files" />;
   }
 
   if (!user) return null;
@@ -298,7 +295,11 @@ export default function DashboardPage() {
               </div>
             )}
             {contentLoading ? (
-              <p className="py-12 text-center text-zinc-500">Загрузка…</p>
+              <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-14 w-full rounded-2xl" />
+                ))}
+              </div>
             ) : selectedFolderId == null ? (
               <div className="rounded-2xl border border-zinc-200 bg-white py-14 text-center text-zinc-500">
                 Выберите папку в списке слева

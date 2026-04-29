@@ -12,7 +12,6 @@ import {
   FileWarning,
   FolderOpen,
   Gauge,
-  Loader2,
   Plus,
   Scale,
   Sparkles,
@@ -28,6 +27,7 @@ import { requestReauth } from "@/lib/auth/session";
 import { getDashboardSummary, type DashboardSummary } from "@/lib/api/dashboard";
 import { AnalysisModal } from "@/components/analyses/AnalysisModal";
 import { RedeemVoucherModal } from "@/components/billing/RedeemVoucherModal";
+import { AppShellSkeleton } from "@/components/ui/Skeleton";
 
 const TOOL_LABELS: Record<string, string> = {
   "document-analyzer": "Анализатор документов",
@@ -178,11 +178,7 @@ export default function DashboardPage() {
   );
 
   if (loading) {
-    return (
-      <main className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
-      </main>
-    );
+    return <AppShellSkeleton variant="dashboard" />;
   }
 
   if (!user || !summary) return null;

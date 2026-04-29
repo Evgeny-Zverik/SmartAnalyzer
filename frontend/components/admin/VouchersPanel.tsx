@@ -10,6 +10,7 @@ import {
   type Voucher,
 } from "@/lib/api/vouchers";
 import { parseApiError } from "@/lib/api/errors";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -95,7 +96,11 @@ export function VouchersPanel() {
       </div>
 
       {loading ? (
-        <p className="px-5 py-10 text-center text-sm text-zinc-500">Загрузка…</p>
+        <div className="space-y-3 px-5 py-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full rounded-2xl" />
+          ))}
+        </div>
       ) : !items || items.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-zinc-500">
           Ваучеров пока нет
