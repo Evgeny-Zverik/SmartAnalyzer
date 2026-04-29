@@ -10,6 +10,7 @@ export function ToolsPageClient() {
 
   useEffect(() => {
     let cancelled = false;
+    setEnabledToolSlugs(new Set());
     getEnabledToolSlugs(tools.map((tool) => tool.slug))
       .then((enabled) => {
         if (!cancelled) {
@@ -18,7 +19,7 @@ export function ToolsPageClient() {
       })
       .catch(() => {
         if (!cancelled) {
-          setEnabledToolSlugs(new Set(tools.map((tool) => tool.slug)));
+          setEnabledToolSlugs(new Set());
         }
       });
     return () => {
@@ -30,7 +31,7 @@ export function ToolsPageClient() {
     () =>
       enabledToolSlugs
         ? tools.filter((tool) => enabledToolSlugs.has(tool.slug))
-        : tools.filter((tool) => tool.slug !== "handwriting-recognition"),
+        : [],
     [enabledToolSlugs]
   );
 

@@ -26,17 +26,14 @@ export function HomeToolsGrid() {
   }, []);
 
   useEffect(() => {
-    if (!authed) {
-      setEnabledSlugs(null);
-      return;
-    }
     let cancelled = false;
+    setEnabledSlugs(new Set());
     getEnabledToolSlugs(tools.map((t) => t.slug))
       .then((set) => {
         if (!cancelled) setEnabledSlugs(set);
       })
       .catch(() => {
-        if (!cancelled) setEnabledSlugs(null);
+        if (!cancelled) setEnabledSlugs(new Set());
       });
     return () => {
       cancelled = true;
@@ -44,7 +41,7 @@ export function HomeToolsGrid() {
   }, [authed]);
 
   const visible: Tool[] = useMemo(() => {
-    if (!enabledSlugs) return tools;
+    if (!enabledSlugs) return [];
     return tools.filter((t) => enabledSlugs.has(t.slug));
   }, [enabledSlugs]);
 

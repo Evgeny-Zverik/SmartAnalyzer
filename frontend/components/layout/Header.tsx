@@ -58,17 +58,14 @@ export function Header() {
   const [enabledToolSlugs, setEnabledToolSlugs] = useState<Set<string> | null>(null);
 
   useEffect(() => {
-    if (!loggedIn) {
-      setEnabledToolSlugs(null);
-      return;
-    }
     let cancelled = false;
+    setEnabledToolSlugs(new Set());
     getEnabledToolSlugs(tools.map((tool) => tool.slug))
       .then((enabled) => {
         if (!cancelled) setEnabledToolSlugs(enabled);
       })
       .catch(() => {
-        if (!cancelled) setEnabledToolSlugs(new Set(tools.map((tool) => tool.slug)));
+        if (!cancelled) setEnabledToolSlugs(new Set());
       });
     return () => {
       cancelled = true;
