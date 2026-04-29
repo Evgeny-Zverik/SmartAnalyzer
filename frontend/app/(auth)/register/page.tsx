@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Loader2, UserPlus } from "lucide-react";
 import { Alert } from "@/components/ui/Alert";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { parseApiError } from "@/lib/api/errors";
 import { register } from "@/lib/api/auth";
+import { getSafeReturnTo } from "@/lib/auth/redirect";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,6 +34,7 @@ function passwordStrength(pw: string): Strength {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState("");
@@ -45,7 +47,8 @@ export default function RegisterPage() {
   const showEmailError = emailTouched && email.length > 0 && !emailValid;
   const strength = useMemo(() => passwordStrength(password), [password]);
   const passwordsMatch = password === confirmPassword;
-  const showMismatch = confirmTouched && confirmPassword.length > 0 && !passwordsMatch;
+  const showMismatch =
+    confirmTouched && confirmPassword.length > 0 && !passwordsMatch;
   const canSubmit =
     emailValid && password.length >= 8 && passwordsMatch && !loading;
 
@@ -56,7 +59,9 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(email.trim(), password);
-      router.push("/dashboard");
+      router.push(
+        getSafeReturnTo(searchParams.get("returnTo")) ?? "/dashboard",
+      );
       router.refresh();
     } catch (err) {
       const parsed = parseApiError(err);

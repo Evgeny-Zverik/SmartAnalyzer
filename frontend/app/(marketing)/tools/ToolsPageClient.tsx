@@ -5,8 +5,14 @@ import { tools } from "@/lib/config/tools";
 import { ToolCard } from "@/components/tools/ToolCard";
 import { getEnabledToolSlugs } from "@/lib/features/toolFeatureGate";
 
+const categoryFilters = ["Все", "Документы", "Риски", "Данные"] as const;
+
 export function ToolsPageClient() {
-  const [enabledToolSlugs, setEnabledToolSlugs] = useState<Set<string> | null>(null);
+  const [enabledToolSlugs, setEnabledToolSlugs] = useState<Set<string> | null>(
+    null,
+  );
+  const [activeFilter, setActiveFilter] =
+    useState<(typeof categoryFilters)[number]>("Все");
 
   useEffect(() => {
     let cancelled = false;
@@ -32,31 +38,83 @@ export function ToolsPageClient() {
       enabledToolSlugs
         ? tools.filter((tool) => enabledToolSlugs.has(tool.slug))
         : [],
-    [enabledToolSlugs]
+    [enabledToolSlugs],
+  );
+  const filteredTools = useMemo(
+    () =>
+      activeFilter === "Все"
+        ? visibleTools
+        : visibleTools.filter((tool) => {
+            if (activeFilter === "Документы")
+              return tool.category === "Documents";
+            if (activeFilter === "Риски") return tool.category === "Risk";
+            return tool.category === "Data";
+          }),
+    [activeFilter, visibleTools],
   );
 
   return (
-    <section className="mt-10">
+    <section id="tool-catalog" className="mt-10 scroll-mt-28">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-stone-600">
-          Доступно инструментов: <span className="font-semibold text-stone-900">{visibleTools.length}</span>
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {["Документы", "Риски", "Данные"].map((item) => (
-            <span
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+            Каталог
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
+            Выберите инструмент под текущую задачу
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            Доступно инструментов:{" "}
+            <span className="font-semibold text-stone-900">
+              {filteredTools.length}
+            </span>
+          </p>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Фильтр инструментов"
+        >
+          {categoryFilters.map((item) => (
+            <button
               key={item}
-              className="inline-flex items-center rounded-full border border-stone-300 bg-white/80 px-3 py-1 text-xs font-medium text-stone-600"
+              type="button"
+              onClick={() => setActiveFilter(item)}
+              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                activeFilter === item
+                  ? "border-stone-900 bg-stone-900 text-white"
+                  : "border-stone-300 bg-white/80 text-stone-600 hover:bg-white hover:text-stone-900"
+              }`}
             >
               {item}
-            </span>
+            </button>
           ))}
         </div>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {visibleTools.map((tool) => (
+        {filteredTools.map((tool) => (
           <ToolCard key={tool.slug} tool={tool} />
         ))}
+      </div>
+
+      <div className="mt-10 rounded-[30px] border border-stone-900/80 bg-stone-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] sm:p-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
+              Не знаете, с чего начать?
+            </p>
+            <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight tracking-[-0.04em]">
+              Начните с анализа договора: он покажет риски, сроки и спорные
+              пункты.
+            </h2>
+          </div>
+          <a
+            href="/tools/document-analyzer"
+            className="inline-flex items-center justify-center rounded-full bg-emerald-400 px-6 py-3 text-sm font-bold text-stone-950 hover:bg-emerald-300"
+          >
+            Проверить договор
+          </a>
+        </div>
       </div>
     </section>
   );

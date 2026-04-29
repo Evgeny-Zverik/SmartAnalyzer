@@ -24,10 +24,22 @@ import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
 import { purchaseCredits, type CreditPackage } from "@/lib/api/billing";
 
 const costExamples = [
-  ["AI-вопрос по документу", "30-60+", "Короткие уточнения, поиск пунктов и объяснения"],
+  [
+    "AI-вопрос по документу",
+    "30-60+",
+    "Короткие уточнения, поиск пунктов и объяснения",
+  ],
   ["OCR и рукопись", "40+", "Распознавание сканов, фото и PDF-страниц"],
-  ["Анализ договора", "80-160+", "Риски, стороны, даты, обязательства и выводы"],
-  ["Сравнение документов", "160+", "Разница версий, новые риски и удалённые условия"],
+  [
+    "Анализ договора",
+    "80-160+",
+    "Риски, стороны, даты, обязательства и выводы",
+  ],
+  [
+    "Сравнение документов",
+    "160+",
+    "Разница версий, новые риски и удалённые условия",
+  ],
 ];
 
 const trustItems = [
@@ -48,6 +60,29 @@ const trustItems = [
   },
 ];
 
+const paymentFaq = [
+  {
+    question: "Нужна ли карта для бесплатного старта?",
+    answer:
+      "Нет. Можно зарегистрироваться, получить стартовые кредиты и проверить формат отчета без карты.",
+  },
+  {
+    question: "Кредиты точно не сгорают?",
+    answer:
+      "Да. Купленный пакет остается на балансе и списывается только при запуске AI-операций.",
+  },
+  {
+    question: "Почему итоговое списание может отличаться?",
+    answer:
+      "На стоимость влияет размер документа, OCR, сравнение версий и объем ответа модели. Перед запуском показывается минимальная оценка.",
+  },
+  {
+    question: "Можно оплатить от юридического лица?",
+    answer:
+      "Для командного и корпоративного объема используйте Enterprise: баланс отдела, закрывающие документы, лимиты сотрудников и SLA.",
+  },
+];
+
 const balanceEvents: Array<{
   title: string;
   amount: string;
@@ -60,12 +95,17 @@ const balanceEvents: Array<{
 
 export default function PricingPage() {
   const [usage, setUsage] = useState<UsageStatus | null>(null);
+  const [hasToken, setHasToken] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseDone, setPurchaseDone] = useState(false);
 
   useEffect(() => {
-    if (getToken()) {
-      getUsageStatus().then(setUsage).catch(() => setUsage(null));
+    const token = getToken();
+    setHasToken(Boolean(token));
+    if (token) {
+      getUsageStatus()
+        .then(setUsage)
+        .catch(() => setUsage(null));
     }
   }, []);
 
@@ -96,26 +136,37 @@ export default function PricingPage() {
                 Пакеты
               </a>
               <a
-                href="#credit-details"
+                href="#credit-spend"
                 className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100 hover:text-stone-900"
               >
                 <CreditCard className="h-4 w-4" />
                 Списания
               </a>
+              {hasToken && (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                >
+                  <History className="h-4 w-4" />
+                  История
+                </Link>
+              )}
+            </nav>
+            {hasToken ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
               >
-                <History className="h-4 w-4" />
-                История
+                Открыть кабинет
               </Link>
-            </nav>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
-            >
-              Открыть кабинет
-            </Link>
+            ) : (
+              <a
+                href="#credit-packages"
+                className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+              >
+                Купить кредиты
+              </a>
+            )}
           </div>
 
           <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
@@ -128,8 +179,9 @@ export default function PricingPage() {
                 Платите за анализ, а не за календарь.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-stone-600">
-                Пополняйте баланс кредитов и тратьте его только на реальные действия:
-                OCR, анализ, сравнение документов и AI-вопросы. Кредиты не сгорают.
+                Пополняйте баланс кредитов и тратьте его только на реальные
+                действия: OCR, анализ, сравнение документов и AI-вопросы.
+                Кредиты не сгорают.
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -141,7 +193,7 @@ export default function PricingPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
                 <a
-                  href="#credit-details"
+                  href="#credit-spend"
                   className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white/80 px-6 py-3 text-sm font-bold text-stone-800 hover:bg-white"
                 >
                   Посмотреть списания
@@ -154,9 +206,16 @@ export default function PricingPage() {
                   ["100", "кредитов для старта"],
                   ["∞", "срок действия пакета"],
                 ].map(([value, label]) => (
-                  <div key={label} className="rounded-2xl border border-stone-200 bg-white/76 p-4 shadow-sm">
-                    <p className="text-2xl font-bold tracking-[-0.04em] text-stone-950">{value}</p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">{label}</p>
+                  <div
+                    key={label}
+                    className="rounded-2xl border border-stone-200 bg-white/76 p-4 shadow-sm"
+                  >
+                    <p className="text-2xl font-bold tracking-[-0.04em] text-stone-950">
+                      {value}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">
+                      {label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -166,10 +225,16 @@ export default function PricingPage() {
               <div className="rounded-[34px] border border-stone-900/10 bg-[#111827] p-5 text-white shadow-[0_28px_84px_rgba(15,23,42,0.28)]">
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div>
-                    <p className="text-sm font-semibold text-slate-400">Текущий баланс</p>
+                    <p className="text-sm font-semibold text-slate-400">
+                      Текущий баланс
+                    </p>
                     <p className="mt-1 text-4xl font-bold tracking-[-0.05em]">
-                      {usage ? usage.credit_balance.toLocaleString("ru-RU") : "—"}
-                      <span className="ml-2 text-base text-emerald-300">кредитов</span>
+                      {usage
+                        ? usage.credit_balance.toLocaleString("ru-RU")
+                        : "—"}
+                      <span className="ml-2 text-base text-emerald-300">
+                        кредитов
+                      </span>
                     </p>
                   </div>
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-300/10 text-emerald-200">
@@ -179,14 +244,21 @@ export default function PricingPage() {
 
                 <div className="mt-5 space-y-3">
                   {balanceEvents.map(({ title, amount, icon: Icon }) => (
-                    <div key={title} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <div
+                      key={title}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-emerald-200">
                           <Icon className="h-5 w-5" />
                         </span>
-                        <p className="text-sm font-semibold text-slate-100">{title}</p>
+                        <p className="text-sm font-semibold text-slate-100">
+                          {title}
+                        </p>
                       </div>
-                      <p className={`text-sm font-bold ${String(amount).startsWith("+") ? "text-emerald-300" : "text-slate-300"}`}>
+                      <p
+                        className={`text-sm font-bold ${String(amount).startsWith("+") ? "text-emerald-300" : "text-slate-300"}`}
+                      >
                         {amount}
                       </p>
                     </div>
@@ -194,9 +266,12 @@ export default function PricingPage() {
                 </div>
 
                 <div className="mt-5 rounded-2xl bg-[linear-gradient(135deg,#ecfdf5,#dff7ea)] p-4 text-stone-950">
-                  <p className="text-sm font-bold">Перед запуском видно примерное списание</p>
+                  <p className="text-sm font-bold">
+                    Перед запуском видно примерное списание
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-stone-600">
-                    Пользователь видит минимальную стоимость до анализа и итоговое списание после результата.
+                    Пользователь видит минимальную стоимость до анализа и
+                    итоговое списание после результата.
                   </p>
                 </div>
               </div>
@@ -223,26 +298,71 @@ export default function PricingPage() {
           />
         </div>
 
-        <section id="credit-details" className="mt-10 scroll-mt-28">
+        <section id="credit-spend" className="mt-10 scroll-mt-28">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">Примеры списаний</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+                Примеры списаний
+              </p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
                 Пользователь заранее понимает расход.
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-stone-600">
-              Точные значения зависят от размера документа и ответа модели. Для больших файлов итоговое списание может вырасти по фактическим токенам.
+              Точные значения зависят от размера документа и ответа модели. Для
+              больших файлов итоговое списание может вырасти по фактическим
+              токенам.
             </p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {costExamples.map(([title, credits, text]) => (
-              <div key={title} className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)]">
+              <div
+                key={title}
+                className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)]"
+              >
                 <p className="text-sm font-bold text-stone-950">{title}</p>
-                <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-emerald-700">{credits}</p>
-                <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-stone-400">кредитов</p>
+                <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-emerald-700">
+                  {credits}
+                </p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-stone-400">
+                  кредитов
+                </p>
                 <p className="mt-4 text-sm leading-6 text-stone-600">{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-[30px] border border-stone-200 bg-white/88 p-5 shadow-[0_14px_44px_rgba(15,23,42,0.06)] sm:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+                Вопросы по оплате
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
+                Что важно знать перед покупкой.
+              </h2>
+            </div>
+            <a
+              href="#credit-packages"
+              className="inline-flex items-center justify-center rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-stone-800"
+            >
+              Выбрать пакет
+            </a>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {paymentFaq.map((item) => (
+              <div
+                key={item.question}
+                className="rounded-2xl border border-stone-200 bg-stone-50/80 p-5"
+              >
+                <h3 className="text-lg font-bold tracking-[-0.02em] text-stone-950">
+                  {item.question}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-stone-600">
+                  {item.answer}
+                </p>
               </div>
             ))}
           </div>
@@ -250,11 +370,16 @@ export default function PricingPage() {
 
         <section className="mt-10 grid gap-4 lg:grid-cols-3">
           {trustItems.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-[24px] border border-stone-200 bg-white/86 p-5 shadow-[0_14px_44px_rgba(15,23,42,0.06)]">
+            <div
+              key={title}
+              className="rounded-[24px] border border-stone-200 bg-white/86 p-5 shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
+            >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
                 <Icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-4 text-lg font-bold tracking-[-0.02em] text-stone-950">{title}</h3>
+              <h3 className="mt-4 text-lg font-bold tracking-[-0.02em] text-stone-950">
+                {title}
+              </h3>
               <p className="mt-2 text-sm leading-6 text-stone-600">{text}</p>
             </div>
           ))}
@@ -263,7 +388,9 @@ export default function PricingPage() {
         <section className="mt-10 rounded-[30px] border border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.94),rgba(255,255,255,0.96))] p-5 shadow-[0_14px_44px_rgba(16,185,129,0.08)] sm:p-6">
           <div className="grid gap-4 md:grid-cols-[0.9fr_1.1fr] md:items-center">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">Безопасность данных</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+                Безопасность данных
+              </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
                 Для документов, где важна конфиденциальность.
               </h2>
@@ -273,13 +400,18 @@ export default function PricingPage() {
                 <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
                   <UserRound className="h-5 w-5" />
                 </div>
-                <p>В модель передаются только предварительно обезличенные данные.</p>
+                <p>
+                  В модель передаются только предварительно обезличенные данные.
+                </p>
               </div>
               <div className="rounded-2xl border border-emerald-200 bg-white/82 px-4 py-3 text-sm leading-7 text-stone-700">
                 <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <p>Чувствительные payload-данные можно хранить и передавать в зашифрованном контуре.</p>
+                <p>
+                  Чувствительные payload-данные можно хранить и передавать в
+                  зашифрованном контуре.
+                </p>
               </div>
             </div>
           </div>
@@ -288,7 +420,7 @@ export default function PricingPage() {
         <section className="mt-10 rounded-[30px] bg-stone-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] sm:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
                 <Clock3 className="h-3.5 w-3.5" />
                 без обязательств
               </div>
