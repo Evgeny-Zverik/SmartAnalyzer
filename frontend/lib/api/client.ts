@@ -13,7 +13,7 @@ export function getApiBaseURL(): string {
   const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
 
   if (!configuredBaseURL) {
-    return window.location.origin;
+    return isLocalHost ? "http://localhost:8000" : window.location.origin;
   }
 
   try {
