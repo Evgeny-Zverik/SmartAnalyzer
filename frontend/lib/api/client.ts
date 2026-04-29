@@ -1,27 +1,29 @@
 import { getToken } from "@/lib/auth/token";
 
 const configuredBaseURL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) ||
-  "http://localhost:8000";
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "")) ||
+  "";
 
-function getBaseURL(): string {
+export function getApiBaseURL(): string {
   if (typeof window === "undefined") {
-    return configuredBaseURL;
+    return configuredBaseURL || "http://localhost:8000";
   }
 
   const currentHost = window.location.hostname;
   const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
+
+  if (!configuredBaseURL) {
+    return window.location.origin;
+  }
 
   try {
     const url = new URL(configuredBaseURL);
     const apiHost = url.hostname;
     const apiIsLocalHost = apiHost === "localhost" || apiHost === "127.0.0.1";
 
-    // If the app is opened from another device, "localhost" must point to the machine
-    // serving the frontend, not to the client device itself.
+    // In production, a localhost build-time fallback must not leak into the browser.
     if (!isLocalHost && apiIsLocalHost) {
-      url.hostname = currentHost;
-      return url.toString().replace(/\/$/, "");
+      return window.location.origin;
     }
 
     return configuredBaseURL;
@@ -39,7 +41,7 @@ export async function apiFetch<T = unknown>(
   options: ApiFetchOptions = {}
 ): Promise<T> {
   const { params, ...init } = options;
-  const baseURL = getBaseURL();
+  const baseURL = getApiBaseURL();
   const url = new URL(path.startsWith("http") ? path : `${baseURL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));

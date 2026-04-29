@@ -1,34 +1,7 @@
-import { apiFetch, ApiError } from "@/lib/api/client";
+import { apiFetch, ApiError, getApiBaseURL } from "@/lib/api/client";
 import { getToken } from "@/lib/auth/token";
 
 const MOCK_DELAY_MS = 1500;
-const configuredBaseURL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) ||
-  "http://localhost:8000";
-
-function getBaseURL(): string {
-  if (typeof window === "undefined") {
-    return configuredBaseURL;
-  }
-
-  const currentHost = window.location.hostname;
-  const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
-
-  try {
-    const url = new URL(configuredBaseURL);
-    const apiHost = url.hostname;
-    const apiIsLocalHost = apiHost === "localhost" || apiHost === "127.0.0.1";
-
-    if (!isLocalHost && apiIsLocalHost) {
-      url.hostname = currentHost;
-      return url.toString().replace(/\/$/, "");
-    }
-
-    return configuredBaseURL;
-  } catch {
-    return configuredBaseURL;
-  }
-}
 
 export type DocumentAnalyzerRunResponse = {
   analysis_id: number;
@@ -383,7 +356,7 @@ export async function streamDocumentAnalyzer(
   editedDocument: EditedDocumentRequest | null | undefined,
   onEvent: (event: DocumentAnalyzerStreamEvent) => void
 ): Promise<void> {
-  const url = new URL(`${getBaseURL()}/api/v1/tools/document-analyzer/stream`);
+  const url = new URL(`${getApiBaseURL()}/api/v1/tools/document-analyzer/stream`);
   const headers = new Headers({ "Content-Type": "application/json" });
   const token = getToken();
   if (token) {

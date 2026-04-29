@@ -3,6 +3,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+COMPOSE=(docker compose -f "$COMPOSE_FILE")
+
 echo "==> git pull"
 BEFORE=$(git rev-parse HEAD)
 git pull --ff-only
@@ -25,47 +28,48 @@ need_caddy_reload=false
 
 while IFS= read -r f; do
   case "$f" in
-    backend/Dockerfile|backend/pyproject.toml)
+    backend/alembic/versions/*)
+      need_build_backend=true
+      need_migrate=true ;;
+    backend/*|backend/**)
       need_build_backend=true ;;
-    frontend/Dockerfile|frontend/package.json|frontend/pnpm-lock.yaml)
+    frontend/*|frontend/**)
       need_build_frontend=true ;;
-    docker-compose.yml)
+    docker-compose.yml|docker-compose.prod.yml)
       need_compose_up=true ;;
     Caddyfile)
       need_caddy_reload=true ;;
-    backend/alembic/versions/*)
-      need_migrate=true ;;
   esac
 done <<< "$CHANGED"
 
 if $need_build_backend; then
   echo "==> rebuild backend"
-  docker compose build backend
+  "${COMPOSE[@]}" build backend
   need_compose_up=true
 fi
 
 if $need_build_frontend; then
   echo "==> rebuild frontend"
-  docker compose build frontend
+  "${COMPOSE[@]}" build frontend
   need_compose_up=true
 fi
 
 if $need_compose_up; then
   echo "==> compose up -d"
-  docker compose up -d
+  "${COMPOSE[@]}" up -d
 fi
 
 if $need_caddy_reload; then
   echo "==> reload caddy"
-  docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+  "${COMPOSE[@]}" exec caddy caddy reload --config /etc/caddy/Caddyfile
 fi
 
 if $need_migrate; then
   echo "==> alembic upgrade head"
-  docker compose exec backend alembic upgrade head
+  "${COMPOSE[@]}" exec backend alembic upgrade head
 fi
 
 echo "==> status"
-docker compose ps
+"${COMPOSE[@]}" ps
 echo
 echo "Deploy done: $BEFORE -> $AFTER"

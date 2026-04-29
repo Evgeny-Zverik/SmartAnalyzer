@@ -82,7 +82,9 @@ Backend prod:
 - DATABASE_URL=postgresql+psycopg2://...@postgres:5432/...
 
 Frontend prod:
-- NEXT_PUBLIC_API_BASE_URL=https://<domain>/api
+- NEXT_PUBLIC_API_BASE_URL=https://<domain>
+
+Если frontend и backend доступны на одном домене через reverse proxy, переменную можно не задавать: браузерный клиент будет использовать текущий origin и ходить в `/api/v1/...`.
 
 ---
 

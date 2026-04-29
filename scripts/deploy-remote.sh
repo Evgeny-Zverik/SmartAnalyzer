@@ -109,7 +109,7 @@ fi
 printf "%b==>%b Running deploy on server\n" "$BLUE" "$RESET"
 if [ "$REMOTE_SHA" = "$LOCAL_SHA" ] && [ "$ENV_CHANGED" = "1" ]; then
   # Env-only change: just recreate containers to pick up new env
-  ssh -t "$SERVER" "cd $REMOTE_PATH && docker compose up -d --force-recreate"
+  ssh -t "$SERVER" "cd $REMOTE_PATH && docker compose -f docker-compose.prod.yml up -d --force-recreate"
 else
   ssh -t "$SERVER" "cd $REMOTE_PATH && ./scripts/deploy.sh"
 fi

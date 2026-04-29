@@ -65,6 +65,16 @@ docker compose up --build
 - **Health:** http://localhost:8000/health  
 - В `docker compose` для разработки включён auto-reload: изменения в `backend/` и `frontend/` должны подхватываться без ручного рестарта контейнеров.
 
+### Production через Docker
+
+Для продакшена используйте отдельный compose-файл:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+Он запускает frontend через `next build` + `next start`, backend без `--reload` и не монтирует исходники приложения внутрь контейнеров. Скрипты `scripts/deploy.sh` и `scripts/deploy-remote.sh` по умолчанию используют этот production compose.
+
 ### Локально без Docker
 
 **Frontend:**
