@@ -1,23 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { IBM_Plex_Sans, PT_Serif } from "next/font/google";
-import { ChevronDown, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Clock3,
+  LockKeyhole,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { CreditCostHint } from "@/components/billing/CreditCostHint";
 import { InsufficientCreditsModal } from "@/components/billing/InsufficientCreditsAlert";
-import {
-  downloadDocumentFile,
-} from "@/lib/utils/downloadDocumentFile";
+import { downloadDocumentFile } from "@/lib/utils/downloadDocumentFile";
 import { UploadDropzone } from "@/components/tools/UploadDropzone";
-import { AdvancedAiEditor, type AdvancedAnnotation } from "@/components/tools/AdvancedAiEditor";
+import {
+  AdvancedAiEditor,
+  type AdvancedAnnotation,
+} from "@/components/tools/AdvancedAiEditor";
 import { PluginToolbar } from "@/components/plugins/PluginToolbar";
 import { PluginPanels } from "@/components/plugins/PluginPanels";
 import { uploadDocument } from "@/lib/api/documents";
-import { prepareDocumentAnalyzer, type EditedDocumentRequest } from "@/lib/api/tools";
+import {
+  prepareDocumentAnalyzer,
+  type EditedDocumentRequest,
+} from "@/lib/api/tools";
 import { getUsageStatus, type UsageStatus } from "@/lib/api/usage";
-import { getLatestCreditBalance, notifyCreditsChanged } from "@/lib/billing/creditBus";
+import {
+  getLatestCreditBalance,
+  notifyCreditsChanged,
+} from "@/lib/billing/creditBus";
 import { isUnauthorized, parseApiError } from "@/lib/api/errors";
 import { logout } from "@/lib/api/auth";
 import { getToken } from "@/lib/auth/token";
@@ -33,8 +56,15 @@ import {
   toggleDocumentWorkspacePlugin,
   type PluginAvailabilityItem,
 } from "@/lib/plugins/api";
-import { createInitialPluginStore, pluginStoreReducer } from "@/lib/plugins/store";
-import type { PluginAction, PluginFinding, WorkspacePluginItem } from "@/lib/plugins/types";
+import {
+  createInitialPluginStore,
+  pluginStoreReducer,
+} from "@/lib/plugins/store";
+import type {
+  PluginAction,
+  PluginFinding,
+  WorkspacePluginItem,
+} from "@/lib/plugins/types";
 
 type DocumentWorkspaceProps = {
   accepts: string[];
@@ -46,6 +76,37 @@ const ANONYMIZATION_TOOLTIP =
   "Перед обработкой мы обезличиваем чувствительные данные: имена, контакты, реквизиты и другие идентификаторы скрываются или заменяются нейтральными значениями.";
 const PRIMARY_ANALYZE_BUTTON_CLASS =
   "w-full min-w-0 rounded-xl bg-[linear-gradient(135deg,#10b981,#14b8a6)] text-white shadow-[0_16px_44px_rgba(20,184,166,0.5)] ring-1 ring-white/35 transition hover:brightness-110 focus:ring-emerald-200 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]";
+const DOCUMENT_ANALYZER_FINDINGS = [
+  {
+    title: "Штраф без верхнего лимита",
+    text: "Пункт 7.4: 0,5% за каждый день просрочки. Стоит ограничить максимум ответственности.",
+    icon: AlertTriangle,
+  },
+  {
+    title: "Короткий срок уведомления",
+    text: "Пункт 5.2: контрагента нужно предупредить всего за 3 рабочих дня.",
+    icon: Clock3,
+  },
+  {
+    title: "Односторонняя смена оплаты",
+    text: "Пункт 9.1 позволяет менять порядок оплаты без отдельного согласования.",
+    icon: ShieldCheck,
+  },
+];
+const DOCUMENT_ANALYZER_FAQ = [
+  [
+    "Что будет в отчете?",
+    "Резюме, ключевые условия, риски, сроки, штрафы и спорные формулировки с привязкой к пунктам.",
+  ],
+  [
+    "Можно загрузить конфиденциальный договор?",
+    "Перед анализом можно обезличить чувствительные данные, а диалоги защищаются AES-GCM шифрованием.",
+  ],
+  [
+    "Сколько стоит запуск?",
+    `${getFallbackCreditCost("document-analyzer")} кредитов за запуск. Итоговая стоимость показывается до анализа и зависит от выбранных проверок.`,
+  ],
+];
 
 const displayFont = PT_Serif({
   subsets: ["latin", "cyrillic"],
@@ -65,12 +126,19 @@ function extractCreditError(parsed: {
 }): { required: number | null; balance: number | null } | null {
   if (parsed.error !== "INSUFFICIENT_CREDITS") return null;
   const details = (parsed.details ?? {}) as Record<string, unknown>;
-  const required = typeof details.required_credits === "number" ? details.required_credits : null;
-  const balance = typeof details.credit_balance === "number" ? details.credit_balance : null;
+  const required =
+    typeof details.required_credits === "number"
+      ? details.required_credits
+      : null;
+  const balance =
+    typeof details.credit_balance === "number" ? details.credit_balance : null;
   return { required, balance };
 }
 
-function findingToAnnotation(finding: PluginFinding, pluginId: string): AdvancedAnnotation | null {
+function findingToAnnotation(
+  finding: PluginFinding,
+  pluginId: string,
+): AdvancedAnnotation | null {
   const range = finding.anchor?.text_range;
   if (!range) return null;
   const annotationType = pluginId === "risk_analyzer" ? "risk" : "improvement";
@@ -81,7 +149,8 @@ function findingToAnnotation(finding: PluginFinding, pluginId: string): Advanced
     severity:
       finding.severity === "critical"
         ? "high"
-        : (finding.severity as "low" | "medium" | "high" | undefined) ?? "medium",
+        : ((finding.severity as "low" | "medium" | "high" | undefined) ??
+          "medium"),
     start_offset: range.start,
     end_offset: range.end,
     exact_quote: finding.quote ?? "",
@@ -102,15 +171,22 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
     page_breaks?: number[];
     annotations: AdvancedAnnotation[];
   } | null>(null);
-  const [store, dispatch] = useReducer(pluginStoreReducer, undefined, createInitialPluginStore);
-  const [state, setState] = useState<"idle" | "preparing" | "ready" | "error">("idle");
+  const [store, dispatch] = useReducer(
+    pluginStoreReducer,
+    undefined,
+    createInitialPluginStore,
+  );
+  const [state, setState] = useState<"idle" | "preparing" | "ready" | "error">(
+    "idle",
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [creditError, setCreditError] = useState<{
     required: number | null;
     balance: number | null;
   } | null>(null);
   const [runningPluginId, setRunningPluginId] = useState<string | null>(null);
-  const [editedDocument, setEditedDocument] = useState<EditedDocumentRequest | null>(null);
+  const [editedDocument, setEditedDocument] =
+    useState<EditedDocumentRequest | null>(null);
   const [hasEditorChanges, setHasEditorChanges] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
@@ -155,6 +231,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
 
   // Fetch available plugins on mount (before document upload)
   useEffect(() => {
+    if (!getToken()) return;
     listPlugins()
       .then((available) => {
         const staticItems: WorkspacePluginItem[] = available.map((p) => ({
@@ -171,19 +248,22 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       .catch(() => {});
   }, []);
 
-  const hydratePlugins = useCallback(async (docId: number) => {
-    const items = await getDocumentWorkspacePlugins(docId);
-    // Merge pre-upload toggle choices into workspace items
-    const mergedItems = items.map((item) => {
-      const preUploadEnabled = store.enabled_by_plugin[item.manifest.id];
-      if (preUploadEnabled !== undefined) {
-        return { ...item, enabled: preUploadEnabled };
-      }
-      return item;
-    });
-    dispatch({ type: "hydrate", items: mergedItems });
-    return mergedItems;
-  }, [store.enabled_by_plugin]);
+  const hydratePlugins = useCallback(
+    async (docId: number) => {
+      const items = await getDocumentWorkspacePlugins(docId);
+      // Merge pre-upload toggle choices into workspace items
+      const mergedItems = items.map((item) => {
+        const preUploadEnabled = store.enabled_by_plugin[item.manifest.id];
+        if (preUploadEnabled !== undefined) {
+          return { ...item, enabled: preUploadEnabled };
+        }
+        return item;
+      });
+      dispatch({ type: "hydrate", items: mergedItems });
+      return mergedItems;
+    },
+    [store.enabled_by_plugin],
+  );
 
   const handlePluginRun = useCallback(
     async (pluginId: string) => {
@@ -191,9 +271,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       setRunningPluginId(pluginId);
       dispatch({ type: "set_status", pluginId, status: "running" });
       try {
-        const response = await runDocumentWorkspacePlugin(documentId, pluginId, {
-          editedDocument: hasEditorChanges ? editedDocument : null,
-        });
+        const response = await runDocumentWorkspacePlugin(
+          documentId,
+          pluginId,
+          {
+            editedDocument: hasEditorChanges ? editedDocument : null,
+          },
+        );
         dispatch({
           type: "set_result",
           pluginId,
@@ -206,7 +290,9 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         const credit = extractCreditError(parsed);
         if (credit) {
           setCreditError({
-            required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+            required:
+              Math.max(credit.required ?? 0, enabledPluginCost) ||
+              credit.required,
             balance: credit.balance,
           });
           setErrorMessage(null);
@@ -221,17 +307,21 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [documentId, hasEditorChanges, editedDocument, router]
+    [documentId, hasEditorChanges, editedDocument, router],
   );
 
   const autoRunEnabledPlugins = useCallback(
-    async (items: WorkspacePluginItem[], docId: number, signal?: AbortSignal) => {
+    async (
+      items: WorkspacePluginItem[],
+      docId: number,
+      signal?: AbortSignal,
+    ) => {
       const runnable = items.filter(
         (item) =>
           item.enabled &&
           item.state !== "locked" &&
           item.state !== "completed" &&
-          item.state !== "running"
+          item.state !== "running",
       );
       if (runnable.length === 0) return;
 
@@ -252,7 +342,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
             type: "set_result",
             pluginId: item.plugin_id,
             result: item.result ?? null,
-            status: (item.state as WorkspacePluginItem["state"]),
+            status: item.state as WorkspacePluginItem["state"],
           });
         }
       } catch (error) {
@@ -264,7 +354,9 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         const credit = extractCreditError(parsed);
         if (credit) {
           setCreditError({
-            required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+            required:
+              Math.max(credit.required ?? 0, enabledPluginCost) ||
+              credit.required,
             balance: credit.balance,
           });
           setErrorMessage(null);
@@ -279,29 +371,32 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setRunningPluginId(null);
       }
     },
-    [hasEditorChanges, editedDocument, router]
+    [hasEditorChanges, editedDocument, router],
   );
 
-  const handleUploadDocument = useCallback(async (fileToUpload: File) => {
-    setState("preparing");
-    setErrorMessage(null);
-    try {
-      const uploadRes = await uploadDocument(fileToUpload);
-      setDocumentId(uploadRes.document_id);
-      const prepared = await prepareDocumentAnalyzer(uploadRes.document_id);
-      setEditorData(prepared.advanced_editor);
-      await hydratePlugins(uploadRes.document_id);
-      setState("idle");
-    } catch (error) {
-      const parsed = parseApiError(error);
-      setErrorMessage(parsed.message || "Cannot upload document.");
-      setState("error");
-      if (isUnauthorized(error)) {
-        logout();
-        requestReauth({ reason: "workspace_upload" });
+  const handleUploadDocument = useCallback(
+    async (fileToUpload: File) => {
+      setState("preparing");
+      setErrorMessage(null);
+      try {
+        const uploadRes = await uploadDocument(fileToUpload);
+        setDocumentId(uploadRes.document_id);
+        const prepared = await prepareDocumentAnalyzer(uploadRes.document_id);
+        setEditorData(prepared.advanced_editor);
+        await hydratePlugins(uploadRes.document_id);
+        setState("idle");
+      } catch (error) {
+        const parsed = parseApiError(error);
+        setErrorMessage(parsed.message || "Cannot upload document.");
+        setState("error");
+        if (isUnauthorized(error)) {
+          logout();
+          requestReauth({ reason: "workspace_upload" });
+        }
       }
-    }
-  }, [hydratePlugins, router]);
+    },
+    [hydratePlugins, router],
+  );
 
   const handleRunAnalysis = useCallback(async () => {
     if (!documentId) return;
@@ -316,8 +411,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       .filter((item) => item.enabled && item.state !== "locked")
       .reduce(
         (sum, item) =>
-          sum + (usage?.credit_costs?.[item.manifest.id] ?? getFallbackCreditCost(item.manifest.id)),
-        0
+          sum +
+          (usage?.credit_costs?.[item.manifest.id] ??
+            getFallbackCreditCost(item.manifest.id)),
+        0,
       );
     const baselineBalance = usage?.credit_balance ?? getLatestCreditBalance();
     if (baselineBalance != null && optimisticCost > 0) {
@@ -344,7 +441,9 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       const credit = extractCreditError(parsed);
       if (credit) {
         setCreditError({
-          required: Math.max(credit.required ?? 0, enabledPluginCost) || credit.required,
+          required:
+            Math.max(credit.required ?? 0, enabledPluginCost) ||
+            credit.required,
           balance: credit.balance,
         });
         setErrorMessage(null);
@@ -374,7 +473,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         setErrorMessage(parsed.message || "Cannot toggle plugin.");
       }
     },
-    [documentId]
+    [documentId],
   );
 
   const orderedItems = useMemo(
@@ -383,28 +482,43 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         ...item,
         enabled: store.enabled_by_plugin[item.manifest.id] ?? item.enabled,
         state: store.status_by_plugin[item.manifest.id] ?? item.state,
-        latest_result: store.result_by_plugin[item.manifest.id] ?? item.latest_result ?? null,
-        visible_overlay: store.visible_overlay_by_plugin[item.manifest.id] ?? item.visible_overlay,
+        latest_result:
+          store.result_by_plugin[item.manifest.id] ??
+          item.latest_result ??
+          null,
+        visible_overlay:
+          store.visible_overlay_by_plugin[item.manifest.id] ??
+          item.visible_overlay,
       })),
-    [store]
+    [store],
   );
 
-  const selectedPlugin = orderedItems.find((item) => item.manifest.id === store.selected_plugin_id) ?? orderedItems[0];
-  const selectedResult = selectedPlugin ? store.result_by_plugin[selectedPlugin.manifest.id] ?? selectedPlugin.latest_result ?? null : null;
+  const selectedPlugin =
+    orderedItems.find(
+      (item) => item.manifest.id === store.selected_plugin_id,
+    ) ?? orderedItems[0];
+  const selectedResult = selectedPlugin
+    ? (store.result_by_plugin[selectedPlugin.manifest.id] ??
+      selectedPlugin.latest_result ??
+      null)
+    : null;
   const selectedFinding =
-    selectedResult?.findings.find((finding) => finding.id === store.active_finding_id) ??
+    selectedResult?.findings.find(
+      (finding) => finding.id === store.active_finding_id,
+    ) ??
     selectedResult?.findings[0] ??
     null;
   const toolbarActions = orderedItems.flatMap((item) =>
     item.enabled && store.result_by_plugin[item.manifest.id]?.actions
-      ? store.result_by_plugin[item.manifest.id]?.actions ?? []
-      : []
+      ? (store.result_by_plugin[item.manifest.id]?.actions ?? [])
+      : [],
   );
 
   const annotations = useMemo(() => {
     const mapped: AdvancedAnnotation[] = [];
     orderedItems.forEach((item) => {
-      if (!item.enabled || !store.visible_overlay_by_plugin[item.manifest.id]) return;
+      if (!item.enabled || !store.visible_overlay_by_plugin[item.manifest.id])
+        return;
       const result = store.result_by_plugin[item.manifest.id];
       result?.findings.forEach((finding) => {
         const annotation = findingToAnnotation(finding, item.manifest.id);
@@ -420,17 +534,23 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         .filter((item) => item.enabled && item.state !== "locked")
         .reduce(
           (sum, item) =>
-            sum + (usage?.credit_costs?.[item.manifest.id] ?? getFallbackCreditCost(item.manifest.id)),
-          0
+            sum +
+            (usage?.credit_costs?.[item.manifest.id] ??
+              getFallbackCreditCost(item.manifest.id)),
+          0,
         ),
-    [orderedItems, usage?.credit_costs]
+    [orderedItems, usage?.credit_costs],
   );
   const workspaceCost = enabledPluginCost || null;
-  const costPhase = state === "preparing" ? "running" : state === "ready" ? "success" : "idle";
+  const costPhase =
+    state === "preparing" ? "running" : state === "ready" ? "success" : "idle";
 
   const annotationPluginById = useMemo(
-    () => Object.fromEntries(annotations.map((annotation) => [annotation.id, annotation.plugin_id])),
-    [annotations]
+    () =>
+      Object.fromEntries(
+        annotations.map((annotation) => [annotation.id, annotation.plugin_id]),
+      ),
+    [annotations],
   );
   const annotationPluginByIdRef = useRef(annotationPluginById);
   useEffect(() => {
@@ -442,49 +562,59 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       dispatch({
         type: "set_active_finding",
         findingId: annotationId ?? undefined,
-        pluginId: annotationId ? annotationPluginByIdRef.current[annotationId] : undefined,
+        pluginId: annotationId
+          ? annotationPluginByIdRef.current[annotationId]
+          : undefined,
       });
     },
-    []
+    [],
   );
 
-  const handleEditorDocumentChange = useCallback((payload: {
-    full_text: string;
-    rich_content: Record<string, unknown>;
-    source_format: string;
-    is_dirty: boolean;
-  }) => {
-    setEditedDocument({
-      full_text: payload.full_text,
-      rich_content: payload.rich_content,
-      source_format: payload.source_format,
-    });
-    setHasEditorChanges(payload.is_dirty);
-  }, []);
+  const handleEditorDocumentChange = useCallback(
+    (payload: {
+      full_text: string;
+      rich_content: Record<string, unknown>;
+      source_format: string;
+      is_dirty: boolean;
+    }) => {
+      setEditedDocument({
+        full_text: payload.full_text,
+        rich_content: payload.rich_content,
+        source_format: payload.source_format,
+      });
+      setHasEditorChanges(payload.is_dirty);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!editorData) return;
     setEditorData((prev) => (prev ? { ...prev, annotations } : prev));
   }, [annotations, editorData?.full_text]);
 
-  const handleToolbarAction = useCallback((action: PluginAction) => {
-    const pluginId = String(action.payload?.plugin_id || "");
-    if (action.action_type === "toggle_overlay" && pluginId) {
-      dispatch({ type: "toggle_overlay", pluginId });
-      return;
-    }
-    if (action.action_type === "open_panel") {
-      const panelId = String(action.payload?.panel_id || action.id);
-      dispatch({ type: "open_panel", panelId });
-      return;
-    }
-    if (action.action_type === "rerun" && pluginId) {
-      void handlePluginRun(pluginId);
-    }
-  }, [handlePluginRun]);
+  const handleToolbarAction = useCallback(
+    (action: PluginAction) => {
+      const pluginId = String(action.payload?.plugin_id || "");
+      if (action.action_type === "toggle_overlay" && pluginId) {
+        dispatch({ type: "toggle_overlay", pluginId });
+        return;
+      }
+      if (action.action_type === "open_panel") {
+        const panelId = String(action.payload?.panel_id || action.id);
+        dispatch({ type: "open_panel", panelId });
+        return;
+      }
+      if (action.action_type === "rerun" && pluginId) {
+        void handlePluginRun(pluginId);
+      }
+    },
+    [handlePluginRun],
+  );
 
   return (
-    <div className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}>
+    <div
+      className={`${displayFont.variable} ${bodyFont.variable} relative z-0 space-y-6`}
+    >
       <InsufficientCreditsModal
         open={creditError !== null}
         required={creditError?.required ?? null}
@@ -512,11 +642,16 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   Редактор готов к проверке
                 </h2>
                 <p className="mt-2 text-sm text-zinc-300 [font-family:var(--font-doc-body)]">
-                  Запускайте плагины, редактируйте формулировки и выгружайте итоговый документ в нужном формате.
+                  Запускайте плагины, редактируйте формулировки и выгружайте
+                  итоговый документ в нужном формате.
                 </p>
               </div>
               <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-200 [font-family:var(--font-doc-body)]">
-                {state === "ready" ? "Готово" : state === "preparing" ? "Выполняется анализ" : "Черновик"}
+                {state === "ready"
+                  ? "Готово"
+                  : state === "preparing"
+                    ? "Выполняется анализ"
+                    : "Черновик"}
               </div>
             </div>
 
@@ -538,8 +673,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                         type="button"
                         onClick={() => {
                           setDownloadMenuOpen(false);
-                          const text = editedDocument?.full_text ?? editorData.full_text;
-                          void downloadDocumentFile(text, fmt, "document-analyzer");
+                          const text =
+                            editedDocument?.full_text ?? editorData.full_text;
+                          void downloadDocumentFile(
+                            text,
+                            fmt,
+                            "document-analyzer",
+                          );
                         }}
                         className="w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10 [font-family:var(--font-doc-body)]"
                       >
@@ -554,7 +694,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   <Button
                     type="button"
                     onClick={() => {
-                      if (window.confirm("Запустить анализ заново? Текущие результаты будут заменены.")) {
+                      if (
+                        window.confirm(
+                          "Запустить анализ заново? Текущие результаты будут заменены.",
+                        )
+                      ) {
                         handleRunAnalysis();
                       }
                     }}
@@ -572,7 +716,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   <Button
                     type="button"
                     onClick={() => {
-                      if (window.confirm("Открыть новый документ? Текущий анализ будет потерян.")) {
+                      if (
+                        window.confirm(
+                          "Открыть новый документ? Текущий анализ будет потерян.",
+                        )
+                      ) {
                         setFile(null);
                         setState("idle");
                         setDocumentId(null);
@@ -655,7 +803,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               ) : null}
             </div>
           </section>
-          <PluginToolbar actions={toolbarActions} onAction={handleToolbarAction} />
+          <PluginToolbar
+            actions={toolbarActions}
+            onAction={handleToolbarAction}
+          />
           <section className="rounded-[30px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f7f8fa)] p-2 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-3">
             <AdvancedAiEditor
               data={editorData}
@@ -668,63 +819,165 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
           {/* PluginPanels removed */}
         </div>
       ) : (
-        <section className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_90%_4%,rgba(56,189,248,0.2),transparent_34%),linear-gradient(160deg,#0b1019,#131c2c_55%,#192639)] p-5 text-zinc-100 shadow-[0_34px_120px_rgba(2,6,23,0.46)] sm:p-7">
+        <section
+          id="upload"
+          className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_90%_4%,rgba(56,189,248,0.2),transparent_34%),linear-gradient(160deg,#0b1019,#131c2c_55%,#192639)] p-5 text-zinc-100 shadow-[0_34px_120px_rgba(2,6,23,0.46)] sm:p-7"
+        >
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_34%,rgba(255,255,255,0.02)_72%,transparent)]" />
-          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-start">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200 [font-family:var(--font-doc-body)]">
                 <Sparkles className="h-3.5 w-3.5" />
-                Режим загрузки
+                Проверка договора
               </div>
-              <h2 className="mt-4 text-4xl leading-[1.04] tracking-[-0.03em] text-white [font-family:var(--font-doc-display)]">
-                Загрузите документ
-                <br />
-                и откройте AI-редактор
+              <h2 className="mt-4 max-w-3xl text-4xl leading-[1.02] tracking-[-0.03em] text-white [font-family:var(--font-doc-display)] sm:text-5xl lg:text-6xl">
+                Найдите риски, сроки и штрафы до подписания.
               </h2>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base [font-family:var(--font-doc-body)]">
-                После загрузки файл подготавливается для AI-анализа: подключаются плагины, активируется аннотация рисков
-                и становится доступно повторное редактирование с экспортом.
+                Загрузите PDF, DOCX или скан. SmartAnalyzer подготовит отчет с
+                ключевыми условиями, спорными формулировками и ссылками на
+                пункты документа.
               </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [font-family:var(--font-doc-body)]">
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3 [font-family:var(--font-doc-body)]">
                 {[
-                  ["Форматы", accepts.join(" / ").toUpperCase()],
-                  ["Плагины", "Риски, улучшения, подсветка"],
-                  ["Выгрузка", "TXT, PDF, DOCX"],
-                  ["Стоимость", `${getFallbackCreditCost("document-analyzer")} кр / запуск`],
+                  ["2-3 мин", "до первого результата"],
+                  [accepts.join(" / ").toUpperCase(), "без ручной подготовки"],
+                  [
+                    `${getFallbackCreditCost("document-analyzer")} кр`,
+                    "ориентир за запуск",
+                  ],
                 ].map(([title, value]) => (
-                  <div key={title} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-300">{title}</p>
-                    <p className="mt-2 text-sm font-medium text-zinc-100">{value}</p>
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4"
+                  >
+                    <p className="text-lg font-bold tracking-[-0.02em] text-zinc-100">
+                      {title}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                      {value}
+                    </p>
                   </div>
                 ))}
               </div>
+
+              <div className="mt-6 rounded-[28px] border border-white/15 bg-white/10 p-4 [font-family:var(--font-doc-body)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">
+                      Пример отчета
+                    </p>
+                    <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-white">
+                      Договор поставки, 18 страниц
+                    </h3>
+                  </div>
+                  <span className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-200">
+                    Готово
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {DOCUMENT_ANALYZER_FINDINGS.map(
+                    ({ title, text, icon: Icon }) => (
+                      <div
+                        key={title}
+                        className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"
+                      >
+                        <Icon className="h-5 w-5 text-emerald-300" />
+                        <p className="mt-3 text-sm font-bold text-white">
+                          {title}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-400">
+                          {text}
+                        </p>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="rounded-[28px] border border-white/15 bg-white/8 p-4 backdrop-blur sm:p-5">
-              <UploadDropzone
-                acceptedExtensions={accepts}
-                file={file}
-                onFileChange={(nextFile) => {
-                  setFile(nextFile);
-                  setDocumentId(null);
-                  setEditorData(null);
-                  setEditedDocument(null);
-                  setHasEditorChanges(false);
-                  if (nextFile) {
-                    void handleUploadDocument(nextFile);
-                  } else {
-                    setState("idle");
-                  }
-                }}
-                compact
-                showFileCard={false}
-                surface="dark"
-              />
+
+            <aside className="rounded-[28px] border border-white/15 bg-white/8 p-4 backdrop-blur sm:p-5">
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 [font-family:var(--font-doc-body)]">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">
+                    Загрузка
+                  </p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">
+                    Выберите файл договора
+                  </h3>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-emerald-300">
+                  <ScanSearch className="h-6 w-6" />
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[26px] border border-white/10 bg-white/[0.04] p-2">
+                <UploadDropzone
+                  acceptedExtensions={accepts}
+                  file={file}
+                  onFileChange={(nextFile) => {
+                    setFile(nextFile);
+                    setDocumentId(null);
+                    setEditorData(null);
+                    setEditedDocument(null);
+                    setHasEditorChanges(false);
+                    if (nextFile) {
+                      void handleUploadDocument(nextFile);
+                    } else {
+                      setState("idle");
+                    }
+                  }}
+                  compact
+                  showFileCard={false}
+                  surface="dark"
+                />
+              </div>
+
               {state === "preparing" ? (
                 <p className="mt-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200 [font-family:var(--font-doc-body)]">
-                  Подготавливаем документ к анализу…
+                  Подготавливаем документ к анализу...
                 </p>
               ) : null}
-            </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 [font-family:var(--font-doc-body)]">
+                {[
+                  {
+                    title: "Обезличивание",
+                    text: "Имена, контакты, реквизиты",
+                    icon: UserRound,
+                  },
+                  {
+                    title: "Шифрование",
+                    text: "AES-GCM защита диалогов",
+                    icon: LockKeyhole,
+                  },
+                ].map(({ title, text, icon: Icon }) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"
+                  >
+                    <Icon className="h-5 w-5 text-emerald-300" />
+                    <p className="mt-3 text-sm font-bold text-white">{title}</p>
+                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                      {text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </div>
+
+          <div className="relative mt-6 grid gap-3 lg:grid-cols-3 [font-family:var(--font-doc-body)]">
+            {DOCUMENT_ANALYZER_FAQ.map(([question, answer]) => (
+              <div
+                key={question}
+                className="rounded-2xl border border-white/15 bg-white/10 p-4"
+              >
+                <p className="text-sm font-bold text-white">{question}</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">{answer}</p>
+              </div>
+            ))}
           </div>
         </section>
       )}

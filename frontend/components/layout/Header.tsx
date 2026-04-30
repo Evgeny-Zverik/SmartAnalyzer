@@ -271,8 +271,13 @@ export function Header() {
   const isHomeLanding = pathname === "/" && !loggedIn;
   const isPricingLanding = pathname === "/pricing" && !loggedIn;
   const isToolsLanding = pathname === "/tools" && !loggedIn;
+  const isDocumentAnalyzerLanding =
+    pathname === "/tools/document-analyzer" && !loggedIn;
   const isFocusedMarketing =
-    isHomeLanding || isPricingLanding || isToolsLanding;
+    isHomeLanding ||
+    isPricingLanding ||
+    isToolsLanding ||
+    isDocumentAnalyzerLanding;
 
   const avatarHue = (() => {
     const seed = userEmail || "smartanalyzer";
@@ -579,9 +584,11 @@ export function Header() {
                       ? "/tools/document-analyzer"
                       : isPricingLanding
                         ? "#credit-packages"
-                        : isToolsLanding
-                          ? "/tools/document-analyzer"
-                          : "/register"
+                        : isDocumentAnalyzerLanding
+                          ? "#upload"
+                          : isToolsLanding
+                            ? "/tools/document-analyzer"
+                            : "/register"
                   }
                   variant="primary"
                   className="whitespace-nowrap rounded-full bg-stone-900 px-4 hover:bg-stone-800 focus:ring-stone-500 sm:px-5"
@@ -590,9 +597,11 @@ export function Header() {
                     ? "Проверить бесплатно"
                     : isPricingLanding
                       ? "Купить кредиты"
-                      : isToolsLanding
-                        ? "Проверить договор"
-                        : "Попробовать бесплатно"}
+                      : isDocumentAnalyzerLanding
+                        ? "Выбрать файл"
+                        : isToolsLanding
+                          ? "Проверить договор"
+                          : "Попробовать бесплатно"}
                 </Button>
               </>
             )}
