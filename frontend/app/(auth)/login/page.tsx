@@ -50,7 +50,7 @@ export default function LoginPage() {
 
   return (
     <main className="w-full">
-      <div className="rounded-3xl border border-zinc-200/80 bg-white/85 p-7 shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur sm:p-8">
+      <div className="rounded-[32px] border border-zinc-200/80 bg-white p-7 shadow-[0_24px_70px_rgba(28,25,23,0.08)] sm:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] text-zinc-900">
             Вход в аккаунт
@@ -87,14 +87,14 @@ export default function LoginPage() {
             <label className="inline-flex items-center gap-2 text-zinc-600">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-zinc-300 text-amber-400 focus:ring-amber-300"
                 defaultChecked
               />
               Запомнить меня
             </label>
             <Link
               href="/forgot-password"
-              className="font-medium text-emerald-700 hover:text-emerald-800"
+              className="font-medium text-stone-900 hover:text-amber-600"
             >
               Забыли пароль?
             </Link>
@@ -129,7 +129,7 @@ export default function LoginPage() {
           Нет аккаунта?{" "}
           <Link
             href="/register"
-            className="font-semibold text-emerald-700 hover:text-emerald-800"
+            className="font-semibold text-stone-900 hover:text-amber-600"
           >
             Зарегистрироваться
           </Link>

@@ -26,8 +26,8 @@ function passwordStrength(pw: string): Strength {
     0: { score: 0, label: "Слишком короткий", color: "bg-rose-400" },
     1: { score: 1, label: "Слабый", color: "bg-rose-400" },
     2: { score: 2, label: "Сносный", color: "bg-amber-400" },
-    3: { score: 3, label: "Хороший", color: "bg-emerald-400" },
-    4: { score: 4, label: "Сильный", color: "bg-emerald-500" },
+    3: { score: 3, label: "Хороший", color: "bg-amber-300" },
+    4: { score: 4, label: "Сильный", color: "bg-[#ffd43b]" },
   };
   return map[score];
 }
@@ -77,7 +77,7 @@ export default function RegisterPage() {
 
   return (
     <main className="w-full">
-      <div className="rounded-3xl border border-zinc-200/80 bg-white/85 p-7 shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur sm:p-8">
+      <div className="rounded-[32px] border border-zinc-200/80 bg-white p-7 shadow-[0_24px_70px_rgba(28,25,23,0.08)] sm:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] text-zinc-900">
             Создать аккаунт
@@ -170,7 +170,7 @@ export default function RegisterPage() {
           Уже есть аккаунт?{" "}
           <Link
             href="/login"
-            className="font-semibold text-emerald-700 hover:text-emerald-800"
+            className="font-semibold text-stone-900 hover:text-amber-600"
           >
             Войти
           </Link>

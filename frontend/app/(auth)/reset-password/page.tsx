@@ -22,8 +22,8 @@ function passwordStrength(pw: string): Strength {
     0: { score: 0, label: "Слишком короткий", color: "bg-rose-400" },
     1: { score: 1, label: "Слабый", color: "bg-rose-400" },
     2: { score: 2, label: "Сносный", color: "bg-amber-400" },
-    3: { score: 3, label: "Хороший", color: "bg-emerald-400" },
-    4: { score: 4, label: "Сильный", color: "bg-emerald-500" },
+    3: { score: 3, label: "Хороший", color: "bg-amber-300" },
+    4: { score: 4, label: "Сильный", color: "bg-[#ffd43b]" },
   };
   return map[score];
 }
@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
   if (!token) {
     return (
       <main className="w-full">
-        <div className="rounded-3xl border border-rose-200 bg-white/85 p-8 text-center shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur">
+        <div className="rounded-[32px] border border-rose-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(28,25,23,0.08)]">
           <h1 className="text-2xl font-semibold text-zinc-900">Ссылка некорректна</h1>
           <p className="mt-2 text-sm text-zinc-600">
             В URL отсутствует токен восстановления. Запросите новую ссылку.
@@ -82,10 +82,10 @@ export default function ResetPasswordPage() {
 
   return (
     <main className="w-full">
-      <div className="rounded-3xl border border-zinc-200/80 bg-white/85 p-7 shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur sm:p-8">
+      <div className="rounded-[32px] border border-zinc-200/80 bg-white p-7 shadow-[0_24px_70px_rgba(28,25,23,0.08)] sm:p-8">
         {done ? (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[20px] border border-amber-200 bg-[#fff7cc] text-stone-950">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <h1 className="text-2xl font-semibold tracking-[-0.02em] text-zinc-900">

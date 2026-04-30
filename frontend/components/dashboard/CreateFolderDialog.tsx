@@ -66,7 +66,7 @@ export function CreateFolderDialog({ open, onClose, onCreate }: CreateFolderDial
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Название папки"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-300"
             disabled={submitting}
           />
           {error && (

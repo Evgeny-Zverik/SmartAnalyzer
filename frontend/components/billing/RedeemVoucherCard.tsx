@@ -51,12 +51,12 @@ export function RedeemVoucherCard({ onRedeemed }: Props) {
           placeholder="XXXX-XXXX-XXXX-XXXX"
           autoComplete="off"
           spellCheck={false}
-          className="h-10 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm font-semibold tracking-wide tabular-nums text-stone-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-200"
+          className="h-10 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm font-semibold tracking-wide tabular-nums text-stone-900 outline-none transition focus:border-[#ffd43b] focus:bg-white focus:ring-2 focus:ring-amber-200"
         />
         <button
           type="submit"
           disabled={!code.trim() || submitting}
-          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(16,185,129,0.6)] transition hover:bg-emerald-700 disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(245,158,11,0.6)] transition hover:bg-amber-700 disabled:opacity-50"
         >
           {submitting ? "…" : "Применить"}
         </button>

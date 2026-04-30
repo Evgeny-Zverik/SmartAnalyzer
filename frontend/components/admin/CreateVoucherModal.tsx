@@ -83,7 +83,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
       className="fixed inset-0 z-[1700] flex items-center justify-center bg-[rgba(15,23,42,0.55)] px-4 backdrop-blur-md"
     >
       <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.32)]">
-        <div className="relative border-b border-emerald-100 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.28),rgba(255,255,255,0.96)_62%)] px-6 pb-5 pt-6">
+        <div className="relative border-b border-amber-100 bg-[#fff7cc] px-6 pb-5 pt-6">
           <button
             type="button"
             onClick={onClose}
@@ -94,11 +94,11 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[24px] border border-amber-200 bg-white text-amber-700 shadow-sm">
               <Ticket className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
                 Новый ваучер
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
@@ -120,13 +120,13 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="XXXX-XXXX-XXXX-XXXX (или оставьте пустым)"
-                className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                className="h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
               />
               <button
                 type="button"
                 onClick={() => setCode(generateCode())}
                 title="Сгенерировать"
-                className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:border-emerald-300 hover:text-emerald-700"
+                className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[18px] border border-stone-200 bg-white text-stone-600 transition hover:border-amber-300 hover:text-amber-700"
               >
                 <Dices className="h-5 w-5" />
               </button>
@@ -142,7 +142,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               min={1}
               value={credits}
               onChange={(e) => setCredits(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
@@ -155,7 +155,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               min={1}
               value={usageLimit}
               onChange={(e) => setUsageLimit(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 font-semibold tabular-nums text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
@@ -167,7 +167,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               type="datetime-local"
               value={validFrom}
               onChange={(e) => setValidFrom(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
@@ -179,7 +179,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               type="datetime-local"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
@@ -195,7 +195,7 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               value={boundEmail}
               onChange={(e) => setBoundEmail(e.target.value)}
               placeholder="user@example.com"
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
@@ -204,14 +204,14 @@ export function CreateVoucherModal({ onClose, onCreated }: Props) {
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+              className="rounded-[18px] border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={!valid || submitting}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(16,185,129,0.6)] transition hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-[18px] bg-[#ffd43b] px-4 py-2.5 text-sm font-semibold text-stone-950 shadow-[0_10px_24px_-12px_rgba(245,158,11,0.6)] transition hover:bg-[#f6c343] disabled:opacity-50"
             >
               {submitting ? "Создаём…" : "Создать"}
             </button>

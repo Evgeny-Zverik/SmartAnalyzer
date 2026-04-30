@@ -123,8 +123,8 @@ export default function PricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f4ef] text-stone-950">
-      <section className="relative overflow-hidden border-b border-stone-200 bg-[linear-gradient(135deg,#f9f8f4_0%,#eef8f2_46%,#f5f1e8_100%)]">
+    <main className="min-h-screen bg-[#f5f6f7] text-stone-950">
+      <section className="relative overflow-hidden border-b border-stone-200 bg-[#f5f6f7]">
         <div className="mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 lg:px-8 lg:pb-14">
           <div className="mb-7 flex flex-col gap-3 rounded-[24px] border border-stone-200 bg-white/82 px-4 py-3 shadow-[0_12px_40px_rgba(28,25,23,0.07)] backdrop-blur md:flex-row md:items-center md:justify-between">
             <nav className="flex flex-wrap items-center gap-2">
@@ -155,14 +155,14 @@ export default function PricingPage() {
             {hasToken ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-[#fff7cc] px-4 py-2 text-sm font-semibold text-stone-900 hover:bg-[#ffe87a]"
               >
                 Открыть кабинет
               </Link>
             ) : (
               <a
                 href="#credit-packages"
-                className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-[#fff7cc] px-4 py-2 text-sm font-semibold text-stone-900 hover:bg-[#ffe87a]"
               >
                 Купить кредиты
               </a>
@@ -171,7 +171,7 @@ export default function PricingPage() {
 
           <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/82 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-700 shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[#fff7cc] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-stone-900 shadow-sm">
                 <Sparkles className="h-3.5 w-3.5" />
                 Кредиты SmartAnalyzer
               </div>
@@ -187,7 +187,7 @@ export default function PricingPage() {
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a
                   href="#credit-packages"
-                  className="inline-flex items-center justify-center rounded-full bg-stone-950 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_42px_rgba(28,25,23,0.22)] hover:bg-stone-800"
+                  className="inline-flex items-center justify-center rounded-full bg-[#ffd43b] px-6 py-3 text-sm font-bold text-stone-950 shadow-[0_16px_42px_rgba(245,158,11,0.22)] hover:bg-[#f6c343]"
                 >
                   Выбрать пакет
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -232,12 +232,12 @@ export default function PricingPage() {
                       {usage
                         ? usage.credit_balance.toLocaleString("ru-RU")
                         : "—"}
-                      <span className="ml-2 text-base text-emerald-300">
+                      <span className="ml-2 text-base text-[#ffd43b]">
                         кредитов
                       </span>
                     </p>
                   </div>
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-300/10 text-emerald-200">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-amber-200 bg-[#fff7cc] text-stone-950">
                     <WalletCards className="h-7 w-7" />
                   </div>
                 </div>
@@ -249,7 +249,7 @@ export default function PricingPage() {
                       className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-emerald-200">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-white/[0.08] text-[#ffd43b]">
                           <Icon className="h-5 w-5" />
                         </span>
                         <p className="text-sm font-semibold text-slate-100">
@@ -257,7 +257,7 @@ export default function PricingPage() {
                         </p>
                       </div>
                       <p
-                        className={`text-sm font-bold ${String(amount).startsWith("+") ? "text-emerald-300" : "text-slate-300"}`}
+                        className={`text-sm font-bold ${String(amount).startsWith("+") ? "text-[#ffd43b]" : "text-slate-300"}`}
                       >
                         {amount}
                       </p>
@@ -265,7 +265,7 @@ export default function PricingPage() {
                   ))}
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-[linear-gradient(135deg,#ecfdf5,#dff7ea)] p-4 text-stone-950">
+                <div className="mt-5 rounded-[24px] bg-[#fff7cc] p-4 text-stone-950">
                   <p className="text-sm font-bold">
                     Перед запуском видно примерное списание
                   </p>
@@ -283,7 +283,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         {purchaseDone && (
           <div
-            className="mx-auto mb-6 max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-center text-sm font-medium text-emerald-700"
+            className="mx-auto mb-6 max-w-3xl rounded-[24px] border border-amber-200 bg-[#fff7cc] px-4 py-3 text-center text-sm font-medium text-stone-900"
             role="status"
           >
             Баланс кредитов пополнен.
@@ -301,7 +301,7 @@ export default function PricingPage() {
         <section id="credit-spend" className="mt-10 scroll-mt-28">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
                 Примеры списаний
               </p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
@@ -322,7 +322,7 @@ export default function PricingPage() {
                 className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)]"
               >
                 <p className="text-sm font-bold text-stone-950">{title}</p>
-                <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-emerald-700">
+                <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-stone-950">
                   {credits}
                 </p>
                 <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-stone-400">
@@ -337,7 +337,7 @@ export default function PricingPage() {
         <section className="mt-10 rounded-[30px] border border-stone-200 bg-white/88 p-5 shadow-[0_14px_44px_rgba(15,23,42,0.06)] sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
                 Вопросы по оплате
               </p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
@@ -374,7 +374,7 @@ export default function PricingPage() {
               key={title}
               className="rounded-[24px] border border-stone-200 bg-white/86 p-5 shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[20px] border border-amber-200 bg-[#fff7cc] text-stone-950">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="mt-4 text-lg font-bold tracking-[-0.02em] text-stone-950">
@@ -385,10 +385,10 @@ export default function PricingPage() {
           ))}
         </section>
 
-        <section className="mt-10 rounded-[30px] border border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.94),rgba(255,255,255,0.96))] p-5 shadow-[0_14px_44px_rgba(16,185,129,0.08)] sm:p-6">
+        <section className="mt-10 rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_14px_44px_rgba(28,25,23,0.06)] sm:p-6">
           <div className="grid gap-4 md:grid-cols-[0.9fr_1.1fr] md:items-center">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
                 Безопасность данных
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
@@ -396,16 +396,16 @@ export default function PricingPage() {
               </h2>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-200 bg-white/82 px-4 py-3 text-sm leading-7 text-stone-700">
-                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <div className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-7 text-stone-700">
+                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-amber-200 bg-[#fff7cc] text-stone-950">
                   <UserRound className="h-5 w-5" />
                 </div>
                 <p>
                   В модель передаются только предварительно обезличенные данные.
                 </p>
               </div>
-              <div className="rounded-2xl border border-emerald-200 bg-white/82 px-4 py-3 text-sm leading-7 text-stone-700">
-                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <div className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-7 text-stone-700">
+                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-amber-200 bg-[#fff7cc] text-stone-950">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <p>
@@ -420,7 +420,7 @@ export default function PricingPage() {
         <section className="mt-10 rounded-[30px] bg-stone-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] sm:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffd43b]">
                 <Clock3 className="h-3.5 w-3.5" />
                 без обязательств
               </div>
@@ -430,7 +430,7 @@ export default function PricingPage() {
             </div>
             <a
               href="#credit-packages"
-              className="inline-flex items-center justify-center rounded-full bg-emerald-400 px-6 py-3 text-sm font-bold text-stone-950 hover:bg-emerald-300"
+              className="inline-flex items-center justify-center rounded-full bg-[#ffd43b] px-6 py-3 text-sm font-bold text-stone-950 hover:bg-[#f6c343]"
             >
               Выбрать пакет
               <ArrowRight className="ml-2 h-4 w-4" />

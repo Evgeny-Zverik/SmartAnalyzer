@@ -38,9 +38,9 @@ function statusLabel(s: string) {
 
 function statusClass(s: string) {
   const map: Record<string, string> = {
-    uploaded: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    uploaded: "border-amber-200 bg-[#fff7cc] text-amber-700",
     queued: "border-amber-200 bg-amber-50 text-amber-700",
-    processing: "border-sky-200 bg-sky-50 text-sky-700",
+    processing: "border-stone-200 bg-stone-50 text-stone-700",
     completed: "border-teal-200 bg-teal-50 text-teal-700",
     failed: "border-rose-200 bg-rose-50 text-rose-700",
   };

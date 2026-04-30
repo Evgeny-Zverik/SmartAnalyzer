@@ -38,10 +38,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="w-full">
-      <div className="rounded-3xl border border-zinc-200/80 bg-white/85 p-7 shadow-[0_30px_80px_rgba(15,23,42,0.1)] backdrop-blur sm:p-8">
+      <div className="rounded-[32px] border border-zinc-200/80 bg-white p-7 shadow-[0_24px_70px_rgba(28,25,23,0.08)] sm:p-8">
         {sent ? (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[20px] border border-amber-200 bg-[#fff7cc] text-stone-950">
               <MailCheck className="h-6 w-6" />
             </div>
             <h1 className="text-2xl font-semibold tracking-[-0.02em] text-zinc-900">
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
             </p>
             <Link
               href="/login"
-              className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+              className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-stone-900 hover:text-amber-600"
             >
               <ArrowLeft className="h-4 w-4" />
               Вернуться ко входу
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
               Вспомнили пароль?{" "}
               <Link
                 href="/login"
-                className="font-semibold text-emerald-700 hover:text-emerald-800"
+                className="font-semibold text-stone-900 hover:text-amber-600"
               >
                 Войти
               </Link>

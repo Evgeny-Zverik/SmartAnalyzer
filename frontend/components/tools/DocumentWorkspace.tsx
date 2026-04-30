@@ -75,7 +75,7 @@ const ENCRYPTION_TOOLTIP =
 const ANONYMIZATION_TOOLTIP =
   "Перед обработкой мы обезличиваем чувствительные данные: имена, контакты, реквизиты и другие идентификаторы скрываются или заменяются нейтральными значениями.";
 const PRIMARY_ANALYZE_BUTTON_CLASS =
-  "w-full min-w-0 rounded-xl bg-[linear-gradient(135deg,#10b981,#14b8a6)] text-white shadow-[0_16px_44px_rgba(20,184,166,0.5)] ring-1 ring-white/35 transition hover:brightness-110 focus:ring-emerald-200 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]";
+  "w-full min-w-0 rounded-full bg-[#ffd43b] text-stone-950 shadow-[0_16px_44px_rgba(245,158,11,0.24)] ring-1 ring-amber-200 transition hover:bg-[#f6c343] focus:ring-amber-200 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]";
 const DOCUMENT_ANALYZER_FINDINGS = [
   {
     title: "Штраф без верхнего лимита",
@@ -623,18 +623,17 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
         onClose={() => setCreditError(null)}
       />
       {errorMessage ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
+        <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-doc-body)]">
           {errorMessage}
         </div>
       ) : null}
 
       {editorData ? (
         <div className="space-y-6">
-          <section className="relative overflow-visible rounded-[30px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_36%),radial-gradient(circle_at_90%_0%,rgba(56,189,248,0.2),transparent_32%),linear-gradient(160deg,#0b1019,#131c2c_55%,#1b2738)] p-4 text-zinc-100 shadow-[0_30px_110px_rgba(2,6,23,0.45)] sm:p-5">
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_34%,rgba(255,255,255,0.02)_68%,transparent)]" />
+          <section className="relative overflow-visible rounded-[32px] border border-stone-800 bg-stone-950 p-4 text-zinc-100 shadow-[0_30px_110px_rgba(2,6,23,0.38)] sm:p-5">
             <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200 [font-family:var(--font-doc-body)]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-[#ffd43b]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#ffd43b] [font-family:var(--font-doc-body)]">
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Document Workspace
                 </div>
@@ -660,13 +659,13 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 <button
                   type="button"
                   onClick={() => setDownloadMenuOpen((prev) => !prev)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:ring-offset-2 focus:ring-offset-zinc-950 [font-family:var(--font-doc-body)]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[18px] border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-zinc-950 [font-family:var(--font-doc-body)]"
                 >
                   Скачать
                   <ChevronDown className="h-3.5 w-3.5 text-zinc-300" />
                 </button>
                 {downloadMenuOpen && (
-                  <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 min-w-[190px] rounded-2xl border border-zinc-700 bg-zinc-900/95 p-2 shadow-xl backdrop-blur">
+                  <div className="absolute left-0 top-[calc(100%+0.5rem)] z-20 min-w-[190px] rounded-[24px] border border-zinc-700 bg-zinc-900/95 p-2 shadow-xl backdrop-blur">
                     {(["txt", "pdf", "docx"] as const).map((fmt) => (
                       <button
                         key={fmt}
@@ -681,7 +680,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                             "document-analyzer",
                           );
                         }}
-                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10 [font-family:var(--font-doc-body)]"
+                        className="w-full rounded-[18px] px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10 [font-family:var(--font-doc-body)]"
                       >
                         Скачать как {fmt.toUpperCase()}
                       </button>
@@ -730,7 +729,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                       }
                     }}
                     variant="secondary"
-                    className="w-full rounded-xl border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto [font-family:var(--font-doc-body)]"
+                    className="w-full rounded-[18px] border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto [font-family:var(--font-doc-body)]"
                   >
                     Новый документ
                   </Button>
@@ -746,7 +745,7 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                     setErrorMessage(null);
                   }}
                   variant="secondary"
-                  className="w-full min-w-0 rounded-xl border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]"
+                  className="w-full min-w-0 rounded-[18px] border-white/20 bg-white/10 text-zinc-100 hover:bg-white/15 sm:w-auto sm:min-w-[220px] [font-family:var(--font-doc-body)]"
                 >
                   Остановить анализ
                 </Button>
@@ -776,11 +775,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                       <button
                         type="button"
                         aria-label={ENCRYPTION_TOOLTIP}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 shadow-sm transition hover:bg-emerald-400/20"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-[18px] border border-amber-300/35 bg-[#ffd43b]/10 text-[#ffd43b] shadow-sm transition hover:bg-[#f6c343]/20"
                       >
                         <ShieldCheck className="h-[18px] w-[18px]" />
                       </button>
-                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
+                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-[24px] border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
                         {ENCRYPTION_TOOLTIP}
                       </div>
                     </div>
@@ -790,11 +789,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                       <button
                         type="button"
                         aria-label={ANONYMIZATION_TOOLTIP}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 shadow-sm transition hover:bg-emerald-400/20"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-[18px] border border-amber-300/35 bg-[#ffd43b]/10 text-[#ffd43b] shadow-sm transition hover:bg-[#f6c343]/20"
                       >
                         <UserRound className="h-[18px] w-[18px]" />
                       </button>
-                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
+                      <div className="pointer-events-none absolute bottom-[calc(100%+0.75rem)] right-0 z-20 invisible w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-[24px] border border-zinc-700 bg-zinc-900 p-3 text-xs leading-5 text-zinc-300 opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:opacity-100 [font-family:var(--font-doc-body)]">
                         {ANONYMIZATION_TOOLTIP}
                       </div>
                     </div>
@@ -821,19 +820,18 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
       ) : (
         <section
           id="upload"
-          className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_90%_4%,rgba(56,189,248,0.2),transparent_34%),linear-gradient(160deg,#0b1019,#131c2c_55%,#192639)] p-5 text-zinc-100 shadow-[0_34px_120px_rgba(2,6,23,0.46)] sm:p-7"
+          className="relative overflow-hidden rounded-[36px] border border-stone-200 bg-white p-5 text-stone-950 shadow-[0_24px_80px_rgba(28,25,23,0.08)] sm:p-7"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_34%,rgba(255,255,255,0.02)_72%,transparent)]" />
           <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-start">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200 [font-family:var(--font-doc-body)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[#fff7cc] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-900 [font-family:var(--font-doc-body)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Проверка договора
               </div>
-              <h2 className="mt-4 max-w-3xl text-4xl leading-[1.02] tracking-[-0.03em] text-white [font-family:var(--font-doc-display)] sm:text-5xl lg:text-6xl">
+              <h2 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.02] tracking-[-0.03em] text-stone-950 [font-family:var(--font-doc-body)] sm:text-5xl lg:text-6xl">
                 Найдите риски, сроки и штрафы до подписания.
               </h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base [font-family:var(--font-doc-body)]">
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base [font-family:var(--font-doc-body)]">
                 Загрузите PDF, DOCX или скан. SmartAnalyzer подготовит отчет с
                 ключевыми условиями, спорными формулировками и ссылками на
                 пункты документа.
@@ -850,29 +848,29 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 ].map(([title, value]) => (
                   <div
                     key={title}
-                    className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4"
+                    className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-4"
                   >
-                    <p className="text-lg font-bold tracking-[-0.02em] text-zinc-100">
+                    <p className="text-lg font-bold tracking-[-0.02em] text-stone-950">
                       {title}
                     </p>
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                       {value}
                     </p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-6 rounded-[28px] border border-white/15 bg-white/10 p-4 [font-family:var(--font-doc-body)]">
+              <div className="mt-6 rounded-[32px] border border-stone-200 bg-stone-950 p-4 text-white shadow-[0_20px_60px_rgba(28,25,23,0.14)] [font-family:var(--font-doc-body)]">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#ffd43b]">
                       Пример отчета
                     </p>
                     <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-white">
                       Договор поставки, 18 страниц
                     </h3>
                   </div>
-                  <span className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-200">
+                  <span className="rounded-[24px] bg-[#ffd43b] px-3 py-2 text-sm font-bold text-stone-950">
                     Готово
                   </span>
                 </div>
@@ -881,9 +879,9 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                     ({ title, text, icon: Icon }) => (
                       <div
                         key={title}
-                        className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"
+                        className="rounded-[24px] border border-white/10 bg-white/[0.06] p-4"
                       >
-                        <Icon className="h-5 w-5 text-emerald-300" />
+                        <Icon className="h-5 w-5 text-[#ffd43b]" />
                         <p className="mt-3 text-sm font-bold text-white">
                           {title}
                         </p>
@@ -897,22 +895,22 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
               </div>
             </div>
 
-            <aside className="rounded-[28px] border border-white/15 bg-white/8 p-4 backdrop-blur sm:p-5">
-              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 [font-family:var(--font-doc-body)]">
+            <aside className="rounded-[32px] border border-stone-200 bg-stone-50 p-4 shadow-[0_18px_54px_rgba(15,23,42,0.08)] sm:p-5">
+              <div className="flex items-start justify-between gap-3 border-b border-stone-200 pb-4 [font-family:var(--font-doc-body)]">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
                     Загрузка
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">
+                  <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
                     Выберите файл договора
                   </h3>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-emerald-300">
+                <div className="rounded-[24px] border border-amber-200 bg-[#fff7cc] p-3 text-stone-950">
                   <ScanSearch className="h-6 w-6" />
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[26px] border border-white/10 bg-white/[0.04] p-2">
+              <div className="mt-5 rounded-[28px] border border-stone-200 bg-white p-2">
                 <UploadDropzone
                   acceptedExtensions={accepts}
                   file={file}
@@ -930,12 +928,12 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                   }}
                   compact
                   showFileCard={false}
-                  surface="dark"
+                  surface="light"
                 />
               </div>
 
               {state === "preparing" ? (
-                <p className="mt-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200 [font-family:var(--font-doc-body)]">
+                <p className="mt-3 rounded-[18px] border border-amber-200 bg-[#fff7cc] px-3 py-2 text-sm font-semibold text-stone-900 [font-family:var(--font-doc-body)]">
                   Подготавливаем документ к анализу...
                 </p>
               ) : null}
@@ -955,11 +953,11 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
                 ].map(({ title, text, icon: Icon }) => (
                   <div
                     key={title}
-                    className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"
+                    className="rounded-[24px] border border-stone-200 bg-white p-4"
                   >
-                    <Icon className="h-5 w-5 text-emerald-300" />
-                    <p className="mt-3 text-sm font-bold text-white">{title}</p>
-                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                    <Icon className="h-5 w-5 text-amber-700" />
+                    <p className="mt-3 text-sm font-bold text-stone-950">{title}</p>
+                    <p className="mt-1 text-sm leading-6 text-stone-500">
                       {text}
                     </p>
                   </div>
@@ -972,10 +970,10 @@ export function DocumentWorkspace({ accepts }: DocumentWorkspaceProps) {
             {DOCUMENT_ANALYZER_FAQ.map(([question, answer]) => (
               <div
                 key={question}
-                className="rounded-2xl border border-white/15 bg-white/10 p-4"
+                className="rounded-[24px] border border-stone-200 bg-stone-50 p-4"
               >
-                <p className="text-sm font-bold text-white">{question}</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">{answer}</p>
+                <p className="text-sm font-bold text-stone-950">{question}</p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">{answer}</p>
               </div>
             ))}
           </div>

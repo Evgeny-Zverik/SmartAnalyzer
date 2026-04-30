@@ -70,10 +70,10 @@ export function VouchersPanel() {
   }
 
   return (
-    <section className="mt-6 rounded-3xl border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
+    <section className="mt-6 rounded-[32px] border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
       <div className="flex flex-col gap-4 border-b border-zinc-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-100/70 text-emerald-700">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[18px] border border-amber-300 bg-[#fff7cc]/70 text-amber-700">
             <Ticket className="h-5 w-5" />
           </div>
           <div>
@@ -88,7 +88,7 @@ export function VouchersPanel() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(16,185,129,0.6)] transition hover:bg-emerald-700"
+          className="inline-flex items-center gap-2 rounded-[18px] bg-[#ffd43b] px-4 py-2.5 text-sm font-semibold text-stone-950 shadow-[0_10px_24px_-12px_rgba(245,158,11,0.6)] transition hover:bg-[#f6c343]"
         >
           <Plus className="h-4 w-4" />
           Создать ваучер
@@ -98,7 +98,7 @@ export function VouchersPanel() {
       {loading ? (
         <div className="space-y-3 px-5 py-5">
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-12 w-full rounded-2xl" />
+            <Skeleton key={index} className="h-12 w-full rounded-[24px]" />
           ))}
         </div>
       ) : !items || items.length === 0 ? (
@@ -134,14 +134,14 @@ export function VouchersPanel() {
                           type="button"
                           onClick={() => copyCode(v.code)}
                           title="Скопировать"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 transition hover:border-emerald-300 hover:text-emerald-700"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 transition hover:border-amber-300 hover:text-amber-700"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#fff7cc] px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
                         <Coins className="h-3.5 w-3.5" />
                         {v.credits.toLocaleString("ru-RU")}
                       </span>
@@ -157,7 +157,7 @@ export function VouchersPanel() {
                     </td>
                     <td className="px-3 py-3 text-xs text-zinc-600">
                       {v.bound_user_email ? (
-                        <span className="inline-flex max-w-[220px] truncate rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">
+                        <span className="inline-flex max-w-[220px] truncate rounded-full bg-stone-50 px-2 py-0.5 font-medium text-stone-700 ring-1 ring-stone-200">
                           {v.bound_user_email}
                         </span>
                       ) : (

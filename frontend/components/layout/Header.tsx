@@ -279,22 +279,12 @@ export function Header() {
     isToolsLanding ||
     isDocumentAnalyzerLanding;
 
-  const avatarHue = (() => {
-    const seed = userEmail || "smartanalyzer";
-    let h = 0;
-    for (let i = 0; i < seed.length; i += 1)
-      h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    return h % 360;
-  })();
-  const avatarBg = `radial-gradient(circle at 28% 22%, hsl(${avatarHue} 92% 78%) 0%, hsl(${(avatarHue + 28) % 360} 78% 52%) 38%, hsl(${(avatarHue + 220) % 360} 70% 28%) 78%)`;
-  const avatarConic = `conic-gradient(from 140deg, hsl(${avatarHue} 90% 70% / 0.9), hsl(${(avatarHue + 60) % 360} 90% 65% / 0.9), hsl(${(avatarHue + 200) % 360} 90% 60% / 0.9), hsl(${avatarHue} 90% 70% / 0.9))`;
-
   return (
     <header className="sticky top-0 z-[1000] isolate pointer-events-auto border-b border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(250,248,243,0.9))] backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-stretch justify-between gap-4 rounded-[28px] border border-stone-200/80 bg-white/80 px-4 py-3 shadow-[0_12px_40px_rgba(28,25,23,0.08)] backdrop-blur sm:flex-row sm:items-center sm:px-5">
           <Link href="/" className="group flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.32),rgba(255,255,255,0.96)_62%)] text-sm font-semibold text-emerald-700 shadow-[0_10px_30px_rgba(16,185,129,0.12)]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-stone-200 bg-white text-sm font-semibold text-stone-950 shadow-[0_10px_30px_rgba(28,25,23,0.08)]">
               SA
             </span>
             <span className="flex flex-col">
@@ -332,11 +322,11 @@ export function Header() {
                     role="menu"
                     onMouseEnter={openToolsMenu}
                     onMouseLeave={scheduleCloseToolsMenu}
-                    className="absolute right-0 top-[calc(100%+12px)] z-[1200] w-[min(720px,calc(100vw-32px))] origin-top-right animate-[avatar-menu-in_180ms_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[22px] border border-stone-200 bg-white p-3 shadow-[0_24px_64px_-12px_rgba(15,23,42,0.28),0_8px_20px_-8px_rgba(15,23,42,0.16)]"
+                    className="absolute right-0 top-[calc(100%+12px)] z-[1200] w-[min(720px,calc(100vw-32px))] origin-top-right animate-[avatar-menu-in_180ms_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[32px] border border-stone-200 bg-white p-4 shadow-[0_24px_70px_-16px_rgba(15,23,42,0.26),0_8px_20px_-10px_rgba(15,23,42,0.14)]"
                   >
                     <span className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45 border-l border-t border-stone-200 bg-white" />
 
-                    <div className="grid gap-1.5 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       {visibleTools.map((tool) => {
                         const Icon = TOOL_ICONS[tool.icon] ?? FileSearch;
                         return (
@@ -350,9 +340,9 @@ export function Header() {
                               )
                             }
                             role="menuitem"
-                            className="group/tool flex items-start gap-3 rounded-xl border border-transparent p-2.5 transition hover:border-emerald-100 hover:bg-emerald-50/40"
+                            className="group/tool flex items-start gap-3 rounded-[24px] border border-transparent p-3 transition hover:border-amber-200 hover:bg-amber-50/45"
                           >
-                            <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-200/70 bg-[radial-gradient(circle_at_top,rgba(110,231,183,0.32),rgba(255,255,255,0.96)_62%)] text-emerald-700 transition group-hover/tool:border-emerald-300 group-hover/tool:shadow-[0_6px_18px_rgba(16,185,129,0.18)]">
+                            <span className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[18px] border border-stone-200 bg-white text-stone-800 shadow-sm transition group-hover/tool:border-amber-300 group-hover/tool:bg-[#fff1a8] group-hover/tool:shadow-[0_8px_22px_rgba(234,179,8,0.18)]">
                               <Icon className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 flex-1">
@@ -373,10 +363,10 @@ export function Header() {
                       onMouseDown={(event) =>
                         handleMenuLinkMouseDown(event, "/tools")
                       }
-                      className="mt-2 flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[12.5px] font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-100"
+                      className="mt-3 flex items-center justify-between rounded-[20px] border border-stone-200 bg-stone-50 px-4 py-3 text-[13px] font-semibold text-stone-800 transition hover:border-amber-300 hover:bg-[#fff8d7]"
                     >
                       Все инструменты
-                      <span className="text-stone-400">→</span>
+                      <span className="text-stone-500">→</span>
                     </Link>
                   </div>
                 )}
@@ -390,12 +380,12 @@ export function Header() {
             ) : loggedIn ? (
               <>
                 <div
-                  className={`group/balance flex items-center gap-1 rounded-full border p-1 pl-3 transition duration-500 ${
+                  className={`group/balance flex items-center gap-1 rounded-full border bg-white p-1 pl-4 shadow-sm transition duration-500 ${
                     balanceFlash === "down"
-                      ? "border-rose-300 bg-gradient-to-r from-rose-50 via-white to-rose-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(244,63,94,0.18)]"
+                      ? "border-rose-300 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_24px_rgba(244,63,94,0.16)]"
                       : balanceFlash === "up"
-                        ? "border-emerald-300 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(16,185,129,0.22)]"
-                        : "border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_4px_14px_rgba(16,185,129,0.10)] hover:border-emerald-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_6px_20px_rgba(16,185,129,0.18)]"
+                        ? "border-amber-300 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_24px_rgba(234,179,8,0.2)]"
+                        : "border-stone-200 hover:border-amber-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_24px_rgba(234,179,8,0.14)]"
                   }`}
                 >
                   <span
@@ -403,22 +393,22 @@ export function Header() {
                     className={`flex items-center gap-1.5 text-[13px] font-semibold tabular-nums transition-colors duration-500 ${
                       balanceFlash === "down"
                         ? "text-rose-700"
-                        : "text-emerald-800"
+                        : "text-stone-900"
                     }`}
                   >
                     <Coins
                       className={`h-4 w-4 transition-colors duration-500 ${
                         balanceFlash === "down"
                           ? "text-rose-600"
-                          : "text-emerald-600"
+                          : "text-amber-600"
                       }`}
                     />
                     <span className="leading-none">{balanceLabel}</span>
                     <span
                       className={`text-[11px] font-medium transition-colors duration-500 ${
-                        balanceFlash === "down"
-                          ? "text-rose-600/80"
-                          : "text-emerald-600/80"
+                      balanceFlash === "down"
+                        ? "text-rose-600/80"
+                        : "text-stone-500"
                       }`}
                     >
                       кр.
@@ -427,7 +417,7 @@ export function Header() {
                   <Link
                     href="/pricing"
                     title="Пополнить баланс"
-                    className="ml-1 inline-flex h-7 items-center gap-1 rounded-full bg-stone-900 px-2.5 text-[12px] font-semibold text-white shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-emerald-600 hover:shadow-[0_6px_16px_rgba(16,185,129,0.32)]"
+                    className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ffd43b] px-4 text-[13px] font-semibold text-stone-950 shadow-[0_8px_22px_rgba(234,179,8,0.24)] transition hover:bg-[#f6c343] hover:shadow-[0_10px_28px_rgba(234,179,8,0.32)]"
                   >
                     <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                     Пополнить
@@ -440,11 +430,9 @@ export function Header() {
                     title="Аккаунт"
                     aria-label="Открыть меню аккаунта"
                     aria-expanded={avatarMenuOpen}
-                    className="group relative inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-stone-300 bg-[radial-gradient(circle_at_32%_22%,rgba(250,250,249,0.95),rgba(16,185,129,0.22)_30%,rgba(15,23,42,0.92)_72%)] text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_26px_rgba(28,25,23,0.16)] transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_14px_34px_rgba(16,185,129,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+                    className="group relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white text-sm font-semibold text-stone-950 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50 hover:shadow-[0_10px_26px_rgba(234,179,8,0.16)] focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2"
                   >
-                    <span className="absolute inset-x-2 top-2 h-3 rounded-full bg-white/18 blur-[1px]" />
-                    <span className="absolute -bottom-2 left-1/2 h-7 w-8 -translate-x-1/2 rounded-t-full bg-emerald-950/70 ring-1 ring-white/10" />
-                    <span className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-stone-950/70 text-[11px] ring-1 ring-white/20 transition group-hover:bg-emerald-950/80">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-950 text-[13px] text-white transition group-hover:bg-stone-900">
                       {avatarInitial}
                     </span>
                   </button>
@@ -456,22 +444,11 @@ export function Header() {
                     >
                       <span className="pointer-events-none absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-stone-200 bg-white" />
 
-                      <div className="relative overflow-hidden rounded-[18px] border border-emerald-100 bg-[linear-gradient(135deg,#f8fafc_0%,#ecfdf5_55%,#f8fafc_100%)] p-3">
-                        <span className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-emerald-200/40 blur-2xl" />
+                      <div className="relative overflow-hidden rounded-[24px] border border-amber-200 bg-[linear-gradient(135deg,#ffffff_0%,#fff8d7_58%,#ffffff_100%)] p-3">
+                        <span className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-amber-200/45 blur-2xl" />
                         <div className="relative flex items-center gap-3">
-                          <div
-                            className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl text-lg font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_10px_22px_rgba(15,23,42,0.22)]"
-                            style={{ backgroundImage: avatarBg }}
-                          >
-                            <span
-                              className="pointer-events-none absolute -inset-1 rounded-[20px] opacity-70 blur-md animate-[avatar-spin_8s_linear_infinite]"
-                              style={{ backgroundImage: avatarConic }}
-                              aria-hidden
-                            />
-                            <span className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_70%_85%,rgba(255,255,255,0.18),transparent_55%)]" />
-                            <span className="pointer-events-none absolute inset-x-2 top-1.5 h-2.5 rounded-full bg-white/30 blur-[2px]" />
-                            <span className="pointer-events-none absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-white/85 shadow-[0_0_6px_rgba(255,255,255,0.9)]" />
-                            <span className="relative z-10 select-none drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)]">
+                          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white shadow-sm">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-950 text-base font-bold text-white">
                               {avatarInitial}
                             </span>
                           </div>
@@ -482,8 +459,8 @@ export function Header() {
                             <p className="mt-0.5 truncate text-[11px] text-stone-500">
                               {userEmail}
                             </p>
-                            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-emerald-700 shadow-sm">
-                              <Coins className="h-3.5 w-3.5" />
+                            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white/80 px-2 py-0.5 text-[12px] font-semibold text-stone-900 shadow-sm">
+                              <Coins className="h-3.5 w-3.5 text-amber-600" />
                               {balanceLabel}
                             </p>
                           </div>
@@ -496,7 +473,7 @@ export function Header() {
                           role="menuitem"
                           className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 focus:bg-stone-100 focus:outline-none"
                         >
-                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 ring-1 ring-sky-100 transition group-hover/item:bg-sky-100 group-hover/item:scale-105">
+                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700 ring-1 ring-stone-200/80 transition group-hover/item:bg-amber-50 group-hover/item:text-stone-950 group-hover/item:scale-105">
                             <UserRound className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 flex-1 truncate">
@@ -508,7 +485,7 @@ export function Header() {
                           role="menuitem"
                           className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 focus:bg-stone-100 focus:outline-none"
                         >
-                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600 ring-1 ring-stone-200/80 transition group-hover/item:bg-stone-200 group-hover/item:scale-105">
+                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700 ring-1 ring-stone-200/80 transition group-hover/item:bg-amber-50 group-hover/item:text-stone-950 group-hover/item:scale-105">
                             <LayoutDashboard className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 flex-1 truncate">
@@ -521,7 +498,7 @@ export function Header() {
                             role="menuitem"
                             className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 focus:bg-stone-100 focus:outline-none"
                           >
-                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover/item:bg-emerald-100 group-hover/item:scale-105">
+                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700 ring-1 ring-stone-200/80 transition group-hover/item:bg-amber-50 group-hover/item:text-stone-950 group-hover/item:scale-105">
                               <ShieldCheck className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 flex-1 truncate">
@@ -539,7 +516,7 @@ export function Header() {
                           }}
                           className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13.5px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 focus:bg-stone-100 focus:outline-none"
                         >
-                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover/item:bg-emerald-100 group-hover/item:scale-105">
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700 ring-1 ring-stone-200/80 transition group-hover/item:bg-amber-50 group-hover/item:text-stone-950 group-hover/item:scale-105">
                             <Ticket className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 flex-1 truncate">
@@ -555,7 +532,7 @@ export function Header() {
                           role="menuitem"
                           className="group/item flex items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13.5px] font-medium text-rose-700 transition-colors hover:bg-rose-50 hover:text-rose-800 focus:bg-rose-50 focus:outline-none"
                         >
-                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover/item:bg-rose-100 group-hover/item:scale-105">
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover/item:bg-rose-100 group-hover/item:scale-105">
                             <LogOut className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 flex-1 truncate">Выйти</span>
@@ -591,7 +568,7 @@ export function Header() {
                             : "/register"
                   }
                   variant="primary"
-                  className="whitespace-nowrap rounded-full bg-stone-900 px-4 hover:bg-stone-800 focus:ring-stone-500 sm:px-5"
+                  className="whitespace-nowrap rounded-full !bg-stone-900 px-4 !text-white hover:!bg-stone-800 focus:ring-stone-500 sm:px-5"
                 >
                   {isHomeLanding
                     ? "Проверить бесплатно"

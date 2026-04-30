@@ -205,8 +205,8 @@ function PrepareEditorLoader() {
     <div className="overflow-hidden rounded-[32px] border border-gray-200 bg-gradient-to-br from-white via-amber-50/40 to-gray-50 shadow-sm">
       <div className="border-b border-gray-200 px-6 py-5">
         <div className="flex items-center gap-4">
-          <div className="relative h-12 w-12 rounded-2xl bg-emerald-100">
-            <div className="absolute inset-2 rounded-full border-[3px] border-emerald-500 border-t-transparent animate-spin" />
+          <div className="relative h-12 w-12 rounded-2xl bg-amber-100">
+            <div className="absolute inset-2 rounded-full border-[3px] border-[#ffd43b] border-t-transparent animate-spin" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
@@ -790,8 +790,8 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
               <section className="overflow-hidden rounded-[30px] border border-stone-300 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(243,240,232,0.96)_60%,_rgba(235,229,219,0.98))] p-4 shadow-[0_24px_80px_rgba(28,25,23,0.12)] sm:p-5">
                 <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-center">
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
-                    <div className="min-w-0 rounded-[24px] border border-emerald-200 bg-white/85 px-4 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                    <div className="min-w-0 rounded-[24px] border border-amber-200 bg-white/85 px-4 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">
                         Документ слева
                       </p>
                       <p className="mt-2 truncate text-sm font-medium text-stone-900">
@@ -808,12 +808,12 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                       <div
                         className={`flex items-center gap-3 rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] transition-all duration-500 ${
                           isComparisonPairReady
-                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-700 shadow-[0_0_24px_rgba(110,231,183,0.14)]"
+                            ? "border-amber-300/30 bg-amber-400/10 text-amber-700 shadow-[0_0_24px_rgba(253,224,71,0.14)]"
                             : "border-stone-300 bg-white/70 text-stone-500"
                         }`}
                       >
                         <span>Левая</span>
-                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-emerald-300 via-stone-300 to-sky-300">
+                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-amber-300 via-stone-300 to-amber-300">
                           {isComparisonPairReady ? (
                             <div className="absolute inset-y-0 left-0 w-6 animate-[pulse_1.4s_ease-in-out_infinite] bg-white/80 blur-[2px]" />
                           ) : null}
@@ -821,7 +821,7 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                         <span>
                           {isComparisonPairReady ? "Готово" : "Ожидание"}
                         </span>
-                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-emerald-300 via-stone-300 to-sky-300">
+                        <div className="relative h-px w-12 overflow-hidden rounded-full bg-gradient-to-r from-amber-300 via-stone-300 to-amber-300">
                           {isComparisonPairReady ? (
                             <div className="absolute inset-y-0 right-0 w-6 animate-[pulse_1.4s_ease-in-out_infinite] bg-white/80 blur-[2px]" />
                           ) : null}
@@ -830,8 +830,8 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                       </div>
                     </div>
 
-                    <div className="min-w-0 rounded-[24px] border border-sky-200 bg-white/85 px-4 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
+                    <div className="min-w-0 rounded-[24px] border border-amber-200 bg-white/85 px-4 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">
                         Документ справа
                       </p>
                       <p className="mt-2 truncate text-sm font-medium text-stone-900">
@@ -854,8 +854,8 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                     }
                     className={`w-full ${
                       state === "success"
-                        ? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-900"
-                        : "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
+                        ? "border border-amber-300/30 bg-amber-400/10 text-stone-900"
+                        : "bg-[#ffd43b] text-stone-950 hover:bg-[#ffd43b]"
                     }`}
                   >
                     {state === "loading"
@@ -869,8 +869,8 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
               </section>
             ) : (
               <section className="relative overflow-hidden rounded-[36px] border border-stone-300 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.92),_rgba(246,240,229,0.96)_52%,_rgba(232,225,214,0.98))] p-5 shadow-[0_30px_120px_rgba(28,25,23,0.14)] sm:p-7">
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(24,24,27,0.03),transparent_28%,rgba(16,185,129,0.07)_72%,rgba(24,24,27,0.06))]" />
-                <div className="pointer-events-none absolute -right-16 top-10 h-40 w-40 rounded-full bg-emerald-200/20 blur-3xl" />
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(24,24,27,0.03),transparent_28%,rgba(245,158,11,0.07)_72%,rgba(24,24,27,0.06))]" />
+                <div className="pointer-events-none absolute -right-16 top-10 h-40 w-40 rounded-full bg-amber-200/20 blur-3xl" />
                 <div className="pointer-events-none absolute bottom-0 left-1/3 h-px w-1/2 bg-gradient-to-r from-transparent via-stone-500/30 to-transparent" />
 
                 <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_420px]">
@@ -934,18 +934,18 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                   </div>
 
                   <div className="relative overflow-hidden rounded-[30px] border border-stone-700/80 bg-stone-950 p-4 text-stone-50 shadow-[0_30px_80px_rgba(28,25,23,0.32)] sm:p-5">
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.2),transparent_42%)]" />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.2),transparent_42%)]" />
                     <div className="relative space-y-5">
                       <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/90">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-300/90">
                             Зона загрузки
                           </p>
                           <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
                             Загрузите две стороны сравнения
                           </h3>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-emerald-300">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-amber-300">
                           <ScanSearch className="h-6 w-6" />
                         </div>
                       </div>
@@ -1021,8 +1021,8 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                           }
                           className={`w-full ${
                             state === "success"
-                              ? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
-                              : "bg-emerald-400 text-stone-950 hover:bg-emerald-300"
+                              ? "border border-amber-300/30 bg-amber-400/10 text-amber-100"
+                              : "bg-[#ffd43b] text-stone-950 hover:bg-amber-300"
                           }`}
                         >
                           {state === "loading"
@@ -1044,13 +1044,13 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
             )
           ) : isLegalTextSimplifierPage && isSecureHeroLanding ? (
             <section className="relative overflow-hidden rounded-[34px] border border-stone-300 bg-[#f7f2e8] text-stone-950 shadow-[0_28px_90px_rgba(41,37,36,0.14)]">
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.28)_38%,rgba(16,185,129,0.12)_100%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.28)_38%,rgba(245,158,11,0.12)_100%)]" />
               <div className="pointer-events-none absolute left-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-stone-400/50 to-transparent" />
               <div className="relative grid gap-0 xl:grid-cols-[minmax(0,1fr)_430px]">
                 <div className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="inline-flex items-center gap-2 rounded-full border border-stone-400/50 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-700">
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
+                      <Sparkles className="h-3.5 w-3.5 text-amber-700" />
                       Пересказ без потери смысла
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-full bg-stone-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-100">
@@ -1138,18 +1138,18 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
 
                 <aside className="border-t border-stone-300 bg-stone-950 p-4 text-stone-50 sm:p-5 xl:border-l xl:border-t-0">
                   <div className="relative overflow-hidden rounded-[28px] border border-white/[0.12] bg-white/[0.04] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-5">
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.2),transparent_38%)]" />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.2),transparent_38%)]" />
                     <div className="relative space-y-5">
                       <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-300">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-300">
                             Файл для пересказа
                           </p>
                           <h3 className="mt-2 text-2xl font-semibold tracking-normal text-white">
                             Загрузите юридический текст
                           </h3>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-emerald-300">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-amber-300">
                           <ScanSearch className="h-6 w-6" />
                         </div>
                       </div>
@@ -1169,13 +1169,13 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                         <button
                           type="button"
                           onClick={() => handleFileChange(null)}
-                          className="flex w-full min-w-0 items-center gap-3 rounded-[22px] border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 text-left transition hover:border-emerald-300/55 hover:bg-emerald-400/[0.14]"
+                          className="flex w-full min-w-0 items-center gap-3 rounded-[22px] border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-left transition hover:border-amber-300/55 hover:bg-amber-400/[0.14]"
                         >
-                          <span className="rounded-2xl bg-emerald-300/12 p-2 text-emerald-200">
+                          <span className="rounded-2xl bg-amber-300/12 p-2 text-amber-200">
                             <FileText className="h-5 w-5" />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
+                            <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100/80">
                               Выбранный файл
                             </span>
                             <span className="block truncate text-sm font-semibold text-white">
@@ -1203,7 +1203,7 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                             key={item.title}
                             className="rounded-[20px] border border-white/10 bg-white/[0.04] p-3"
                           >
-                            <item.icon className="h-4 w-4 text-emerald-300" />
+                            <item.icon className="h-4 w-4 text-amber-300" />
                             <p className="mt-3 font-semibold text-stone-100">
                               {item.title}
                             </p>
@@ -1220,7 +1220,7 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                           variant="primary"
                           disabled={!file}
                           onClick={handleAnalyze}
-                          className="w-full bg-emerald-400 text-stone-950 hover:bg-emerald-300"
+                          className="w-full bg-[#ffd43b] text-stone-950 hover:bg-amber-300"
                         >
                           Запустить пересказ
                         </Button>
@@ -1281,7 +1281,7 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
             <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-4">
                 <div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                     <Sparkles className="h-3.5 w-3.5" />
                     Быстрый старт
                   </div>
@@ -1455,7 +1455,7 @@ export function ToolPageClient({ tool }: { tool: Tool }) {
                       }
                       className={`shrink-0 whitespace-nowrap ${
                         state === "success" && !hasEditorChanges
-                          ? "min-w-[180px] border-emerald-200 bg-emerald-50 text-emerald-700"
+                          ? "min-w-[180px] border-amber-200 bg-amber-50 text-amber-700"
                           : "min-w-[220px]"
                       }`}
                     >

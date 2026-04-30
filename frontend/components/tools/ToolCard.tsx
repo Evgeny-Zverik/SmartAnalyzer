@@ -8,10 +8,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Tool } from "@/lib/config/tools";
-import { CATEGORY_LABELS } from "@/lib/config/tools";
 
 const iconMap: Record<string, LucideIcon> = {
   FileSearch,
@@ -78,12 +76,6 @@ export function ToolCard({ tool }: ToolCardProps) {
     outcome: tool.description,
     cta: "Открыть инструмент",
   };
-  const isUnlimited =
-    tool.slug === "legal-document-design-review" ||
-    tool.slug === "legal-style-translator" ||
-    tool.slug === "foreign-language-translator" ||
-    tool.slug === "legal-text-simplifier" ||
-    tool.slug === "spelling-checker";
   const visibleFormats = tool.mvp.accepts.slice(0, 4);
   const hiddenFormatsCount = Math.max(
     0,
@@ -91,28 +83,19 @@ export function ToolCard({ tool }: ToolCardProps) {
   );
 
   return (
-    <Card className="group relative overflow-hidden rounded-[28px] border-stone-200/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.95),rgba(248,246,241,0.95))] p-0 shadow-[0_18px_50px_rgba(28,25,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(16,185,129,0.14)]">
-      <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-emerald-200/20 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
+    <Card className="group relative overflow-hidden rounded-[32px] border-stone-200/80 bg-white p-0 shadow-[0_18px_50px_rgba(28,25,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-[0_28px_70px_rgba(245,158,11,0.12)]">
       <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-stone-300/50 to-transparent" />
       <div className="p-6">
         <div className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-2">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
+            <div className="rounded-[20px] border border-amber-200 bg-[#fff7cc] p-3 text-stone-950">
               <Icon className="h-6 w-6 shrink-0" aria-hidden />
             </div>
             <div className="flex flex-wrap gap-1">
-              <Badge className="border border-stone-200 bg-white/80 text-stone-700">
-                {CATEGORY_LABELS[tool.category] ?? tool.category}
-              </Badge>
               {meta.highlight && (
-                <Badge className="border border-emerald-300 bg-emerald-50 text-emerald-700">
+                <span className="rounded-full border border-amber-200 bg-[#fff7cc] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-900">
                   {meta.highlight}
-                </Badge>
-              )}
-              {isUnlimited && (
-                <Badge className="border border-zinc-700/80 bg-zinc-800/90 text-zinc-100">
-                  Безлимит
-                </Badge>
+                </span>
               )}
             </div>
           </div>
@@ -122,8 +105,8 @@ export function ToolCard({ tool }: ToolCardProps) {
           <p className="mt-3 text-sm leading-7 text-stone-600">
             {tool.description}
           </p>
-          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+          <div className="mt-4 rounded-[24px] border border-amber-200 bg-[#fffaf0] p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
               Результат
             </p>
             <p className="mt-1 text-sm leading-6 text-stone-700">
@@ -145,7 +128,7 @@ export function ToolCard({ tool }: ToolCardProps) {
                   </span>
                 ))}
                 {hiddenFormatsCount > 0 && (
-                  <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-[#fff7cc] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-700">
                     +{hiddenFormatsCount}
                   </span>
                 )}
@@ -158,7 +141,7 @@ export function ToolCard({ tool }: ToolCardProps) {
             <Button
               href={`/tools/${tool.slug}`}
               variant="primary"
-              className="w-full rounded-full bg-stone-900 px-5 hover:bg-stone-800 focus:ring-stone-600"
+              className="w-full px-5"
             >
               {meta.cta}
             </Button>

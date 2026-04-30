@@ -132,12 +132,12 @@ export function PricingTable({
             key={plan.key}
             className={`rounded-[22px] border p-5 shadow-[0_16px_44px_rgba(15,23,42,0.08)] ${
               plan.featured
-                ? "border-emerald-300 bg-emerald-50"
+                ? "border-amber-300 bg-[#fff7cc]"
                 : "border-zinc-200 bg-white"
             }`}
           >
             <p className="text-lg font-semibold text-zinc-950">{plan.name}</p>
-            <p className="mt-2 text-sm font-semibold text-emerald-700">
+            <p className="mt-2 text-sm font-semibold text-amber-700">
               {plan.credits}
             </p>
             <p className="mt-4 text-3xl font-semibold text-zinc-950">
@@ -150,26 +150,26 @@ export function PricingTable({
   }
 
   return (
-    <section className="overflow-hidden rounded-[32px] border border-slate-800 bg-[#101622] p-5 text-white shadow-[0_30px_90px_rgba(2,6,23,0.28)] sm:p-7">
+    <section className="overflow-hidden rounded-[36px] border border-stone-200 bg-white p-5 text-stone-950 shadow-[0_30px_90px_rgba(28,25,23,0.08)] sm:p-7">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[#fff7cc] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-stone-900">
             <Sparkles className="h-3.5 w-3.5" />
             Выбор пакета
           </div>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">
             Цены
           </h2>
-          <p className="mt-2 max-w-2xl text-base font-medium leading-7 text-slate-400">
+          <p className="mt-2 max-w-2xl text-base font-medium leading-7 text-stone-600">
             Выберите пакет кредитов. Кредиты не сгорают и списываются только за
             действия.
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+        <div className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
           Выбрано:{" "}
-          <span className="font-bold text-white">{selectedPlan.name}</span>
-          <span className="mx-2 text-slate-600">/</span>
-          <span className="font-bold text-emerald-300">
+          <span className="font-bold text-stone-950">{selectedPlan.name}</span>
+          <span className="mx-2 text-stone-300">/</span>
+          <span className="font-bold text-amber-700">
             {selectedPlan.price}
           </span>
         </div>
@@ -185,13 +185,13 @@ export function PricingTable({
               onClick={() => setSelected(plan.key)}
               className={`group relative min-h-[184px] overflow-hidden rounded-[24px] border p-5 text-left transition ${
                 active
-                  ? "border-emerald-400 bg-[linear-gradient(135deg,#18345a,#18283f_45%,#1f4a3a)] shadow-[0_20px_70px_rgba(16,185,129,0.18)]"
-                  : "border-slate-800 bg-[#151d2c] hover:border-slate-600 hover:bg-[#192235]"
+                  ? "border-amber-300 bg-[#fff7cc] shadow-[0_20px_70px_rgba(245,158,11,0.14)]"
+                  : "border-stone-200 bg-white hover:border-amber-300 hover:bg-[#fffaf0]"
               }`}
               aria-pressed={active}
             >
               {plan.save && (
-                <span className="absolute right-0 top-0 rounded-bl-[18px] bg-[linear-gradient(90deg,#2563eb,#b84def)] px-4 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-white">
+                <span className="absolute right-0 top-0 rounded-bl-[18px] bg-stone-950 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-white">
                   {plan.save}
                 </span>
               )}
@@ -201,8 +201,8 @@ export function PricingTable({
                   <span
                     className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                       active
-                        ? "border-emerald-300 bg-emerald-400/20 text-emerald-200"
-                        : "border-slate-600 text-transparent"
+                        ? "border-stone-950 bg-stone-950 text-[#ffd43b]"
+                        : "border-stone-300 text-transparent"
                     }`}
                   >
                     <Check className="h-3 w-3" />
@@ -210,36 +210,36 @@ export function PricingTable({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p
-                        className={`text-2xl font-bold ${active ? "text-emerald-300" : "text-white"}`}
+                        className={`text-2xl font-bold ${active ? "text-stone-950" : "text-stone-950"}`}
                       >
                         {plan.name}
                       </p>
                       {plan.badge && (
-                        <span className="rounded-full border border-emerald-300/50 bg-emerald-300/12 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-200">
+                        <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-900">
                           {plan.badge}
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-200">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-stone-600">
                       <span>Вы получаете</span>
-                      <span className="rounded-full bg-slate-700/80 px-3 py-1 text-white">
+                      <span className="rounded-full bg-white px-3 py-1 text-stone-950 ring-1 ring-stone-200">
                         {plan.credits}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-emerald-200/90">
+                    <p className="mt-3 text-sm font-semibold text-amber-700">
                       {plan.fit}
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-slate-300">
+                    <p className="mt-2 text-sm font-semibold text-stone-500">
                       {plan.estimate}
                     </p>
                   </div>
                 </div>
-                <p className="shrink-0 text-3xl font-bold tracking-[-0.04em] text-white sm:text-right">
+                <p className="shrink-0 text-3xl font-bold tracking-[-0.04em] text-stone-950 sm:text-right">
                   {plan.price}
                 </p>
               </div>
 
-              <p className="mt-6 max-w-3xl text-base font-semibold leading-7 text-slate-100">
+              <p className="mt-6 max-w-3xl text-base font-semibold leading-7 text-stone-700">
                 {plan.description}
               </p>
             </button>
@@ -250,7 +250,7 @@ export function PricingTable({
       <div className="mt-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <a
           href="#credit-spend"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-300 hover:text-emerald-200"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-stone-700 hover:text-amber-700"
         >
           <CircleHelp className="h-4 w-4" />
           Подробнее о стоимости кредитов и списаниях
@@ -259,7 +259,7 @@ export function PricingTable({
         {selected === "enterprise" ? (
           <Button
             href="mailto:sales@smartanalyzer.example"
-            className="min-w-[220px] rounded-xl bg-[linear-gradient(90deg,#2563eb,#b84def)] px-7 py-4 text-base font-bold text-white hover:opacity-95"
+            className="min-w-[220px] px-7 py-4 text-base font-bold"
           >
             Связаться <ArrowUpRight className="ml-2 h-5 w-5" />
           </Button>
@@ -268,14 +268,14 @@ export function PricingTable({
             type="button"
             disabled={purchasing}
             onClick={() => onPurchaseCredits(selected)}
-            className="min-w-[220px] rounded-xl bg-emerald-500 px-7 py-4 text-base font-bold text-slate-950 hover:bg-emerald-400"
+            className="min-w-[220px] px-7 py-4 text-base font-bold"
           >
             {purchasing ? "Пополнение..." : `Приобрести ${selectedPlan.price}`}
           </Button>
         ) : (
           <Button
             href={registerHref}
-            className="min-w-[220px] rounded-xl bg-emerald-500 px-7 py-4 text-base font-bold text-slate-950 hover:bg-emerald-400"
+            className="min-w-[220px] px-7 py-4 text-base font-bold"
           >
             Зарегистрироваться и купить {selectedPlan.name}
           </Button>
@@ -284,17 +284,17 @@ export function PricingTable({
 
       <div
         id="credit-explainer"
-        className="mt-8 rounded-[18px] border border-slate-700 bg-slate-800/70 p-5"
+        className="mt-8 rounded-[24px] border border-stone-200 bg-stone-50 p-5"
       >
         <h3 className="text-xl font-bold">Что такое кредит?</h3>
-        <p className="mt-3 max-w-5xl text-base leading-7 text-slate-200">
+        <p className="mt-3 max-w-5xl text-base leading-7 text-stone-600">
           Кредит SmartAnalyzer — внутренняя единица оплаты AI-операций. Анализ,
           OCR, сравнение документов и AI-вопросы списывают разное количество
           кредитов в зависимости от сложности. Срок действия пакета не
           ограничен.
         </p>
         {!isLoggedIn && (
-          <p className="mt-3 text-sm font-semibold text-emerald-200">
+          <p className="mt-3 text-sm font-semibold text-amber-700">
             Бесплатный старт: 100 кредитов после регистрации, без карты.
           </p>
         )}

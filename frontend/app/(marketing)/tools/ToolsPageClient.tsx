@@ -57,7 +57,7 @@ export function ToolsPageClient() {
     <section id="tool-catalog" className="mt-10 scroll-mt-28">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
             Каталог
           </p>
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-stone-950">
@@ -97,10 +97,10 @@ export function ToolsPageClient() {
         ))}
       </div>
 
-      <div className="mt-10 rounded-[30px] border border-stone-900/80 bg-stone-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] sm:p-8">
+      <div className="mt-10 rounded-[32px] border border-stone-200 bg-white p-6 text-stone-950 shadow-[0_24px_80px_rgba(28,25,23,0.08)] sm:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-700">
               Не знаете, с чего начать?
             </p>
             <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight tracking-[-0.04em]">
@@ -110,7 +110,7 @@ export function ToolsPageClient() {
           </div>
           <a
             href="/tools/document-analyzer"
-            className="inline-flex items-center justify-center rounded-full bg-emerald-400 px-6 py-3 text-sm font-bold text-stone-950 hover:bg-emerald-300"
+            className="inline-flex items-center justify-center rounded-full bg-[#ffd43b] px-6 py-3 text-sm font-bold text-stone-950 shadow-[0_14px_34px_rgba(245,158,11,0.18)] hover:bg-[#f6c343]"
           >
             Проверить договор
           </a>

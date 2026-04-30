@@ -78,7 +78,7 @@ export function FoldersSidebar({
     return (
       <div
         key={folder.id}
-        className="group relative flex items-center gap-2 rounded-2xl p-1 text-sm"
+        className="group relative flex items-center gap-2 rounded-[24px] p-1 text-sm"
         onDragOver={canDrop ? (e) => handleDragOver(e, folder.id) : undefined}
         onDragLeave={canDrop ? (e) => handleDragLeave(e, folder.id) : undefined}
         onDrop={canDrop ? (e) => handleDrop(e, folder.id) : undefined}
@@ -86,16 +86,16 @@ export function FoldersSidebar({
         <button
           type="button"
           onClick={() => onSelectFolder(folder.id)}
-          className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2.5 py-2.5 pr-6 text-left transition ${
-            isDropTarget ? "bg-emerald-500/20 ring-1 ring-emerald-300/70" : ""
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded-[18px] px-2.5 py-2.5 pr-6 text-left transition ${
+            isDropTarget ? "bg-[#fff7cc]/20 ring-1 ring-amber-300/70" : ""
           } ${
             isSelected
-              ? "bg-white/14 font-medium text-white shadow-[0_10px_28px_rgba(16,185,129,0.16)]"
-              : "text-zinc-300 hover:bg-white/8 hover:text-white"
+              ? "bg-[#fff7cc] font-medium text-stone-950 shadow-[0_10px_28px_rgba(245,158,11,0.16)]"
+              : "text-stone-600 hover:bg-stone-50 hover:text-stone-950"
           }`}
         >
           {isSelected ? (
-            <FolderOpen className="h-4 w-4 shrink-0 text-emerald-300" />
+            <FolderOpen className="h-4 w-4 shrink-0 text-[#ffd43b]" />
           ) : (
             <Folder className="h-4 w-4 shrink-0 text-zinc-500" />
           )}
@@ -106,7 +106,7 @@ export function FoldersSidebar({
           <div className="absolute right-1 top-1/2 -translate-y-1/2">
             <button
               type="button"
-              className="rounded-lg p-1 text-zinc-500 opacity-0 transition hover:bg-white/10 hover:text-zinc-200 group-hover:opacity-100"
+              className="rounded-lg p-1 text-stone-400 opacity-0 transition hover:bg-stone-100 hover:text-stone-700 group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuFolderId(showMenu ? null : folder.id);
@@ -122,10 +122,10 @@ export function FoldersSidebar({
                   aria-hidden
                   onClick={() => setMenuFolderId(null)}
                 />
-                <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-zinc-700 bg-zinc-900/95 py-1 shadow-2xl backdrop-blur">
+                <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-[18px] border border-stone-200 bg-white py-1 shadow-2xl">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-200 transition hover:bg-white/10"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 transition hover:bg-stone-50"
                     onClick={() => {
                       onRenameFolder(folder);
                       setMenuFolderId(null);
@@ -155,9 +155,9 @@ export function FoldersSidebar({
   };
 
   return (
-    <aside className="flex w-full shrink-0 flex-col rounded-[30px] border border-zinc-800/80 bg-[linear-gradient(170deg,rgba(20,24,34,0.96),rgba(11,14,22,0.96))] shadow-[0_30px_80px_rgba(4,6,12,0.45)] lg:w-72">
+    <aside className="flex w-full shrink-0 flex-col rounded-[32px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(28,25,23,0.08)] lg:w-72">
       <div className="px-4 pb-2 pt-4">
-        <div className="inline-flex items-center rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-200">
+        <div className="inline-flex items-center rounded-full border border-amber-200 bg-[#fff7cc] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-stone-900">
           Рабочая зона
         </div>
       </div>
@@ -175,10 +175,10 @@ export function FoldersSidebar({
           </>
         )}
       </div>
-      <div className="border-t border-zinc-800 px-3 py-3">
+      <div className="border-t border-stone-200 px-3 py-3">
         <Button
           type="button"
-          className="w-full justify-center gap-2 rounded-xl bg-emerald-500/80 text-zinc-950 hover:bg-emerald-400 focus:ring-emerald-300"
+          className="w-full justify-center gap-2 rounded-[18px] bg-[#fff7cc]/80 text-zinc-950 hover:bg-[#f6c343] focus:ring-amber-300"
           onClick={onCreateFolder}
         >
           <Plus className="h-4 w-4" />

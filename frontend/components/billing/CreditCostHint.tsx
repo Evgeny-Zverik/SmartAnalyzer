@@ -31,8 +31,8 @@ export function CreditCostHint({
       aria-live="polite"
       className={`inline-flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-[transform,background-color,border-color,opacity] duration-200 ease-out ${
         isDark
-          ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-100"
-          : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
+          : "border-amber-200 bg-amber-50 text-amber-800"
       } ${
         phase === "running"
           ? isDark
@@ -42,8 +42,8 @@ export function CreditCostHint({
       } ${
         phase === "success"
           ? isDark
-            ? "border-emerald-300/55 bg-emerald-300/16"
-            : "border-emerald-300 bg-emerald-100"
+            ? "border-amber-300/55 bg-amber-300/16"
+            : "border-amber-300 bg-amber-100"
           : ""
       }`}
       title={
@@ -57,10 +57,10 @@ export function CreditCostHint({
           phase === "running" ? "-translate-y-0.5 animate-pulse" : ""
         } ${
           phase === "success" ? "translate-y-0 scale-110" : ""
-        } ${isDark ? "text-emerald-200" : "text-emerald-600"}`}
+        } ${isDark ? "text-amber-200" : "text-amber-600"}`}
       />
       <span className="min-w-0">
-        <span className={isDark ? "text-emerald-100/80" : "text-emerald-700"}>
+        <span className={isDark ? "text-amber-100/80" : "text-amber-700"}>
           {phaseLabel}
         </span>{" "}
         <span className="font-semibold tabular-nums transition-transform duration-200 ease-out">
@@ -70,8 +70,8 @@ export function CreditCostHint({
         <span>{compact ? "кр." : "кредитов"}</span>
         {!compact && balanceLabel ? (
           <>
-            <span className={isDark ? "mx-1.5 text-white/25" : "mx-1.5 text-emerald-300"}>•</span>
-            <span className={isDark ? "text-emerald-100/75" : "text-emerald-700/80"}>
+            <span className={isDark ? "mx-1.5 text-white/25" : "mx-1.5 text-amber-300"}>•</span>
+            <span className={isDark ? "text-amber-100/75" : "text-amber-700/80"}>
               баланс {balanceLabel}
             </span>
           </>

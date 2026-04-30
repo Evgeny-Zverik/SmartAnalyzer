@@ -74,7 +74,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
   return (
     <div className="space-y-4 [font-family:var(--font-case-body)]">
       {(result as Record<string, unknown>).data_source === "stub" && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+        <div className="rounded-[18px] border border-amber-300 bg-amber-50 px-4 py-3">
           <p className="text-sm font-semibold text-amber-800">Ориентировочная сводка</p>
           <p className="mt-1 text-xs text-amber-700">
             Источники поиска недоступны. Результаты ниже носят справочный характер и не основаны на реальной поисковой выдаче. Не используйте их как подтверждённую судебную практику.
@@ -82,9 +82,9 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         </div>
       )}
       {(result as Record<string, unknown>).data_source === "no_results" && (
-        <div className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-3">
-          <p className="text-sm font-semibold text-sky-800">Практика не найдена — и это тоже ответ</p>
-          <p className="mt-1 text-xs text-sky-700">
+        <div className="rounded-[18px] border border-stone-300 bg-stone-50 px-4 py-3">
+          <p className="text-sm font-semibold text-stone-800">Практика не найдена — и это тоже ответ</p>
+          <p className="mt-1 text-xs text-stone-700">
             Мы не выдумываем акты. Если по вашему запросу в открытых источниках
             (kad.arbitr.ru, sudrf.ru, sudact.ru) ничего нет — показываем это честно.
             Попробуйте переформулировать, добавить период, инстанцию, номер суда или ключевые слова из возможного судебного акта.
@@ -92,16 +92,16 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
         </div>
       )}
       {relatedRegionNotice && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="rounded-[18px] border border-amber-300 bg-amber-50 px-4 py-3">
             <p className="text-sm font-semibold text-amber-800">Другие регионы</p>
             <p className="mt-1 text-xs text-amber-700">
               {relatedRegionNotice}
             </p>
           </div>
         )}
-      <div className="rounded-[24px] border border-emerald-200/70 bg-[linear-gradient(135deg,#f1fbf6,#ecfdf5_48%,#f8fffc)] p-4">
-        <p className="text-sm font-semibold text-emerald-900">{result.summary}</p>
-        <p className="mt-2 text-sm leading-6 text-emerald-800/90">{result.search_scope}</p>
+      <div className="rounded-[24px] border border-amber-200 bg-[#fff7cc] p-4 shadow-[0_14px_34px_rgba(245,158,11,0.12)]">
+        <p className="text-sm font-semibold text-stone-950">{result.summary}</p>
+        <p className="mt-2 text-sm leading-6 text-stone-700">{result.search_scope}</p>
       </div>
 
       {(() => {
@@ -113,7 +113,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
           ? outcomeSummary.granted + outcomeSummary.partial + outcomeSummary.denied
           : 0;
         return (
-          <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+          <div className="rounded-[24px] border border-stone-200 bg-stone-50/80 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
               Агрегат по подборке
             </p>
@@ -122,7 +122,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium text-stone-500">Исходы:</span>
                   {outcomeSummary.granted > 0 && (
-                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                       удовлетворено: {outcomeSummary.granted}
                     </span>
                   )}
@@ -149,7 +149,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                     Суммы по {amountStats.count} {amountStats.count === 1 ? "делу" : "делам"}:
                   </span>
                   {amountStats.median_rub !== null && (
-                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                       медиана {fmt(amountStats.median_rub)}
                     </span>
                   )}
@@ -166,23 +166,23 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
       })()}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-            <Search className="h-4 w-4 text-emerald-700" />
+            <Search className="h-4 w-4 text-amber-700" />
             Контекст запроса
           </h3>
           <p className="mt-3 text-sm leading-6 text-stone-700">{result.dispute_overview}</p>
         </div>
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-            <MapPin className="h-4 w-4 text-emerald-700" />
+            <MapPin className="h-4 w-4 text-amber-700" />
             Регионы
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {result.regions.map((region) => (
               <span
                 key={region}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700"
+                className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-amber-700"
               >
                 {region}
               </span>
@@ -192,9 +192,9 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
       </div>
 
       {result.court_positions.length > 0 && (
-      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+      <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-          <Scale className="h-4 w-4 text-emerald-700" />
+          <Scale className="h-4 w-4 text-amber-700" />
           Подходы судов
         </h3>
         <div className="mt-4 space-y-3">
@@ -203,7 +203,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
             return (
               <div
                 key={`${index}-${item.court}`}
-                className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+                className="rounded-[24px] border border-stone-200/90 bg-stone-50/75 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold text-stone-900">{item.court}</p>
@@ -223,9 +223,9 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
       )}
 
       {result.cited_cases.length > 0 && (
-      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+      <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-          <Link2 className="h-4 w-4 text-emerald-700" />
+          <Link2 className="h-4 w-4 text-amber-700" />
           Ссылки на акты
         </h3>
         <div className="mt-4 space-y-3">
@@ -239,7 +239,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                 : null;
             const outcomeChip =
               outcome === "granted"
-                ? { label: "удовлетворено", cls: "border-emerald-300 bg-emerald-50 text-emerald-700" }
+                ? { label: "удовлетворено", cls: "border-amber-300 bg-amber-50 text-amber-700" }
                 : outcome === "partial"
                 ? { label: "частично", cls: "border-amber-300 bg-amber-50 text-amber-700" }
                 : outcome === "denied"
@@ -248,7 +248,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
             return (
               <div
                 key={`${index}-${item.citation}`}
-                className="rounded-2xl border border-stone-200/90 bg-stone-50/75 p-4"
+                className="rounded-[24px] border border-stone-200/90 bg-stone-50/75 p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -265,7 +265,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                       {amountLabel && (
                         <span
                           title="Максимальная сумма, обнаруженная в снипете — обычно итоговое взыскание"
-                          className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700"
+                          className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700"
                         >
                           {amountLabel}
                         </span>
@@ -282,7 +282,7 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-amber-700 transition hover:bg-amber-100"
                   >
                     Открыть
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -297,49 +297,49 @@ function AssistantAnswer({ result }: { result: TenderAnalyzerChatResponse["resul
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Нормы права</h3>
           <ul className="mt-3 space-y-2">
             {result.legal_basis.map((item, index) => (
               <li
                 key={`${index}-${item.slice(0, 24)}`}
-                className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
+                className="rounded-[18px] border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
               >
                 {item}
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+        <div className="rounded-[32px] border border-stone-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Что делать дальше</h3>
           <ul className="mt-3 space-y-2">
             {result.practical_takeaways.map((item, index) => (
               <li
                 key={`${index}-${item.slice(0, 24)}`}
-                className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
+                className="rounded-[18px] border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700"
               >
                 {item}
               </li>
             ))}
           </ul>
-          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="mt-4 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {result.follow_up_prompt}
           </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+      <div className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-3">
         <p className="text-xs leading-5 text-stone-600">
           <span className="font-semibold text-stone-800">Источники:</span>{" "}
-          <a href="https://kad.arbitr.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+          <a href="https://kad.arbitr.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-amber-700">
             kad.arbitr.ru
           </a>
           ,{" "}
-          <a href="https://sudrf.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+          <a href="https://sudrf.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-amber-700">
             sudrf.ru
           </a>
           ,{" "}
-          <a href="https://sudact.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-emerald-700">
+          <a href="https://sudact.ru/" target="_blank" rel="noreferrer" className="underline decoration-dotted hover:text-amber-700">
             sudact.ru
           </a>
           . Мы не выдумываем акты: показываются только ссылки, реально найденные в открытых источниках.
@@ -479,22 +479,21 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
 
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable} space-y-8`}>
-      <section className="relative overflow-hidden rounded-[34px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_36%),radial-gradient(circle_at_100%_0%,rgba(56,189,248,0.24),transparent_38%),linear-gradient(160deg,#0b1019,#101827_52%,#152033)] p-5 text-zinc-100 shadow-[0_35px_120px_rgba(2,6,23,0.45)] sm:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_30%,rgba(255,255,255,0.04)_72%,transparent)]" />
+      <section className="relative overflow-hidden rounded-[36px] border border-stone-200 bg-white p-5 text-stone-950 shadow-[0_28px_90px_rgba(28,25,23,0.08)] sm:p-7">
         <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,0.8fr)]">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-200 [font-family:var(--font-case-body)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[#fff7cc] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-900 [font-family:var(--font-case-body)]">
               <Landmark className="h-3.5 w-3.5" />
               Обзор судебной практики
             </div>
-            <h2 className="mt-4 max-w-3xl text-3xl leading-[1.08] tracking-[-0.03em] text-white sm:text-5xl [font-family:var(--font-case-display)]">
+            <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-[1.02] tracking-[-0.04em] text-stone-950 sm:text-5xl [font-family:var(--font-case-body)]">
               Диалог с судебной
               <br />
               аналитикой
               <br />
               в реальном времени.
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base [font-family:var(--font-case-body)]">
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base [font-family:var(--font-case-body)]">
               Опишите спор естественным языком. Инструмент соберет позиции судов, ссылки на акты, релевантные нормы
               и короткий план, что проверить дальше.
             </p>
@@ -505,7 +504,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                   key={item}
                   type="button"
                   onClick={() => setQuery(item)}
-                  className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-left text-sm leading-6 text-zinc-100 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 [font-family:var(--font-case-body)]"
+                  className="rounded-[24px] border border-stone-200 bg-stone-50 px-4 py-3 text-left text-sm leading-6 text-stone-700 transition hover:border-amber-300 hover:bg-[#fffaf0] [font-family:var(--font-case-body)]"
                 >
                   {item}
                 </button>
@@ -513,13 +512,13 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-white/15 bg-white/8 p-5 backdrop-blur [font-family:var(--font-case-body)]">
+          <div className="rounded-[32px] border border-stone-200 bg-stone-50 p-5 shadow-[0_18px_54px_rgba(15,23,42,0.08)] [font-family:var(--font-case-body)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-300">Запрос</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-200">{headerHint}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Запрос</p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">{headerHint}</p>
               </div>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
+              <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-amber-200 bg-[#fff7cc] text-stone-950">
                 <Sparkles className="h-5 w-5" />
               </div>
             </div>
@@ -528,7 +527,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Например: практика по взысканию неустойки, Брянская область, арбитраж, ссылки на акты"
-              className="mt-4 min-h-[190px] w-full resize-y rounded-2xl border border-white/20 bg-zinc-950/50 px-4 py-3 text-sm leading-6 text-zinc-100 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/25"
+              className="mt-4 min-h-[190px] w-full resize-y rounded-[24px] border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200"
             />
 
             <div className="mt-4 space-y-3">
@@ -536,7 +535,7 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                 type="button"
                 onClick={status === "loading" ? () => abortRef.current?.abort() : handleSubmit}
                 disabled={!canSubmit && status !== "loading"}
-                className="w-full rounded-xl bg-emerald-400 text-zinc-950 hover:bg-emerald-300 focus:ring-emerald-200"
+                className="w-full rounded-full px-5 py-3 text-base"
               >
                 {status === "loading" ? "Остановить поиск" : "Найти практику"}
               </Button>
@@ -545,26 +544,25 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                   credits={usage?.credit_costs?.[tool.slug] ?? getFallbackCreditCost(tool.slug)}
                   balance={usage?.credit_balance ?? null}
                   compact
-                  tone="dark"
                   phase={costPhase}
                 />
               </div>
 
-              <label className="flex items-start gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs text-zinc-200">
+              <label className="flex items-start gap-2 rounded-[18px] border border-stone-200 bg-white px-3 py-2.5 text-xs text-stone-700">
                 <input
                   type="checkbox"
                   checked={allowRelatedRegions}
                   onChange={(e) => setAllowRelatedRegions(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-500 bg-zinc-900 text-emerald-400 focus:ring-emerald-300"
+                  className="mt-0.5 h-4 w-4 rounded border-stone-300 bg-white text-amber-400 focus:ring-amber-300"
                 />
                 Разрешить похожие акты из других регионов
               </label>
 
-              <p className="text-xs text-zinc-400">Формат ответа: сводка, позиции судов, ссылки на акты и нормы права.</p>
+              <p className="text-xs text-stone-500">Формат ответа: сводка, позиции судов, ссылки на акты и нормы права.</p>
             </div>
 
             {errorMessage ? (
-              <div className="mt-4 rounded-xl border border-rose-300/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              <div className="mt-4 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {errorMessage}
               </div>
             ) : null}
@@ -575,23 +573,23 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
       <section className="[font-family:var(--font-case-body)]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-[30px] leading-tight tracking-[-0.02em] text-zinc-900 [font-family:var(--font-case-display)]">
+            <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.04em] text-stone-950 [font-family:var(--font-case-body)]">
               Диалог и выводы
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">{tool.title} хранит контекст в рамках текущей сессии страницы.</p>
+            <p className="mt-1 text-sm text-stone-500">{tool.title} хранит контекст в рамках текущей сессии страницы.</p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
-            <Gavel className="h-3.5 w-3.5 text-emerald-600" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-stone-600">
+            <Gavel className="h-3.5 w-3.5 text-amber-600" />
             Сообщений: {messages.length}
           </div>
         </div>
 
         {messages.length === 0 ? (
-          <div className="rounded-[28px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f6f7f8)] p-10 text-center shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
+          <div className="rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,#ffffff,#f6f7f8)] p-10 text-center shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[24px] border border-amber-200 bg-amber-50 text-amber-700">
               <ShieldAlert className="h-6 w-6" />
             </div>
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-zinc-600">
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-stone-600">
               Диалог пока пуст. Начните с запроса вроде: «арбитражная практика по неустойке в Брянской области,
               ссылки на акты».
             </p>
@@ -603,8 +601,8 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
                 <div
                   className={
                     message.role === "user"
-                      ? "max-w-3xl rounded-[26px] border border-zinc-800 bg-zinc-900 px-5 py-4 text-sm leading-7 text-zinc-100 shadow-[0_16px_44px_rgba(15,23,42,0.22)] [font-family:var(--font-case-body)]"
-                      : "w-full max-w-6xl rounded-[30px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#f8f9fa)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]"
+                      ? "max-w-3xl rounded-[26px] border border-stone-800 bg-stone-900 px-5 py-4 text-sm leading-7 text-stone-100 shadow-[0_16px_44px_rgba(15,23,42,0.22)] [font-family:var(--font-case-body)]"
+                      : "w-full max-w-6xl rounded-[30px] border border-stone-200 bg-[linear-gradient(180deg,#ffffff,#f8f9fa)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]"
                   }
                 >
                   {message.role === "user" ? <p>{message.content}</p> : <AssistantAnswer result={message.result} />}
@@ -613,23 +611,23 @@ export function CaseLawChatWorkspace({ tool }: { tool: Tool }) {
             ))}
             {status === "loading" && (
               <div className="flex justify-start">
-                <div className="w-full max-w-6xl rounded-[30px] border border-emerald-200 bg-[linear-gradient(180deg,#ffffff,#f1fbf6)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+                <div className="w-full max-w-6xl rounded-[30px] border border-amber-200 bg-[linear-gradient(180deg,#ffffff,#fff7cc)] p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
                   <div className="flex items-center gap-3">
                     <span className="relative flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
                     </span>
-                    <p className="text-sm font-semibold text-emerald-900">Собираем подборку практики…</p>
-                    <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    <p className="text-sm font-semibold text-amber-900">Собираем подборку практики…</p>
+                    <span className="ml-auto rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                       {formatTime(elapsedSec)}
                     </span>
                   </div>
                   <div className="mt-4 space-y-2">
-                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "80%" }} />
-                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "60%" }} />
-                    <div className="h-3 animate-pulse rounded-full bg-emerald-100/80" style={{ width: "72%" }} />
+                    <div className="h-3 animate-pulse rounded-full bg-amber-100/80" style={{ width: "80%" }} />
+                    <div className="h-3 animate-pulse rounded-full bg-amber-100/80" style={{ width: "60%" }} />
+                    <div className="h-3 animate-pulse rounded-full bg-amber-100/80" style={{ width: "72%" }} />
                   </div>
-                  <p className="mt-4 text-xs leading-5 text-emerald-800/80">
+                  <p className="mt-4 text-xs leading-5 text-amber-800/80">
                     Ищем по kad.arbitr.ru и sudrf.ru, фильтруем по региону и инстанции, проверяем нормы.
                   </p>
                 </div>

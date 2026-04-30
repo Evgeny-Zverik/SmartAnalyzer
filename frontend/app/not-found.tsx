@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="mt-2 text-gray-600">Страница не найдена</p>
       <Link
         href="/"
-        className="mt-6 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+        className="mt-6 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
       >
         На главную
       </Link>

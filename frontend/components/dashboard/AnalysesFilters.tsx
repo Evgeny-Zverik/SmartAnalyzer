@@ -26,7 +26,7 @@ export function AnalysesFilters({
           id="filter-tool"
           value={toolSlug}
           onChange={(e) => onToolSlugChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-300"
         >
           <option value="">Все</option>
           {tools.map((t) => (

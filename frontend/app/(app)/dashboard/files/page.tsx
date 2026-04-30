@@ -188,12 +188,8 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <main className="relative min-h-[calc(100vh-104px)] overflow-hidden bg-[linear-gradient(170deg,#f7f8f7,#f3f4f6_45%,#eef2ff)] px-4 py-4 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8%] top-[-14%] h-72 w-72 rounded-full bg-emerald-200/35 blur-3xl" />
-        <div className="absolute right-[-12%] top-[20%] h-96 w-96 rounded-full bg-sky-200/30 blur-3xl" />
-      </div>
-      <div className="relative mx-auto flex w-full max-w-[1520px] flex-col gap-4 lg:flex-row lg:gap-6">
+    <main className="min-h-[calc(100vh-104px)] bg-[#f5f6f7] px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 lg:flex-row lg:gap-6">
       <FoldersSidebar
         folders={folders}
         selectedFolderId={selectedFolderId}
@@ -213,7 +209,7 @@ export default function DashboardPage() {
         <section className="rounded-[30px] border border-zinc-200/90 bg-white/85 px-5 py-5 shadow-[0_20px_70px_rgba(15,23,42,0.1)] backdrop-blur sm:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
                 <Sparkles className="h-3.5 w-3.5" />
                 Аналитический центр
               </div>
@@ -226,21 +222,21 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3">
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/80 px-3 py-3">
                 <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   <Folders className="h-3.5 w-3.5" />
                   Папки
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-zinc-900">{folders.length}</p>
               </div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3">
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/80 px-3 py-3">
                 <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   <FileStack className="h-3.5 w-3.5" />
                   Элементы
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-zinc-900">{selectedFolderTotal}</p>
               </div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3">
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/80 px-3 py-3">
                 <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   <Sparkles className="h-3.5 w-3.5" />
                   Кредиты
@@ -254,7 +250,7 @@ export default function DashboardPage() {
           <div
             className={`relative rounded-[30px] border-2 border-dashed bg-white/88 p-4 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur transition sm:p-5 ${
               uploadDragging
-                ? "border-emerald-400 bg-emerald-50/80 shadow-[0_30px_90px_rgba(16,185,129,0.16)]"
+                ? "border-amber-400 bg-amber-50/80 shadow-[0_30px_90px_rgba(245,158,11,0.16)]"
                 : "border-zinc-200/90"
             }`}
             onDragOver={(e) => {
@@ -264,9 +260,9 @@ export default function DashboardPage() {
             onDragLeave={() => setUploadDragging(false)}
             onDrop={handleFileDrop}
           >
-            <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/75 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 flex flex-col gap-3 rounded-[24px] border border-zinc-200 bg-zinc-50/75 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-100/70 text-emerald-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[18px] border border-amber-300 bg-amber-100/70 text-amber-700">
                   <UploadCloud className="h-5 w-5" />
                 </div>
                 <div>
@@ -290,18 +286,18 @@ export default function DashboardPage() {
                     setSearchQuery(e.target.value);
                     setContentPage(1);
                   }}
-                  className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                  className="w-full rounded-[18px] border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
               </div>
             )}
             {contentLoading ? (
-              <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4">
+              <div className="space-y-3 rounded-[24px] border border-zinc-200 bg-white p-4">
                 {Array.from({ length: 6 }).map((_, index) => (
-                  <Skeleton key={index} className="h-14 w-full rounded-2xl" />
+                  <Skeleton key={index} className="h-14 w-full rounded-[24px]" />
                 ))}
               </div>
             ) : selectedFolderId == null ? (
-              <div className="rounded-2xl border border-zinc-200 bg-white py-14 text-center text-zinc-500">
+              <div className="rounded-[24px] border border-zinc-200 bg-white py-14 text-center text-zinc-500">
                 Выберите папку в списке слева
               </div>
             ) : folderContent ? (
@@ -316,7 +312,7 @@ export default function DashboardPage() {
               />
             ) : null}
             {uploadDragging && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[28px] bg-white/85 text-lg font-semibold text-emerald-700">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[28px] bg-white/85 text-lg font-semibold text-amber-700">
                 Отпустите файл для загрузки
               </div>
             )}

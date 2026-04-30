@@ -87,8 +87,7 @@ export function AdminCreditAdjustModal({
       className="fixed inset-0 z-[1700] flex items-center justify-center bg-[rgba(15,23,42,0.55)] px-4 backdrop-blur-md"
     >
       <div className="w-full max-w-md origin-center animate-[avatar-menu-in_220ms_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.32)]">
-        <div className="relative overflow-hidden border-b border-emerald-100 bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.28),rgba(255,255,255,0.96)_62%)] px-6 pb-5 pt-6">
-          <span className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="relative overflow-hidden border-b border-amber-100 bg-[#fff7cc] px-6 pb-5 pt-6">
           <button
             type="button"
             onClick={onClose}
@@ -99,11 +98,11 @@ export function AdminCreditAdjustModal({
             <X className="h-4 w-4" />
           </button>
           <div className="relative flex items-start gap-3">
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[24px] border border-amber-200 bg-white text-amber-700 shadow-sm">
               <Coins className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
                 Корректировка баланса
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
@@ -121,13 +120,13 @@ export function AdminCreditAdjustModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-stone-200 bg-stone-50 p-1">
+          <div className="grid grid-cols-2 gap-2 rounded-[24px] border border-stone-200 bg-stone-50 p-1">
             <button
               type="button"
               onClick={() => setDirection("grant")}
-              className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-[18px] px-3 py-2 text-sm font-semibold transition ${
                 direction === "grant"
-                  ? "bg-emerald-600 text-white shadow"
+                  ? "bg-[#ffd43b] text-stone-950 shadow"
                   : "text-stone-600 hover:bg-white"
               }`}
             >
@@ -136,9 +135,9 @@ export function AdminCreditAdjustModal({
             <button
               type="button"
               onClick={() => setDirection("debit")}
-              className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-[18px] px-3 py-2 text-sm font-semibold transition ${
                 direction === "debit"
-                  ? "bg-rose-600 text-white shadow"
+                  ? "bg-rose-600 text-stone-950 shadow"
                   : "text-stone-600 hover:bg-white"
               }`}
             >
@@ -160,7 +159,7 @@ export function AdminCreditAdjustModal({
                 value={amountInput}
                 onChange={(e) => setAmountInput(e.target.value)}
                 placeholder="например, 1000"
-                className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base font-semibold tabular-nums text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                className="h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 text-base font-semibold tabular-nums text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
               />
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -169,7 +168,7 @@ export function AdminCreditAdjustModal({
                   type="button"
                   key={value}
                   onClick={() => setAmountInput(String(value))}
-                  className="rounded-full border border-stone-200 bg-white px-2.5 py-0.5 text-xs font-medium text-stone-600 transition hover:border-emerald-300 hover:text-emerald-700"
+                  className="rounded-full border border-stone-200 bg-white px-2.5 py-0.5 text-xs font-medium text-stone-600 transition hover:border-amber-300 hover:text-amber-700"
                 >
                   {value.toLocaleString("ru-RU")}
                 </button>
@@ -187,17 +186,17 @@ export function AdminCreditAdjustModal({
               maxLength={200}
               onChange={(e) => setReason(e.target.value)}
               placeholder="например, компенсация ошибки"
-              className="mt-1.5 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+              className="mt-1.5 h-11 w-full rounded-[18px] border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
             />
           </div>
 
           {amountValid ? (
             <div
-              className={`rounded-2xl border px-3 py-2.5 text-sm ${
+              className={`rounded-[24px] border px-3 py-2.5 text-sm ${
                 wouldGoNegative
                   ? "border-rose-200 bg-rose-50 text-rose-700"
                   : direction === "grant"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  ? "border-amber-200 bg-[#fff7cc] text-amber-800"
                   : "border-amber-200 bg-amber-50 text-amber-800"
               }`}
             >
@@ -221,16 +220,16 @@ export function AdminCreditAdjustModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+              className="rounded-[18px] border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 ${
+              className={`inline-flex items-center justify-center gap-2 rounded-[18px] px-4 py-2.5 text-sm font-semibold text-stone-950 transition disabled:opacity-50 ${
                 direction === "grant"
-                  ? "bg-emerald-600 shadow-[0_10px_24px_-12px_rgba(16,185,129,0.6)] hover:bg-emerald-700"
+                  ? "bg-[#ffd43b] shadow-[0_10px_24px_-12px_rgba(245,158,11,0.6)] hover:bg-[#f6c343]"
                   : "bg-rose-600 shadow-[0_10px_24px_-12px_rgba(225,29,72,0.5)] hover:bg-rose-700"
               }`}
             >

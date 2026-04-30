@@ -93,10 +93,10 @@ export function FeatureModulesPanel() {
 
   return (
     <section className="mt-6 space-y-6">
-      <div className="rounded-3xl border border-zinc-200 bg-white/95 p-5 shadow-[0_14px_50px_rgba(15,23,42,0.07)] sm:p-6">
+      <div className="rounded-[32px] border border-zinc-200 bg-white/95 p-5 shadow-[0_14px_50px_rgba(15,23,42,0.07)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-100/70 text-emerald-700">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[18px] border border-amber-300 bg-[#fff7cc]/70 text-amber-700">
               <Puzzle className="h-5 w-5" />
             </div>
             <div>
@@ -107,7 +107,7 @@ export function FeatureModulesPanel() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+            <span className="rounded-full border border-amber-300 bg-[#fff7cc] px-3 py-1 font-semibold text-amber-700">
               Включено: {enabledParentFeatures.length}
             </span>
             <span className="rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 font-semibold text-zinc-600">
@@ -117,25 +117,25 @@ export function FeatureModulesPanel() {
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/55 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Сейчас включено</p>
+          <div className="rounded-[24px] border border-amber-200 bg-[#fff7cc]/55 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Сейчас включено</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {enabledParentFeatures.length > 0 ? (
                 enabledParentFeatures.map((feature) => (
                   <span
                     key={feature.key}
-                    className="inline-flex items-center rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-800"
+                    className="inline-flex items-center rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800"
                   >
                     {featureLabel(feature)}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-emerald-700">Нет включенных модулей</span>
+                <span className="text-sm text-amber-700">Нет включенных модулей</span>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/75 p-4">
+          <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/75 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Сейчас выключено</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {disabledParentFeatures.length > 0 ? (
@@ -156,14 +156,14 @@ export function FeatureModulesPanel() {
       </div>
 
       {parentFeatures.length === 0 && (
-        <p className="rounded-3xl border border-zinc-200 bg-white/95 px-5 py-10 text-center text-sm text-zinc-500 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
+        <p className="rounded-[32px] border border-zinc-200 bg-white/95 px-5 py-10 text-center text-sm text-zinc-500 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
           Фича-модули не найдены.
         </p>
       )}
 
       {parentFeatures.length > 0 && (
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="rounded-2xl border border-zinc-200 bg-white/90 p-2 shadow-sm lg:sticky lg:top-4 lg:self-start">
+        <aside className="rounded-[24px] border border-zinc-200 bg-white/90 p-2 shadow-sm lg:sticky lg:top-4 lg:self-start">
           <nav className="flex flex-col gap-1">
             {parentFeatures.map((feature) => {
               const isActive = activeFeatureKey === feature.key;
@@ -172,7 +172,7 @@ export function FeatureModulesPanel() {
               return (
                 <div
                   key={feature.key}
-                  className={`flex items-center gap-2 rounded-xl pl-3 pr-2 py-1.5 text-sm font-medium transition ${
+                  className={`flex items-center gap-2 rounded-[18px] pl-3 pr-2 py-1.5 text-sm font-medium transition ${
                     isActive
                       ? "bg-zinc-900 text-white shadow-[0_10px_30px_rgba(24,24,27,0.2)]"
                       : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
@@ -199,7 +199,7 @@ export function FeatureModulesPanel() {
                       itemLocked || itemPending
                         ? "cursor-not-allowed bg-zinc-300"
                         : feature.effective_enabled
-                          ? "bg-emerald-500"
+                          ? "bg-[#ffd43b]"
                           : isActive
                             ? "bg-zinc-600"
                             : "bg-zinc-300"
@@ -228,13 +228,12 @@ export function FeatureModulesPanel() {
             return (
               <div
                 key={feature.key}
-                className="group relative overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_14px_50px_rgba(15,23,42,0.07)] transition"
+                className="group relative overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-[0_14px_50px_rgba(15,23,42,0.07)] transition"
               >
-                <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-emerald-200/25 blur-2xl opacity-70 transition group-hover:opacity-100" />
                 <div className="relative flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-start">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-[#fff7cc] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">
                         Feature
                       </span>
                       <span className="text-base font-semibold tracking-[-0.02em] text-zinc-900">{feature.name}</span>
@@ -256,7 +255,7 @@ export function FeatureModulesPanel() {
                         isLocked || isPending
                           ? "cursor-not-allowed border-zinc-300 bg-zinc-300"
                           : feature.effective_enabled
-                            ? "border-emerald-500 bg-emerald-500"
+                            ? "border-amber-400 bg-[#ffd43b]"
                             : "border-zinc-300 bg-zinc-300"
                       }`}
                     >
@@ -271,7 +270,7 @@ export function FeatureModulesPanel() {
 
                 {children.length > 0 && (
                   <div className="border-t border-zinc-100 bg-zinc-50/70 px-5 py-5">
-                    <div className="mb-4 rounded-xl border border-zinc-200 bg-white px-4 py-3">
+                    <div className="mb-4 rounded-[18px] border border-zinc-200 bg-white px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                         Дочерние модули
                       </p>
@@ -289,7 +288,7 @@ export function FeatureModulesPanel() {
                         return (
                           <div
                             key={module.key}
-                            className={`rounded-2xl border px-4 py-4 shadow-sm ${
+                            className={`rounded-[24px] border px-4 py-4 shadow-sm ${
                               inheritedOff
                                 ? "border-zinc-200 bg-zinc-50 text-zinc-500"
                                 : "border-zinc-200 bg-white"
@@ -328,7 +327,7 @@ export function FeatureModulesPanel() {
                                   moduleLocked || inheritedOff || modulePending
                                     ? "cursor-not-allowed bg-zinc-300"
                                     : module.effective_enabled
-                                      ? "bg-emerald-500"
+                                      ? "bg-[#ffd43b]"
                                       : "bg-zinc-300"
                                 }`}
                               >

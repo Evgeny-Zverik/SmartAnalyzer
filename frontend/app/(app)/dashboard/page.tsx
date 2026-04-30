@@ -74,8 +74,8 @@ function formatBytes(n: number): string {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    completed: { label: "Готово", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-    running: { label: "Выполняется", cls: "bg-sky-50 text-sky-700 ring-sky-200" },
+    completed: { label: "Готово", cls: "bg-[#fff7cc] text-amber-700 ring-amber-200" },
+    running: { label: "Выполняется", cls: "bg-stone-50 text-stone-700 ring-stone-200" },
     pending: { label: "В очереди", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
     failed: { label: "Ошибка", cls: "bg-rose-50 text-rose-700 ring-rose-200" },
   };
@@ -118,13 +118,13 @@ function ActivityChart({ data }: { data: { date: string; count: number }[] }) {
         return (
           <div
             key={d.date}
-            className="group relative flex-1 rounded-t bg-emerald-100 transition hover:bg-emerald-300"
+            className="group relative flex-1 rounded-t bg-[#fff7cc] transition hover:bg-amber-300"
             style={{ height: `${Math.max(pct, d.count > 0 ? 8 : 2)}%` }}
             title={`${d.date}: ${d.count}`}
           >
             {d.count > 0 && (
               <div
-                className="absolute inset-0 rounded-t bg-emerald-500"
+                className="absolute inset-0 rounded-t bg-[#ffd43b]"
                 style={{ opacity: 0.6 + 0.4 * (d.count / max) }}
               />
             )}
@@ -195,17 +195,12 @@ export default function DashboardPage() {
   const totalToolCount = summary.tool_breakdown.reduce((s, t) => s + t.count, 0);
 
   return (
-    <main className="relative min-h-[calc(100vh-104px)] overflow-hidden bg-[linear-gradient(170deg,#f7f8f7,#f3f4f6_45%,#eef2ff)] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8%] top-[-14%] h-72 w-72 rounded-full bg-emerald-200/35 blur-3xl" />
-        <div className="absolute right-[-12%] top-[20%] h-96 w-96 rounded-full bg-sky-200/30 blur-3xl" />
-      </div>
-
-      <div className="relative mx-auto flex w-full max-w-[1520px] flex-col gap-6">
+    <main className="min-h-[calc(100vh-104px)] bg-[#f5f6f7] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         {/* Greeting + plan */}
         <section className="flex flex-col gap-4 rounded-[28px] border border-zinc-200/90 bg-white/85 px-6 py-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-[#fff7cc] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
               <Sparkles className="h-3.5 w-3.5" />
               Аналитический центр
             </div>
@@ -220,14 +215,14 @@ export default function DashboardPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setVoucherOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+              className="inline-flex items-center gap-2 rounded-[18px] border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
             >
               <Ticket className="h-4 w-4" />
               Активировать ваучер
             </button>
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700"
+              className="inline-flex items-center gap-2 rounded-full bg-[#ffd43b] px-5 py-2.5 text-sm font-bold text-stone-950 shadow-[0_12px_30px_rgba(245,158,11,0.18)] transition hover:bg-[#f6c343]"
             >
               <Plus className="h-4 w-4" />
               Пополнить баланс
@@ -242,23 +237,23 @@ export default function DashboardPage() {
             label="Баланс"
             value={balance}
             unit="кр."
-            accent="emerald"
+            accent="amber"
             footer={`Списано сегодня: ${summary.credits_spent_today.toLocaleString("ru-RU")} кр.`}
           />
           <KpiCard
             icon={<FileStack className="h-4 w-4" />}
             label="Документы"
             value={summary.counts.documents.toLocaleString("ru-RU")}
-            accent="sky"
+            accent="stone"
             footer={`${summary.counts.folders} пользовательских папок`}
           />
           <KpiCard
             icon={<TrendingUp className="h-4 w-4" />}
             label="Анализов всего"
             value={summary.counts.analyses.toLocaleString("ru-RU")}
-            accent="violet"
+            accent="stone"
             footer={`+${summary.counts.analyses_7d} за 7 дней`}
-            chart={<div className="text-violet-500"><Sparkline data={sparkline} /></div>}
+            chart={<div className="text-stone-500"><Sparkline data={sparkline} /></div>}
           />
           <KpiCard
             icon={<Gauge className="h-4 w-4" />}
@@ -284,21 +279,21 @@ export default function DashboardPage() {
                   icon={<UploadCloud className="h-5 w-5" />}
                   label="Загрузить документ"
                   hint="PDF, DOCX, XLSX"
-                  color="emerald"
+                  color="amber"
                 />
                 <QuickAction
                   href="/tools/document-analyzer"
                   icon={<FilePlus2 className="h-5 w-5" />}
                   label="Новый анализ"
                   hint="Документ → отчёт"
-                  color="violet"
+                  color="stone"
                 />
                 <QuickAction
                   href="/tools/tender-analyzer"
                   icon={<Scale className="h-5 w-5" />}
                   label="Поиск практики"
                   hint="Судебные решения"
-                  color="sky"
+                  color="stone"
                 />
                 <QuickAction
                   href="/dashboard/files"
@@ -373,7 +368,7 @@ export default function DashboardPage() {
                   {summary.pending_documents.map((d) => (
                     <li
                       key={d.document_id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-white/80 px-3 py-2.5"
+                      className="flex items-center justify-between gap-3 rounded-[18px] border border-amber-200/60 bg-white/80 px-3 py-2.5"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-zinc-900">{d.filename}</p>
@@ -383,7 +378,7 @@ export default function DashboardPage() {
                       </div>
                       <Link
                         href="/tools/document-analyzer"
-                        className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-700"
+                        className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm transition hover:bg-amber-700"
                       >
                         Анализ
                         <ArrowRight className="h-3 w-3" />
@@ -435,7 +430,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-sky-500"
+                            className="h-full rounded-full bg-gradient-to-r from-[#ffd43b] to-stone-500"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -478,7 +473,7 @@ export default function DashboardPage() {
                       </div>
                       <div
                         className={`flex-shrink-0 text-xs font-semibold tabular-nums ${
-                          tx.amount >= 0 ? "text-emerald-600" : "text-rose-600"
+                          tx.amount >= 0 ? "text-amber-600" : "text-rose-600"
                         }`}
                       >
                         {tx.amount > 0 ? "+" : ""}
@@ -513,17 +508,15 @@ function KpiCard({
   value: string;
   unit?: string;
   footer?: string;
-  accent: "emerald" | "sky" | "violet" | "amber";
+  accent: "amber" | "stone";
   chart?: React.ReactNode;
 }) {
   const accents = {
-    emerald: "text-emerald-700 bg-emerald-50 ring-emerald-200",
-    sky: "text-sky-700 bg-sky-50 ring-sky-200",
-    violet: "text-violet-700 bg-violet-50 ring-violet-200",
-    amber: "text-amber-700 bg-amber-50 ring-amber-200",
+    amber: "text-amber-700 bg-[#fff7cc] ring-amber-200",
+    stone: "text-stone-700 bg-stone-50 ring-stone-200",
   } as const;
   return (
-    <div className="rounded-2xl border border-zinc-200/90 bg-white/85 p-4 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+    <div className="rounded-[24px] border border-zinc-200/90 bg-white/85 p-4 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur">
       <div className="flex items-center justify-between">
         <span
           className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ring-1 ${accents[accent]}`}
@@ -555,21 +548,19 @@ function QuickAction({
   icon: React.ReactNode;
   label: string;
   hint: string;
-  color: "emerald" | "violet" | "sky" | "amber";
+  color: "amber" | "stone";
 }) {
   const colors = {
-    emerald: "border-emerald-200 bg-emerald-50/60 text-emerald-700 hover:bg-emerald-50",
-    violet: "border-violet-200 bg-violet-50/60 text-violet-700 hover:bg-violet-50",
-    sky: "border-sky-200 bg-sky-50/60 text-sky-700 hover:bg-sky-50",
-    amber: "border-amber-200 bg-amber-50/60 text-amber-700 hover:bg-amber-50",
+    amber: "border-amber-200 bg-[#fff7cc]/60 text-amber-700 hover:bg-[#fff7cc]",
+    stone: "border-stone-200 bg-stone-50/60 text-stone-700 hover:bg-stone-50",
   } as const;
   return (
     <Link
       href={href}
-      className={`group flex flex-col gap-2 rounded-2xl border p-3 transition ${colors[color]}`}
+      className={`group flex flex-col gap-2 rounded-[24px] border p-3 transition ${colors[color]}`}
     >
       <div className="flex items-center justify-between">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/80 shadow-sm">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-[18px] bg-white/80 shadow-sm">
           {icon}
         </span>
         <ArrowUpRight className="h-4 w-4 opacity-0 transition group-hover:opacity-100" />
@@ -596,15 +587,15 @@ function EmptyHint({
   ctaHref: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/60 px-5 py-8 text-center">
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-zinc-700 shadow-sm">
+    <div className="rounded-[24px] border border-dashed border-zinc-300 bg-zinc-50/60 px-5 py-8 text-center">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-[18px] bg-white text-zinc-700 shadow-sm">
         {icon}
       </span>
       <h3 className="mt-3 text-sm font-semibold text-zinc-900">{title}</h3>
       <p className="mx-auto mt-1 max-w-md text-xs text-zinc-500">{description}</p>
       <Link
         href={ctaHref}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-700"
+        className="mt-3 inline-flex items-center gap-1.5 rounded-[18px] bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-700"
       >
         {ctaLabel}
         <ArrowRight className="h-3.5 w-3.5" />

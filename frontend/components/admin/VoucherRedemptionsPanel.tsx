@@ -39,9 +39,9 @@ export function VoucherRedemptionsPanel() {
   }, []);
 
   return (
-    <section className="mt-6 rounded-3xl border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
+    <section className="mt-6 rounded-[32px] border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
       <div className="flex items-center gap-3 border-b border-zinc-100 px-5 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-300 bg-sky-100/70 text-sky-700">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[18px] border border-stone-300 bg-stone-100/70 text-stone-700">
           <BarChart3 className="h-5 w-5" />
         </div>
         <div>
@@ -55,7 +55,7 @@ export function VoucherRedemptionsPanel() {
       {loading ? (
         <div className="space-y-3 px-5 py-5">
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-12 w-full rounded-2xl" />
+            <Skeleton key={index} className="h-12 w-full rounded-[24px]" />
           ))}
         </div>
       ) : !items || items.length === 0 ? (
@@ -85,7 +85,7 @@ export function VoucherRedemptionsPanel() {
                     </code>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fff7cc] px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
                       <Coins className="h-3.5 w-3.5" />+
                       {r.credits_granted.toLocaleString("ru-RU")}
                     </span>

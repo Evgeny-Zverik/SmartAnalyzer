@@ -201,8 +201,8 @@ export default function AdminPage() {
 
   if (forbidden) {
     return (
-      <main className="flex min-h-[calc(100vh-104px)] items-center justify-center bg-[linear-gradient(170deg,#f7f8f7,#f3f4f6)] p-8">
-        <div className="max-w-md rounded-3xl border border-rose-200 bg-white/90 p-8 text-center shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+      <main className="flex min-h-[calc(100vh-104px)] items-center justify-center bg-[#f5f6f7] p-8">
+        <div className="max-w-md rounded-[32px] border border-rose-200 bg-white/90 p-8 text-center shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
           <h1 className="text-2xl font-semibold text-zinc-900">Доступ запрещён</h1>
           <p className="mt-2 text-sm text-zinc-600">
             Эта страница доступна только администратору.
@@ -267,10 +267,10 @@ export default function AdminPage() {
   ];
 
   return (
-    <main className="min-h-[calc(100vh-104px)] bg-[linear-gradient(170deg,#f7f8f7,#f3f4f6_45%,#eef2ff)] px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-[calc(100vh-104px)] bg-[#f5f6f7] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <section className="rounded-[30px] border border-zinc-200/90 bg-white/85 px-6 py-6 shadow-[0_20px_70px_rgba(15,23,42,0.1)] backdrop-blur">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-[#fff7cc] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
             <ShieldCheck className="h-3.5 w-3.5" />
             Админ-панель
           </div>
@@ -282,7 +282,7 @@ export default function AdminPage() {
           </p>
         </section>
 
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white/90 p-2 shadow-sm">
+        <div className="mt-6 rounded-[24px] border border-zinc-200 bg-white/90 p-2 shadow-sm">
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => (
               <button
@@ -290,7 +290,7 @@ export default function AdminPage() {
                 type="button"
                 disabled={tab.disabled}
                 onClick={() => !tab.disabled && setActiveTab(tab.key)}
-                className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                className={`rounded-[18px] px-4 py-2.5 text-sm font-medium transition ${
                   activeTab === tab.key
                     ? "bg-zinc-900 text-white shadow-[0_10px_30px_rgba(24,24,27,0.2)]"
                     : tab.disabled
@@ -310,10 +310,10 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "users" && (
-          <section className="mt-6 rounded-3xl border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
+          <section className="mt-6 rounded-[32px] border border-zinc-200 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.07)]">
             <div className="flex flex-col gap-4 border-b border-zinc-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-100/70 text-emerald-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[18px] border border-amber-300 bg-[#fff7cc]/70 text-amber-700">
                   <UsersIcon className="h-5 w-5" />
                 </div>
                 <div>
@@ -322,7 +322,7 @@ export default function AdminPage() {
                     <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-600">
                       Всего {summary.all}
                     </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
+                    <span className="rounded-full bg-[#fff7cc] px-2 py-0.5 font-medium text-amber-700 ring-1 ring-amber-200">
                       Активные {summary.active}
                     </span>
                     <span className="rounded-full bg-zinc-50 px-2 py-0.5 font-medium text-zinc-500 ring-1 ring-zinc-200">
@@ -332,7 +332,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-xs">
+                <div className="flex rounded-[18px] border border-zinc-200 bg-zinc-50 p-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setSortKey("recent")}
@@ -357,7 +357,7 @@ export default function AdminPage() {
                   placeholder="Поиск по email…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 sm:w-64"
+                  className="w-full rounded-[18px] border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 sm:w-64"
                 />
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function AdminPage() {
             {usersLoading ? (
               <div className="space-y-3 px-5 py-5">
                 {Array.from({ length: 6 }).map((_, index) => (
-                  <Skeleton key={index} className="h-20 w-full rounded-2xl" />
+                  <Skeleton key={index} className="h-20 w-full rounded-[24px]" />
                 ))}
               </div>
             ) : filteredUsers.length === 0 ? (
@@ -394,15 +394,15 @@ export default function AdminPage() {
                       <span
                         aria-hidden
                         className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${
-                          isActive ? "bg-emerald-400" : "bg-zinc-200"
+                          isActive ? "bg-[#ffd43b]" : "bg-zinc-200"
                         }`}
                       />
                       {/* User */}
                       <div className="flex min-w-0 items-center gap-3 pl-2">
                         <div
-                          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${
+                          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[18px] text-sm font-semibold ${
                             isActive
-                              ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                              ? "bg-[#fff7cc] text-amber-700 ring-1 ring-amber-200"
                               : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200"
                           }`}
                           aria-hidden
@@ -446,7 +446,7 @@ export default function AdminPage() {
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <span
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                            className="inline-flex items-center gap-1 rounded-full bg-[#fff7cc] px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200"
                             title="Баланс кредитов"
                           >
                             <Coins className="h-3.5 w-3.5" />
@@ -460,7 +460,7 @@ export default function AdminPage() {
                             }}
                             title={`Изменить баланс ${u.email}`}
                             aria-label={`Изменить баланс ${u.email}`}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition hover:border-amber-300 hover:bg-[#fff7cc] hover:text-amber-700"
                           >
                             <Pencil className="h-3 w-3" />
                           </button>
@@ -489,7 +489,7 @@ export default function AdminPage() {
                         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
                           <div
                             className={`h-full rounded-full transition-all ${
-                              isActive ? "bg-gradient-to-r from-emerald-400 to-emerald-500" : "bg-zinc-200"
+                              isActive ? "bg-gradient-to-r from-[#ffd43b] to-[#f6c343]" : "bg-zinc-200"
                             }`}
                             style={{ width: `${activityPct}%` }}
                           />
@@ -498,12 +498,12 @@ export default function AdminPage() {
                           className="mt-1.5 flex items-center gap-1 text-[11px] text-zinc-500"
                           title={`Входящие: ${u.tokens_in.toLocaleString()} · Исходящие: ${u.tokens_out.toLocaleString()} · Стоимость: ${formatRubles(spentRubles)}`}
                         >
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">
-                            <span className="text-sky-400">↓</span>
+                          <span className="inline-flex items-center gap-0.5 rounded-md bg-stone-50 px-1.5 py-0.5 font-medium text-stone-700 ring-1 ring-stone-200">
+                            <span className="text-stone-400">↓</span>
                             <span className="tabular-nums">{formatTokens(u.tokens_in)}</span>
                           </span>
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200">
-                            <span className="text-violet-400">↑</span>
+                          <span className="inline-flex items-center gap-0.5 rounded-md bg-stone-50 px-1.5 py-0.5 font-medium text-stone-700 ring-1 ring-stone-200">
+                            <span className="text-stone-400">↑</span>
                             <span className="tabular-nums">{formatTokens(u.tokens_out)}</span>
                           </span>
                           <span className="text-zinc-400">токенов</span>
@@ -526,10 +526,10 @@ export default function AdminPage() {
                               <span
                                 key={t.slug}
                                 title={`${t.slug} · запусков: ${t.count}`}
-                                className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50/80 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                                className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-[#fff7cc]/80 px-2 py-0.5 text-xs font-medium text-amber-800"
                               >
                                 <span className="max-w-[140px] truncate">{toolLabel(t.slug)}</span>
-                                <span className="rounded-full bg-white px-1.5 text-[10px] font-semibold tabular-nums text-emerald-700">
+                                <span className="rounded-full bg-white px-1.5 text-[10px] font-semibold tabular-nums text-amber-700">
                                   {t.count}
                                 </span>
                               </span>
@@ -562,7 +562,7 @@ export default function AdminPage() {
                                 ? "Разблокировать пользователя"
                                 : "Заблокировать пользователя"
                           }
-                          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-300 ${
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-[18px] border transition disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-300 ${
                             u.is_blocked
                               ? "border-amber-300 bg-amber-50 text-amber-700 hover:border-amber-400 hover:bg-amber-100"
                               : "border-zinc-200 bg-white text-zinc-500 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
@@ -588,7 +588,7 @@ export default function AdminPage() {
                               ? "Нельзя удалить самого себя"
                               : "Удалить из БД"
                           }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-300"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-[18px] border border-rose-200 bg-rose-50 text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-300"
                           aria-label={`Удалить ${u.email}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -612,7 +612,7 @@ export default function AdminPage() {
                     <select
                       value={pageSize}
                       onChange={(e) => setPageSize(Number(e.target.value))}
-                      className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 shadow-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                      className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                     >
                       <option value={20}>20</option>
                       <option value={50}>50</option>
@@ -695,11 +695,11 @@ export default function AdminPage() {
           onClick={() => !deleting && setDeleteTarget(null)}
         >
           <div
-            className="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-6 shadow-[0_30px_100px_rgba(15,23,42,0.2)]"
+            className="w-full max-w-md rounded-[32px] border border-rose-200 bg-white p-6 shadow-[0_30px_100px_rgba(15,23,42,0.2)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[24px] bg-rose-100 text-rose-600">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div className="min-w-0">
@@ -721,7 +721,7 @@ export default function AdminPage() {
                 type="button"
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                className="rounded-[18px] border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
               >
                 Отмена
               </button>
@@ -729,7 +729,7 @@ export default function AdminPage() {
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(225,29,72,0.3)] transition hover:bg-rose-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[18px] bg-rose-600 px-4 py-2 text-sm font-semibold text-stone-950 shadow-[0_10px_30px_rgba(225,29,72,0.3)] transition hover:bg-rose-700 disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" />
                 {deleting ? "Удаляем…" : "Удалить безвозвратно"}
