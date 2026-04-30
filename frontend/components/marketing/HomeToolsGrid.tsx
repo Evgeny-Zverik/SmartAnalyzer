@@ -7,14 +7,6 @@ import { tools, type Tool } from "@/lib/config/tools";
 import { getEnabledToolSlugs } from "@/lib/features/toolFeatureGate";
 import { onAuthChange, getToken } from "@/lib/auth/token";
 
-const UNLIMITED_SLUGS = new Set([
-  "legal-document-design-review",
-  "legal-style-translator",
-  "foreign-language-translator",
-  "legal-text-simplifier",
-  "spelling-checker",
-]);
-
 export function HomeToolsGrid() {
   const [enabledSlugs, setEnabledSlugs] = useState<Set<string> | null>(null);
   const [authed, setAuthed] = useState<boolean>(() =>
@@ -50,20 +42,10 @@ export function HomeToolsGrid() {
       {visible.map((tool, index) => (
         <article
           key={tool.slug}
-          className="home-fade-up rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_46px_rgba(15,23,42,0.12)]"
+          className="home-fade-up rounded-[32px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_46px_rgba(15,23,42,0.12)]"
           style={{ animationDelay: `${0.08 + index * 0.06}s` }}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 [font-family:var(--font-home-body)]">
-              {tool.category}
-            </div>
-            {UNLIMITED_SLUGS.has(tool.slug) && (
-              <div className="inline-flex rounded-full border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-100 [font-family:var(--font-home-body)]">
-                Безлимит
-              </div>
-            )}
-          </div>
-          <h3 className="mt-4 text-xl leading-tight text-zinc-900 [font-family:var(--font-home-display)]">
+          <h3 className="text-xl leading-tight text-zinc-900 [font-family:var(--font-home-display)]">
             {tool.title}
           </h3>
           <p className="mt-2 min-h-16 text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">

@@ -1,323 +1,368 @@
+"use client";
+
 import Link from "next/link";
-import { Fraunces, IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Clock3,
   FileSearch,
+  HelpCircle,
   LockKeyhole,
   Scale,
   ShieldCheck,
   Sparkles,
-  UserRound,
+  UploadCloud,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { HomeToolsGrid } from "@/components/marketing/HomeToolsGrid";
-
-const displayFont = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-home-display",
-  weight: ["500", "600", "700"],
-});
 
 const bodyFont = IBM_Plex_Sans({
   subsets: ["latin"],
   variable: "--font-home-body",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const proofPoints = [
-  { value: "2-3 мин", label: "до первого отчета по договору" },
-  { value: "PDF, DOCX, сканы", label: "без ручной подготовки текста" },
-  { value: "Без карты", label: "можно начать с бесплатной проверки" },
+  { value: "2-3 мин", label: "до первого отчета" },
+  { value: "PDF, DOCX, сканы", label: "без ручной подготовки" },
+  { value: "Без карты", label: "старт с бесплатной проверки" },
 ];
 
 const sampleFindings = [
   {
-    title: "Штраф растет каждый день",
-    detail: "Пункт 7.4: 0,5% за каждый день просрочки без верхнего лимита.",
+    title: "Штраф без верхнего лимита",
+    detail: "Пункт 7.4: 0,5% за каждый день просрочки.",
     icon: AlertTriangle,
-    tone: "rose",
+    tone: "risk",
   },
   {
-    title: "Срок уведомления слишком короткий",
-    detail: "Пункт 5.2: уведомить контрагента нужно за 3 рабочих дня.",
+    title: "Срок уведомления короткий",
+    detail: "Пункт 5.2: всего 3 рабочих дня на ответ.",
     icon: Clock3,
-    tone: "amber",
+    tone: "warning",
   },
   {
-    title: "Есть одностороннее изменение условий",
-    detail: "Пункт 9.1 позволяет менять порядок оплаты без согласования.",
+    title: "Одностороннее изменение оплаты",
+    detail: "Пункт 9.1 разрешает менять порядок оплаты без согласования.",
     icon: Scale,
-    tone: "emerald",
+    tone: "info",
   },
 ];
 
 const scenarioCards = [
   {
-    title: "Перед подписанием договора",
+    title: "Перед подписанием",
     description:
-      "Быстро увидеть штрафы, сроки, обязанности и спорные формулировки до согласования.",
+      "Проверить штрафы, сроки, обязанности и спорные формулировки до согласования.",
     icon: FileSearch,
   },
   {
-    title: "Когда прислали новую редакцию",
+    title: "После новой редакции",
     description:
-      "Понять, что изменилось по пунктам, и не пропустить правки в оплате, сроках или ответственности.",
+      "Понять, что изменилось в оплате, ответственности и ключевых условиях.",
     icon: Scale,
   },
   {
-    title: "Когда документ конфиденциален",
+    title: "Для конфиденциальных файлов",
     description:
-      "Перед отправкой в модель данные обезличиваются, а диалоги шифруются AES-GCM.",
+      "Обезличивание перед моделью и AES-GCM шифрование рабочих диалогов.",
     icon: LockKeyhole,
+    detail:
+      "Перед обработкой мы стараемся скрыть персональные и чувствительные данные, чтобы модель видела меньше лишней информации. Рабочие диалоги шифруются AES-GCM: это современный алгоритм, который защищает содержимое от чтения без ключа. Такой подход помогает аккуратнее работать с требованиями 152-ФЗ о персональных данных и 149-ФЗ о защите информации: мы уменьшаем объем раскрываемых данных и не храним диалоги как открытый текст.",
   },
 ];
 
 const valueCards = [
   {
-    title: "Юридическая точность",
+    title: "Ссылки на пункты договора",
     description:
-      "Структурирует ключевые условия договоров и показывает места, где чаще всего возникают претензии.",
-    icon: ShieldCheck,
+      "Риски привязаны к конкретным местам документа, а не к общим советам.",
+    icon: FileSearch,
   },
   {
-    title: "Скорость решений",
+    title: "Юридическая структура вывода",
     description:
-      "Собирает суть документа и спорные фрагменты за минуты вместо ручного чтения на десятки страниц.",
-    icon: Clock3,
+      "Сводка, риски, сроки, обязательства и рекомендуемые правки в одном отчете.",
+    icon: Scale,
   },
   {
-    title: "Единый контур работы",
+    title: "Рабочий контур без лишних шагов",
     description:
-      "Загрузка, анализ, сравнение и экспорт находятся в одном интерфейсе без переключения между сервисами.",
+      "Загрузка, анализ, редактирование и экспорт собраны в одном интерфейсе.",
     icon: Sparkles,
   },
 ];
 
 const faqItems = [
   {
-    question: "Можно ли загрузить конфиденциальный договор?",
+    question: "Можно загрузить конфиденциальный договор?",
     answer:
-      "Да. Перед отправкой в модель персональные и чувствительные данные обезличиваются, а диалоги шифруются. Для особо чувствительных файлов все равно стоит убрать коммерческие тайны, которые не нужны для анализа.",
+      "Да. Перед отправкой в модель чувствительные данные обезличиваются, а диалоги шифруются. Коммерческие тайны, не нужные для анализа, лучше удалить заранее.",
   },
   {
-    question: "Данные используются для обучения модели?",
+    question: "Что будет в первом отчете?",
     answer:
-      "Главная задача SmartAnalyzer - провести анализ документа внутри рабочего контура. Если политика обработки данных меняется, это должно быть явно отражено в условиях сервиса.",
+      "Краткое резюме, риски, сроки, обязательства, спорные формулировки и выводы с привязкой к пунктам договора.",
   },
   {
-    question: "Что пользователь получает после анализа?",
+    question: "Чем это лучше обычного GPT?",
     answer:
-      "Краткое резюме, риски, сроки, обязательства, спорные формулировки и выводы по конкретным пунктам документа.",
+      "Не нужно дробить файл, писать промпт и вручную сверять редакции. Инструмент уже заточен под юридический документ.",
   },
   {
-    question: "Чем это лучше обычного чата с GPT?",
+    question: "Нужна ли карта для старта?",
     answer:
-      "Не нужно вручную готовить промпт, дробить большой файл и сверять редакции. Инструменты заточены под документы, OCR, сравнение и юридическую структуру вывода.",
+      "Нет. Можно начать с бесплатной проверки и понять качество отчета до оплаты.",
   },
 ];
 
+function toneClass(tone: string): string {
+  if (tone === "risk") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+  if (tone === "warning") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  return "border-blue-200 bg-blue-50 text-blue-700";
+}
+
 export default function HomePage() {
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
+  const [reportHighlighted, setReportHighlighted] = useState(false);
+  const securityDetail =
+    scenarioCards.find((card) => "detail" in card)?.detail ?? "";
+
+  useEffect(() => {
+    if (!securityModalOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSecurityModalOpen(false);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [securityModalOpen]);
+
+  function handleReportPreviewClick(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    document.getElementById("example")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    setReportHighlighted(true);
+    window.setTimeout(() => setReportHighlighted(false), 2200);
+  }
+
   return (
     <main
-      className={`${displayFont.variable} ${bodyFont.variable} relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_18%_10%,rgba(16,185,129,0.18),transparent_34%),radial-gradient(circle_at_88%_2%,rgba(59,130,246,0.14),transparent_35%),linear-gradient(180deg,#f9faf9_0%,#f3f6fb_48%,#f8f7f4_100%)] text-zinc-900`}
+      className={`${bodyFont.variable} min-h-screen overflow-hidden bg-[#f5f6f7] text-zinc-950 [font-family:var(--font-home-body)]`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,rgba(255,255,255,0.42),rgba(255,255,255,0))]" />
-
-      <section className="relative mx-auto max-w-7xl px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pb-14 lg:pt-14">
-        <div className="grid items-stretch gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-          <div className="home-fade-up rounded-[34px] border border-zinc-200/90 bg-white/82 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur md:p-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700 [font-family:var(--font-home-body)]">
-              <Sparkles className="h-3.5 w-3.5" />
-              Проверка договора за минуты
+      <section className="relative border-b border-zinc-200 bg-[#f5f6f7]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-8 lg:py-12">
+          <div className="home-fade-up flex min-h-[560px] flex-col justify-center">
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm">
+              <ShieldCheck className="h-4 w-4" />
+              AI-анализ договоров с обезличиванием
             </div>
-            <h1 className="mt-5 text-4xl leading-[1.02] tracking-[-0.03em] text-zinc-900 sm:text-5xl lg:text-6xl [font-family:var(--font-home-display)]">
-              Найдите риски
-              <br />
-              в договоре до того,
-              <br />
-              как его подпишут.
+
+            <h1 className="max-w-3xl text-4xl font-bold leading-tight text-zinc-950 sm:text-6xl sm:leading-none lg:text-7xl">
+              Найдите риск в договоре до подписи
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-600 sm:text-lg [font-family:var(--font-home-body)]">
-              Загрузите PDF, DOCX или скан и получите резюме, штрафы, сроки,
-              обязательства и спорные формулировки с привязкой к пунктам
+
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-600">
+              Загрузите PDF, DOCX или скан. SmartAnalyzer покажет штрафы,
+              сроки, обязанности и спорные формулировки с привязкой к пунктам
               документа.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3 [font-family:var(--font-home-body)]">
-              <Button
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
                 href="/tools/document-analyzer"
-                className="rounded-full bg-zinc-900 px-6 hover:bg-zinc-800 focus:ring-zinc-700"
+                className="inline-flex items-center justify-center rounded-[18px] bg-[#ffd43b] px-6 py-3 text-base font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(234,179,8,0.24)] transition hover:bg-[#f6c343] focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2"
               >
                 Проверить документ бесплатно
-              </Button>
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
               <Link
                 href="#example"
-                className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white/85 px-5 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-white"
+                onClick={handleReportPreviewClick}
+                className="inline-flex items-center justify-center rounded-[18px] border border-zinc-300 bg-white px-6 py-3 text-base font-semibold text-zinc-900 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-50"
               >
                 Посмотреть пример отчета
               </Link>
             </div>
-            <div className="mt-7 grid gap-2 sm:grid-cols-3">
-              {proofPoints.map((point, index) => (
+
+            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+              {proofPoints.map((point) => (
                 <div
                   key={point.value}
-                  className="home-fade-up rounded-2xl border border-zinc-200 bg-zinc-50/75 px-3 py-3 [font-family:var(--font-home-body)]"
-                  style={{ animationDelay: `${0.12 + index * 0.09}s` }}
+                  className="rounded-[28px] border border-zinc-200 bg-white p-4 shadow-sm"
                 >
-                  <p className="text-sm font-semibold text-zinc-950">
+                  <p className="text-lg font-bold text-zinc-950">
                     {point.value}
                   </p>
-                  <p className="mt-1 text-xs leading-snug text-zinc-600">
+                  <p className="mt-1 text-sm leading-5 text-zinc-500">
                     {point.label}
                   </p>
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 [font-family:var(--font-home-body)]">
-              <p className="flex items-start gap-3 text-sm leading-6 text-zinc-700">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-700">
-                  <ShieldCheck className="h-4 w-4" />
-                </span>
-                <span>
-                  Данные обезличиваются перед отправкой в модель. Диалоги
-                  шифруются AES-GCM и недоступны для просмотра даже со стороны
-                  сервиса.
-                </span>
-              </p>
-            </div>
           </div>
 
           <div
             id="example"
-            className="home-glow-shift rounded-[34px] border border-zinc-800/80 bg-[linear-gradient(170deg,rgba(11,14,22,0.96),rgba(7,10,16,0.97))] p-5 text-zinc-100 shadow-[0_35px_110px_rgba(2,6,23,0.46)] [font-family:var(--font-home-body)] md:p-7"
+            className="home-fade-up flex items-center"
+            style={{ animationDelay: "90ms" }}
           >
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-300">
-                  Пример отчета
-                </p>
-                <h2 className="mt-3 text-3xl leading-tight tracking-[-0.02em] [font-family:var(--font-home-display)]">
-                  Договор поставки
-                  <br />
-                  18 страниц
-                </h2>
+            <div
+              className={`w-full overflow-hidden rounded-[36px] border bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)] transition ${
+                reportHighlighted
+                  ? "border-amber-300 ring-4 ring-amber-300/70 shadow-[0_0_0_8px_rgba(255,212,59,0.2),0_30px_100px_rgba(234,179,8,0.32)]"
+                  : "border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-950 px-5 py-4 text-white">
+                <div>
+                  <p className="text-sm font-semibold text-amber-300">
+                    Пример отчета
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold">
+                    Договор поставки, 18 страниц
+                  </h2>
+                </div>
+                <div className="rounded-[16px] bg-emerald-500 px-3 py-2 text-sm font-bold text-zinc-950">
+                  Готово 2:14
+                </div>
               </div>
-              <div className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-right">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-200">
-                  Готово
-                </p>
-                <p className="mt-1 text-lg font-semibold text-white">2:14</p>
-              </div>
-            </div>
 
-            <div className="mt-6 space-y-3">
-              {sampleFindings.map((item, index) => (
-                <div
-                  key={item.title}
-                  className="home-fade-up rounded-2xl border border-white/10 bg-white/[0.06] p-4"
-                  style={{ animationDelay: `${0.15 + index * 0.08}s` }}
-                >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                        item.tone === "rose"
-                          ? "border-rose-300/30 bg-rose-400/10 text-rose-200"
-                          : item.tone === "amber"
-                            ? "border-amber-300/30 bg-amber-400/10 text-amber-200"
-                            : "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-sm leading-relaxed text-zinc-300">
-                        {item.detail}
-                      </p>
-                    </div>
+              <div className="border-b border-zinc-200 bg-[#fff8d7] px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <UploadCloud className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+                  <div>
+                    <p className="font-semibold text-zinc-950">
+                      Загружен договор.pdf
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-zinc-700">
+                      Найдено 12 условий, 4 риска и 3 срока, которые требуют
+                      внимания перед подписанием.
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400">
-                Вывод
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-200">
-                До подписания стоит ограничить размер штрафа, увеличить срок
-                уведомления и убрать право одностороннего изменения оплаты.
-              </p>
+              <div className="divide-y divide-zinc-200">
+                {sampleFindings.map((item) => (
+                  <div key={item.title} className="px-5 py-4">
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border ${toneClass(
+                          item.tone,
+                        )}`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-semibold text-zinc-950">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-zinc-600">
+                          {item.detail}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-zinc-50 px-5 py-5">
+                <p className="text-sm font-semibold text-zinc-500">Вывод</p>
+                <p className="mt-2 leading-7 text-zinc-800">
+                  До подписания стоит ограничить размер штрафа, увеличить срок
+                  уведомления и убрать право одностороннего изменения оплаты.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-3">
           {scenarioCards.map((card, index) => (
             <article
               key={card.title}
-              className="home-fade-up rounded-[28px] border border-zinc-200 bg-white/90 p-6 shadow-[0_18px_56px_rgba(15,23,42,0.08)]"
-              style={{ animationDelay: `${0.1 + index * 0.09}s` }}
+              className="home-fade-up relative rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm"
+              style={{ animationDelay: `${0.08 + index * 0.06}s` }}
             >
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
-                <card.icon className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 text-2xl tracking-[-0.02em] text-zinc-900 [font-family:var(--font-home-display)]">
+              <card.icon className="h-6 w-6 text-zinc-950" />
+              <h3 className="mt-5 text-2xl font-bold text-zinc-950">
                 {card.title}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
+              <p className="mt-3 leading-7 text-zinc-600">
                 {card.description}
               </p>
+              {"detail" in card ? (
+                <button
+                  type="button"
+                  onClick={() => setSecurityModalOpen(true)}
+                  className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2"
+                  aria-label="Подробнее про шифрование"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              ) : null}
             </article>
           ))}
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="rounded-[34px] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_22px_80px_rgba(15,23,42,0.1)] backdrop-blur md:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 [font-family:var(--font-home-body)]">
-                Что внутри
-              </p>
-              <h2 className="mt-2 text-3xl tracking-[-0.03em] text-zinc-900 [font-family:var(--font-home-display)]">
-                Инструменты под реальные юридические задачи
-              </h2>
-            </div>
-            <Button
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <div>
+            <p className="text-sm font-semibold text-amber-700">Что внутри</p>
+            <h2 className="mt-2 text-4xl font-bold leading-tight text-zinc-950">
+              Инструменты под реальные юридические задачи
+            </h2>
+            <p className="mt-4 leading-7 text-zinc-600">
+              Начните с анализа договора, а затем используйте сравнение,
+              упрощение юридического текста и редактор результата.
+            </p>
+            <Link
               href="/tools/document-analyzer"
-              variant="secondary"
-              className="rounded-full border-zinc-300 bg-zinc-50 px-5"
+              className="mt-6 inline-flex items-center justify-center rounded-[18px] bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-700 focus:ring-offset-2"
             >
-              Начать с анализа договора
-            </Button>
+              Начать анализ
+            </Link>
           </div>
-          <HomeToolsGrid />
+          <div>
+            <HomeToolsGrid />
+          </div>
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-3">
           {valueCards.map((card, index) => (
             <article
               key={card.title}
-              className="home-fade-up rounded-[28px] border border-zinc-200 bg-white/90 p-6 shadow-[0_18px_56px_rgba(15,23,42,0.08)]"
-              style={{ animationDelay: `${0.1 + index * 0.09}s` }}
+              className="home-fade-up rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm"
+              style={{ animationDelay: `${0.08 + index * 0.06}s` }}
             >
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#fff1a8] text-zinc-950">
                 <card.icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-4 text-2xl tracking-[-0.02em] text-zinc-900 [font-family:var(--font-home-display)]">
+              <h3 className="mt-5 text-2xl font-bold text-zinc-950">
                 {card.title}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
+              <p className="mt-3 leading-7 text-zinc-600">
                 {card.description}
               </p>
             </article>
@@ -325,141 +370,183 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-[34px] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_22px_80px_rgba(15,23,42,0.1)] backdrop-blur md:p-10">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 [font-family:var(--font-home-body)]">
-              Сравнение
-            </p>
-            <h2 className="mt-2 text-3xl tracking-[-0.03em] text-zinc-900 sm:text-4xl [font-family:var(--font-home-display)]">
-              Чем SmartAnalyzer лучше обычного GPT
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-[36px] border border-zinc-200 bg-white p-6 shadow-sm md:p-8">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold text-amber-700">Сравнение</p>
+            <h2 className="mt-2 text-4xl font-bold leading-tight text-zinc-950">
+              Не чат вместо юриста, а рабочий слой перед проверкой договора
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
-              ChatGPT - универсальный ассистент. SmartAnalyzer - отраслевая
-              платформа для договоров, заточенная под юридические задачи и
-              работу с длинными документами.
+            <p className="mt-4 leading-7 text-zinc-600">
+              Обычный GPT помогает сформулировать мысль. SmartAnalyzer
+              помогает разобрать сам документ: файл, пункты, риски, сроки и
+              результат для дальнейшей работы.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          <div className="mt-8 overflow-hidden rounded-[28px] border border-zinc-200">
             {[
-              {
-                title: "Понимает длинные договоры целиком",
-                gpt: "Теряет контекст на больших файлах, пропускает приложения и пункты в середине документа.",
-                us: "Обрабатывает документы целиком, включая приложения и сноски, без обрезки контекста.",
-              },
-              {
-                title: "Юридическая экспертиза, а не общие советы",
-                gpt: "Дает обтекаемые формулировки и часто галлюцинирует статьи закона.",
-                us: "Структурирует риски, ссылается на конкретные пункты договора и подсвечивает спорные формулировки.",
-              },
-              {
-                title: "Работа с PDF, DOCX, XLSX и сканами",
-                gpt: "Принимает текст, плохо справляется со сканами и рукописью.",
-                us: "Встроенный OCR для сканов и рукописных документов, корректное чтение таблиц и форм.",
-              },
-              {
-                title: "Сравнение редакций и контроль изменений",
-                gpt: "Ручная вставка двух версий в чат, без структурного diff.",
-                us: "Сравнение редакций пункт-в-пункт с подсветкой изменений и риск-оценкой.",
-              },
-              {
-                title: "Безопасность и обезличивание",
-                gpt: "Данные уходят в общий продукт, обезличивания нет.",
-                us: "Обезличивание перед отправкой в модель, AES-GCM шифрование диалогов, доступ закрыт даже для нас.",
-              },
-              {
-                title: "Готовые инструменты под задачу",
-                gpt: "Один чат на все случаи - каждый раз заново формулируешь промпт.",
-                us: "Отдельные инструменты: проверка рисков, перевод юридического стиля, упрощение текста и редизайн документа.",
-              },
-            ].map((row, index) => (
-              <article
-                key={row.title}
-                className="home-fade-up rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#fafafa)] p-5 [font-family:var(--font-home-body)]"
-                style={{ animationDelay: `${0.08 + index * 0.06}s` }}
+              [
+                "Большой файл",
+                "Ручная разбивка на части",
+                "Загрузка PDF/DOCX/скана целиком",
+              ],
+              [
+                "Риски",
+                "Общие советы без структуры",
+                "Риск, пункт договора и причина",
+              ],
+              [
+                "Безопасность",
+                "Нужно думать, что удалить вручную",
+                "Обезличивание и шифрование в контуре сервиса",
+              ],
+            ].map(([label, gpt, smart]) => (
+              <div
+                key={label}
+                className="grid gap-0 border-b border-zinc-200 last:border-b-0 md:grid-cols-[180px_1fr_1fr]"
               >
-                <h3 className="text-lg leading-tight tracking-[-0.01em] text-zinc-900 [font-family:var(--font-home-display)]">
-                  {row.title}
-                </h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                      <X className="h-3.5 w-3.5 text-zinc-400" />
-                      GPT
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                      {row.gpt}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      SmartAnalyzer
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-700">
-                      {row.us}
-                    </p>
-                  </div>
+                <div className="bg-zinc-50 p-4 font-semibold text-zinc-950">
+                  {label}
                 </div>
-              </article>
+                <div className="flex gap-3 p-4 text-zinc-600">
+                  <X className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />
+                  <span>{gpt}</span>
+                </div>
+                <div className="flex gap-3 bg-emerald-50 p-4 text-zinc-800">
+                  <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>{smart}</span>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-[34px] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_22px_80px_rgba(15,23,42,0.1)] backdrop-blur md:p-10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 [font-family:var(--font-home-body)]">
-            Вопросы перед стартом
-          </p>
-          <h2 className="mt-2 text-3xl tracking-[-0.03em] text-zinc-900 sm:text-4xl [font-family:var(--font-home-display)]">
-            Что обычно мешает попробовать
-          </h2>
-          <div className="mt-7 grid gap-4 lg:grid-cols-2">
-            {faqItems.map((item) => (
-              <article
-                key={item.question}
-                className="rounded-2xl border border-zinc-200 bg-white p-5"
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-2">
+          {faqItems.map((item) => (
+            <article
+              key={item.question}
+              className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm"
+            >
+              <h3 className="text-xl font-bold text-zinc-950">
+                {item.question}
+              </h3>
+              <p className="mt-3 leading-7 text-zinc-600">{item.answer}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-6 rounded-[36px] bg-zinc-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] md:grid-cols-[1fr_auto] md:p-8">
+          <div>
+            <p className="text-sm font-semibold text-amber-300">
+              Готово к первой проверке
+            </p>
+            <h2 className="mt-2 text-4xl font-bold leading-tight">
+              Загрузите договор и получите отчет за пару минут.
+            </h2>
+            <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+              Без карты, без ручного промпта, с примером результата сразу после
+              анализа.
+            </p>
+          </div>
+          <Link
+            href="/tools/document-analyzer"
+            className="inline-flex items-center justify-center rounded-[18px] bg-[#ffd43b] px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-[#f6c343] focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-zinc-950"
+          >
+            Проверить бесплатно
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      {securityModalOpen ? (
+        <div
+          className="fixed inset-0 z-[1600] flex items-center justify-center bg-[rgba(15,23,42,0.55)] px-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="security-modal-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSecurityModalOpen(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-lg origin-center animate-[avatar-menu-in_220ms_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.32)]">
+            <div className="relative overflow-hidden border-b border-stone-200 bg-[radial-gradient(circle_at_top,_rgba(255,212,59,0.28),rgba(255,255,255,0.96)_62%)] px-6 pb-5 pt-6">
+              <span className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-amber-200/50 blur-3xl" />
+              <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setSecurityModalOpen(false);
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setSecurityModalOpen(false);
+                }}
+                className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition hover:bg-white hover:text-stone-950 focus:outline-none focus:ring-2 focus:ring-stone-400"
+                aria-label="Закрыть"
               >
-                <h3 className="text-lg leading-tight text-zinc-900 [font-family:var(--font-home-display)]">
-                  {item.question}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-600 [font-family:var(--font-home-body)]">
-                  {item.answer}
-                </p>
-              </article>
-            ))}
+                <X className="h-4 w-4" />
+              </button>
+              <div className="relative flex items-start gap-3 pr-10">
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-white text-stone-950 shadow-sm">
+                  <LockKeyhole className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
+                    Конфиденциальные файлы
+                  </p>
+                  <h2
+                    id="security-modal-title"
+                    className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-stone-950"
+                  >
+                    Как защищаются данные
+                  </h2>
+                  <p className="mt-1.5 text-[13.5px] leading-relaxed text-stone-600">
+                    Простое объяснение без технических деталей.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <p className="text-sm leading-7 text-stone-700">
+                {securityDetail}
+              </p>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-stone-700">
+                <span className="font-semibold text-stone-950">
+                  Главное:
+                </span>{" "}
+                сервису нужен файл, чтобы сделать анализ, но лишние
+                персональные данные скрываются, а рабочие диалоги защищаются
+                шифрованием.
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-stone-700">
+                <span className="font-semibold text-stone-950">
+                  Важно:
+                </span>{" "}
+                загрузка документа должна быть законной: у пользователя должно
+                быть право обрабатывать файл и персональные данные в нем. Мы
+                помогаем снизить риск раскрытия данных, но не заменяем согласие
+                или другое правовое основание для обработки.
+              </div>
+              <button
+                type="button"
+                onClick={() => setSecurityModalOpen(false)}
+                className="inline-flex w-full items-center justify-center rounded-[18px] bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2"
+              >
+                Понятно
+              </button>
+            </div>
           </div>
         </div>
-      </section>
-
-      <section className="relative mx-auto max-w-7xl px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        <div className="rounded-[34px] border border-zinc-900/85 bg-[linear-gradient(165deg,rgba(10,14,24,0.98),rgba(16,26,37,0.96))] px-6 py-10 text-center text-white shadow-[0_34px_120px_rgba(2,6,23,0.5)] md:px-10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-300 [font-family:var(--font-home-body)]">
-            Готово к работе
-          </p>
-          <h2 className="mx-auto mt-4 max-w-3xl text-4xl leading-tight tracking-[-0.02em] [font-family:var(--font-home-display)]">
-            Загрузите первый договор
-            <br />и получите отчет за пару минут.
-          </h2>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 [font-family:var(--font-home-body)]">
-            <Button
-              href="/tools/document-analyzer"
-              className="rounded-full bg-emerald-500 px-6 text-zinc-950 hover:bg-emerald-400 focus:ring-emerald-300"
-            >
-              Проверить документ бесплатно
-            </Button>
-            <Button
-              href="/pricing"
-              variant="secondary"
-              className="rounded-full border-white/20 bg-white/10 px-6 text-white hover:bg-white/20"
-            >
-              Посмотреть кредиты
-            </Button>
-          </div>
-        </div>
-      </section>
+      ) : null}
     </main>
   );
 }
